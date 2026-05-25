@@ -1,0 +1,26 @@
+{
+  "name": "smokeyp-codebase-mapper",
+  "version": "0.1.0",
+  "description": "Scan any repository and produce a polished HTML/PDF architecture report. Multi-language import parsing, directory tree, language breakdown, dependency listing, and entry-point detection. Styled with the SmokeyP editorial design system.",
+  "author": {
+    "name": "Peter McKechnie",
+    "email": "mckechniep@gmail.com",
+    "url": "https://smokeyp.com"
+  },
+  "homepage": "https://github.com/SmokeyPete/smokeyp-codebase-mapper",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SmokeyPete/smokeyp-codebase-mapper.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "codebase",
+    "architecture",
+    "documentation",
+    "visualization",
+    "audit",
+    "report",
+    "html",
+    "pdf"
+  ]
+}

@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+
+# Plugin output (only relevant if the plugin is run from inside its own repo)
+.codemap/
+
+# Plugin-local settings (per global convention)
+.claude/*.local.md
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
