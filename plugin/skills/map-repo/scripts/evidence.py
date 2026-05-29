@@ -27,6 +27,7 @@ ROUTE_FILE_RE = re.compile(
     r"|\.graphql$|route\.(ts|js)$)"
 )
 ARCH_DOC_RE = re.compile(r"(ARCHITECTURE|CODEBASE_MAP)", re.IGNORECASE)
+ENTRY_FILE_RE = re.compile(r"^(index|main)\.(ts|tsx|js|jsx|py|go|rb|ex)$")
 
 
 def _read_truncated(path: Path, limit: int = PER_FILE_BYTES) -> str | None:
@@ -70,6 +71,7 @@ def _candidate_paths(root: Path, data: dict[str, Any]) -> list[Path]:
             add((root / f))
 
     # 3. Per-module manifests + READMEs (direct and nested sub-packages).
+    manifest_set = frozenset(README_NAMES) | frozenset(MANIFEST_NAMES)
     for m in data.get("modules", []):
         mpath = m.get("path")
         if not mpath:
@@ -82,17 +84,17 @@ def _candidate_paths(root: Path, data: dict[str, Any]) -> list[Path]:
             add(mdir / name)
         # Sub-package walk: modules are often grouped dirs (e.g. "apps/")
         # containing multiple sub-packages each with their own manifest/README.
-        manifest_set = set(README_NAMES) | set(MANIFEST_NAMES)
         for p in sorted(mdir.rglob("*")):
+            if len(ordered) > 400:
+                break
             if p.is_file() and p.name in manifest_set:
                 add(p)
 
     # 4. Entry-point source files not caught above (index.ts, main.ts, etc.).
-    ENTRY_RE = re.compile(r"^(index|main)\.(ts|tsx|js|jsx|py|go|rb|ex)$")
     for p in sorted(root.rglob("*")):
         if len(ordered) > 400:
             break
-        if p.is_file() and ENTRY_RE.match(p.name):
+        if p.is_file() and ENTRY_FILE_RE.match(p.name):
             add(p)
 
     # 5. Route/schema files anywhere (bounded by sorted walk).
@@ -117,6 +119,7 @@ def build_evidence_pack(
         if content is None:
             continue
         size = len(content.encode("utf-8"))
+        # Always include the first file even if it alone exceeds budget.
         if used and used + size > budget_bytes:
             omitted += 1
             continue

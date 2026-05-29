@@ -2,6 +2,7 @@ import json
 import unittest
 from pathlib import Path
 
+# Ensure the scripts directory is importable without installation.
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
