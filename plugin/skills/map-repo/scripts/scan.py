@@ -20,6 +20,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import evidence
+
 TOOL_VERSION = "0.3.0"
 
 # Language detection by extension. Color values are the GitHub linguist
@@ -2107,6 +2109,12 @@ def main() -> int:
     parser.add_argument("--path", required=True, help="Path to scan.")
     parser.add_argument("--depth", choices=("shallow", "medium", "full"), default="medium")
     parser.add_argument("--out", required=True, help="Output JSON file path.")
+    parser.add_argument(
+        "--evidence-out",
+        default=None,
+        help="If set, also write a bounded evidence pack JSON to this path "
+             "(for the LLM evaluation layer).",
+    )
     args = parser.parse_args()
 
     root = Path(args.path).expanduser().resolve()
@@ -2120,6 +2128,14 @@ def main() -> int:
     data = build_data_model(root, args.depth)
     out.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"scanned {data['project']['total_files']} files, {data['project']['total_loc']} LOC -> {out}")
+
+    if args.evidence_out:
+        ev = Path(args.evidence_out).expanduser().resolve()
+        ev.parent.mkdir(parents=True, exist_ok=True)
+        pack = evidence.build_evidence_pack(root, data)
+        ev.write_text(json.dumps(pack, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"evidence pack ({pack['budget']['used_bytes']} bytes) -> {ev}")
+
     return 0
 
 

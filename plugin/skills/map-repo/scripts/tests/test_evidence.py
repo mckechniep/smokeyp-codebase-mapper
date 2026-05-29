@@ -45,5 +45,24 @@ class EvidencePackTest(unittest.TestCase):
         self.assertEqual(json.dumps(a, sort_keys=True), json.dumps(b, sort_keys=True))
 
 
+class EvidenceCliTest(unittest.TestCase):
+    def test_cli_writes_evidence_when_requested(self):
+        import subprocess, tempfile
+        scripts_dir = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "codemap.json"
+            ev = Path(td) / "codemap.evidence.json"
+            subprocess.run(
+                ["python3", str(scripts_dir / "scan.py"),
+                 "--path", str(FIXTURE), "--depth", "full",
+                 "--out", str(out), "--evidence-out", str(ev)],
+                check=True, capture_output=True,
+            )
+            self.assertTrue(out.is_file())
+            self.assertTrue(ev.is_file())
+            pack = json.loads(ev.read_text())
+            self.assertIn("files", pack)
+
+
 if __name__ == "__main__":
     unittest.main()
