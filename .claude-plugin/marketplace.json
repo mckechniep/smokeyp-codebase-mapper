@@ -1,0 +1,20 @@
+{
+  "name": "smokeyp-codebase-mapper",
+  "owner": {
+    "name": "Peter McKechnie",
+    "email": "mckechniep@gmail.com",
+    "url": "https://smokeyp.com"
+  },
+  "metadata": {
+    "description": "Scan any repository and produce a polished HTML/PDF architecture report with the SmokeyP editorial design system.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "smokeyp-codebase-mapper",
+      "source": "./plugin",
+      "description": "Multi-language import parsing, directory tree, language breakdown, dependency listing, and entry-point detection. Outputs styled HTML/PDF.",
+      "version": "0.3.0"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 ---
 name: map-repo
 description: Slash command. Use this skill ONLY when the user explicitly invokes the /smokeyp-codebase-mapper:map-repo slash command. Do NOT trigger on conversational requests, natural-language phrases, or implicit intent — even if the user says "map this repo", "generate an architecture report", "document the codebase", "audit my project", or any other paraphrase. Activation is by slash command only. When invoked, scans a codebase and produces a polished, beginner-friendly HTML/PDF architecture report with directory tree, language breakdown, module summaries, dependency listing, entry-point detection, and a glossary of technical terms.
-argument-hint: "[path?] [--format html|pdf|both] [--depth shallow|full] [--out PATH]"
+argument-hint: "[path?] [--format html|pdf|both] [--depth shallow|medium|full] [--out PATH]"
 allowed-tools: Read, Glob, Grep, Bash, Write
 version: 0.1.0
 ---
@@ -16,9 +16,10 @@ Parse arguments in this order:
 
 1. **`path`** (optional, positional) — directory to scan. Defaults to the current working directory.
 2. **`--format`** — one of `html`, `pdf`, `both`. Defaults to `both`.
-3. **`--depth`** — one of `shallow`, `full`. Defaults to `shallow`.
-   - `shallow`: 2 levels of directory tree, top 10 modules, top 20 dependencies per ecosystem.
-   - `full`: complete tree, all modules, all dependencies.
+3. **`--depth`** — one of `shallow`, `medium`, `full`. Defaults to `medium`.
+   - `shallow`: 2-level tree, top 10 module cards, 30 graph nodes, 20 deps per ecosystem. Use for very large repos when you want a single-glance summary.
+   - `medium` *(default)*: 4-level tree, top 25 module cards, 80 graph nodes, 40 deps per ecosystem. The right setting for most monorepos and mid-size projects.
+   - `full`: complete tree, every module, every dependency. Use for archival or when investigating a specific corner that medium truncated.
 4. **`--out`** — output directory. Defaults to `<path>/.codemap/`.
 
 Resolve the target path to an absolute path. If it does not exist or is not a directory, stop and report the error to the user.
@@ -34,7 +35,7 @@ Run the scanner to produce a JSON data model:
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/map-repo/scripts/scan.py" \
   --path "<resolved-path>" \
-  --depth "<shallow|full>" \
+  --depth "<shallow|medium|full>" \
   --out "<out-dir>/codemap.json"
 ```
 
