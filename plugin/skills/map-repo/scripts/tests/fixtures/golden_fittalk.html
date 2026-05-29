@@ -1,0 +1,2615 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fittalk-monorepo — Codebase Map</title>
+<style>
+:root {
+  --bg:           oklch(99% 0.006 60);
+  --surface:      oklch(100% 0 0);
+  --ink:          oklch(20% 0.012 250);
+  --ink-2:        oklch(38% 0.012 250);
+  --muted:        oklch(60% 0.008 250);
+  --accent:       oklch(58% 0.20 30);
+  --accent-deep:  oklch(45% 0.20 30);
+  --accent-soft:  oklch(96% 0.04 30);
+  --border:       oklch(93% 0.006 60);
+  --border-soft:  oklch(96% 0.004 60);
+  --code-bg:      oklch(96% 0.005 60);
+  --shadow:       0 1px 2px oklch(20% 0.01 250 / 0.04), 0 8px 32px oklch(20% 0.01 250 / 0.04);
+
+  --font-serif: "Iowan Old Style", "Apple Garamond", Baskerville, "Times New Roman", "Droid Serif", Times, "Source Serif Pro", serif;
+  --font-sans:  ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:  ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", "Roboto Mono", Consolas, "Liberation Mono", monospace;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15.5px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+main {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: var(--space-7) var(--space-5) var(--space-8);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+}
+
+h1 {
+  font-size: clamp(2.4rem, 1.8rem + 2.2vw, 3.2rem);
+  margin: 0 0 var(--space-3);
+  line-height: 1.05;
+}
+
+h2 {
+  font-size: 1.55rem;
+  margin: var(--space-8) 0 var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+h3 {
+  font-size: 1.1rem;
+  margin: var(--space-5) 0 var(--space-2);
+}
+
+p, ul, ol { margin: 0 0 var(--space-4); }
+ul, ol { padding-left: 1.4em; }
+
+a { color: var(--accent-deep); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { color: var(--accent); }
+
+code, pre, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+code { background: var(--code-bg); padding: 0.15em 0.4em; border-radius: 4px; }
+pre { background: var(--code-bg); padding: var(--space-3) var(--space-4); border-radius: var(--radius); overflow-x: auto; }
+pre code { background: transparent; padding: 0; }
+
+/* ---- Cover ---- */
+.cover {
+  background: linear-gradient(180deg, var(--surface) 0%, var(--accent-soft) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-7) var(--space-6);
+  box-shadow: var(--shadow);
+  margin-bottom: var(--space-6);
+}
+.cover .eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-deep);
+  margin-bottom: var(--space-3);
+}
+.cover h1 { margin-bottom: var(--space-4); }
+.cover .lede {
+  color: var(--ink-2);
+  font-size: 1.05rem;
+  margin: 0 0 var(--space-5);
+  max-width: 56ch;
+}
+
+/* ---- Stats row ---- */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+.stat .label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: var(--space-2);
+}
+.stat .value {
+  font-family: var(--font-serif);
+  font-size: 1.8rem;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.stat .unit {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+/* ---- Language bar ---- */
+.lang-bar {
+  display: flex;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: var(--space-4) 0 var(--space-5);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.lang-bar > span {
+  display: block;
+  height: 100%;
+}
+.lang-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.lang-table th, .lang-table td {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 0.92rem;
+}
+.lang-table th {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+}
+.lang-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: var(--space-2);
+  vertical-align: middle;
+}
+
+/* ---- Cards ---- */
+.card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-5);
+}
+.card .head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+.card .name { font-family: var(--font-mono); font-weight: 600; color: var(--ink); }
+.card .meta { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); }
+.card .desc { color: var(--ink-2); font-size: 0.95rem; margin: var(--space-2) 0 0; }
+.card .langs {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+/* ---- Tree ---- */
+.tree { font-family: var(--font-mono); font-size: 0.88rem; line-height: 1.6; }
+.tree details { padding-left: 14px; }
+.tree summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  user-select: none;
+}
+.tree summary::-webkit-details-marker { display: none; }
+.tree summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 1em;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.tree details[open] > summary::before { transform: rotate(90deg); }
+.tree .file { display: block; padding-left: 22px; color: var(--ink-2); }
+.tree .file .meta { float: right; color: var(--muted); font-size: 0.8em; }
+.tree .empty { color: var(--muted); padding-left: 22px; font-style: italic; }
+.tree .truncated { color: var(--muted); padding-left: 22px; font-style: italic; }
+
+/* ---- Deps table ---- */
+.deps-eco { margin: var(--space-4) 0 var(--space-5); }
+.deps-eco .title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+.deps-eco .title .file { font-family: var(--font-mono); font-size: 0.85rem; color: var(--muted); }
+.deps-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-2) var(--space-4);
+  font-family: var(--font-mono);
+  font-size: 0.83rem;
+}
+.deps-list .dep .ver { color: var(--muted); margin-left: 6px; }
+
+/* ---- Entry points ---- */
+.entries {
+  list-style: none;
+  padding: 0;
+}
+.entries li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+.entries li:last-child { border-bottom: 0; }
+.entries .kind { color: var(--muted); }
+
+/* ---- README extract ---- */
+.readme-quote {
+  margin: var(--space-3) 0 var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.readme-headings {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+.readme-headings li {
+  background: var(--code-bg);
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--ink-2);
+}
+
+/* ---- Section intros (beginner explanations) ---- */
+.section-intro {
+  color: var(--ink-2);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.02rem;
+  line-height: 1.6;
+  margin: 0 0 var(--space-5);
+}
+
+.report-explainer {
+  margin: var(--space-5) 0 var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--ink-2);
+  font-size: 0.96rem;
+  line-height: 1.6;
+}
+.report-explainer strong { color: var(--ink); }
+
+/* ---- Glossary ---- */
+.glossary-group { margin-bottom: var(--space-5); }
+.glossary-group .group-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: var(--space-3);
+}
+.glossary dl { margin: 0; }
+.glossary dt {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--ink);
+  margin-top: var(--space-3);
+  font-size: 0.92rem;
+}
+.glossary dd {
+  margin: 4px 0 0 0;
+  color: var(--ink-2);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+/* ---- Footer ---- */
+footer {
+  margin-top: var(--space-8);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+}
+footer .brand { color: var(--accent-deep); font-weight: 600; }
+
+/* ---- Diagram ---- */
+.diagram-note {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--muted);
+  font-size: 0.94rem;
+  margin: var(--space-2) 0;
+}
+
+/* ---- Module dependency matrix (replaces force module graph) ---- */
+.modgraph-frame {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  margin-bottom: var(--space-4);
+  /* Escape past main's 780px text column on wider viewports so the
+     matrix can breathe. Collapses back to 0 on narrow screens. */
+  margin-left: -56px;
+  margin-right: -56px;
+}
+@media (max-width: 880px) {
+  .modgraph-frame {
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+.modgraph-matrix-wrap {
+  overflow-x: auto;
+  margin: 0 calc(var(--space-5) * -1);
+  padding: 0 var(--space-5);
+}
+.modgraph-matrix {
+  display: block;
+  margin: 0 auto;
+  overflow: visible;
+}
+.modgraph-cell { transition: fill-opacity 0.12s ease; }
+.modgraph-cell:hover { fill-opacity: 1 !important; }
+.modgraph-row-band, .modgraph-col-band {
+  pointer-events: none;
+  fill: var(--accent);
+  fill-opacity: 0;
+  transition: fill-opacity 0.12s ease;
+}
+.modgraph-hovered .modgraph-row-band[data-active="1"],
+.modgraph-hovered .modgraph-col-band[data-active="1"] {
+  fill-opacity: 0.05;
+}
+.modgraph-label {
+  font-family: var(--font-mono);
+  fill: var(--ink-2);
+  pointer-events: none;
+}
+.modgraph-label.is-active { fill: var(--ink); font-weight: 600; }
+.modgraph-svc-bar {
+  /* Service-color stripe in the outer margin */
+}
+.modgraph-svc-line {
+  stroke: var(--ink);
+  stroke-opacity: 0.18;
+  stroke-width: 1.25;
+  shape-rendering: crispEdges;
+}
+.modgraph-domain-line {
+  stroke: var(--ink);
+  stroke-opacity: 0.08;
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  shape-rendering: crispEdges;
+}
+.modgraph-diag {
+  fill: var(--border);
+  fill-opacity: 0.55;
+}
+.modgraph-axis-title {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  fill: var(--muted);
+}
+.modgraph-headline {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+  margin: 0 0 var(--space-4);
+  max-width: 64ch;
+}
+.modgraph-headline strong { color: var(--ink); font-weight: 600; }
+.modgraph-headline em {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--accent-deep);
+}
+.modgraph-tip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--ink);
+  color: var(--surface);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  z-index: 10;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px oklch(20% 0.012 250 / 0.18);
+}
+.modgraph-tip .t-meta { color: oklch(85% 0.01 60); }
+.modgraph-tip .t-arrow { color: var(--accent-soft); }
+
+/* ---- Bento small-multiples (module section) ---- */
+.modgraph-bento {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.modgraph-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+}
+.modgraph-tile .tile-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: var(--space-2);
+}
+.modgraph-tile .tile-headline {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  color: var(--ink);
+  margin: 0 0 var(--space-3);
+  line-height: 1.35;
+}
+.modgraph-tile .tile-body { flex: 1; }
+.modgraph-tile.is-donut {
+  align-items: center;
+  text-align: center;
+}
+.modgraph-tile.is-donut .donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  margin-top: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-2);
+  width: 100%;
+}
+.modgraph-tile.is-donut .donut-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.modgraph-tile.is-donut .donut-legend-row .swatch {
+  width: 9px; height: 9px; border-radius: 2px; flex: 0 0 auto;
+}
+.modgraph-tile.is-donut .donut-legend-row .name { flex: 1; }
+.modgraph-tile.is-donut .donut-legend-row .pct { color: var(--muted); }
+.modgraph-edge-list, .modgraph-entry-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+.modgraph-edge-list li, .modgraph-entry-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.modgraph-edge-list li:last-child, .modgraph-entry-list li:last-child {
+  border-bottom: none;
+}
+.modgraph-edge-list .arc {
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.modgraph-edge-list .arc .arrow { color: var(--muted); margin: 0 6px; }
+.modgraph-edge-list .arc .svc {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+.modgraph-edge-list .weight, .modgraph-entry-list .count {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  padding: 1px 8px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+.modgraph-entry-list .mod-name {
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.modgraph-entry-list .mod-svc { color: var(--muted); font-size: 0.85em; margin-left: 4px; }
+.modgraph-langs-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-content: flex-start;
+}
+.modgraph-langs-cloud .lang-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-2);
+}
+.modgraph-langs-cloud .lang-pill .swatch {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+.modgraph-langs-cloud .lang-pill .share {
+  color: var(--muted);
+  font-size: 0.9em;
+}
+.modgraph-empty {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* ---- Service topology v2 (C4-style) ---- */
+.topov2-frame {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  margin-bottom: var(--space-4);
+  /* Slightly wider escape than the matrix so a 3-service horizontal
+     C4 layout (220×3 + 70×2 + 40 ≈ 840px) fits without scrolling. */
+  margin-left: -72px;
+  margin-right: -72px;
+  position: relative;
+}
+@media (max-width: 920px) {
+  .topov2-frame { margin-left: 0; margin-right: 0; }
+}
+.topov2-headline {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+  margin: 0 0 var(--space-4);
+}
+.topov2-headline strong { color: var(--ink); font-weight: 600; }
+.topov2-headline em {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--accent-deep);
+}
+.topov2-wrap {
+  overflow-x: auto;
+  margin: 0 calc(var(--space-5) * -1);
+  padding: 0 var(--space-5);
+}
+.topov2-svg { display: block; margin: 0 auto; overflow: visible; }
+.topov2-node-bg {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.topov2-node-stripe {
+  /* The colored top stripe by service kind. fill set per-node. */
+}
+.topov2-node-title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  fill: var(--ink);
+}
+.topov2-node-stack {
+  font-family: var(--font-mono);
+  fill: var(--ink-2);
+}
+.topov2-node-stat {
+  font-family: var(--font-mono);
+  fill: var(--muted);
+}
+.topov2-kind-chip {
+  /* Pill in the top-right of each card. Filled by kind color. */
+}
+.topov2-kind-chip-text {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  fill: white;
+  font-weight: 600;
+}
+.topov2-edge {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-opacity: 0.55;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: stroke-opacity 0.15s ease;
+}
+.topov2-edge:hover { stroke-opacity: 0.95; }
+.topov2-edge-label-bg {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.topov2-edge-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--ink-2);
+}
+
+/* ---- Topology v2 bento ---- */
+.topov2-bento {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.topov2-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+}
+.topov2-tile .tile-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: var(--space-2);
+}
+.topov2-tile .tile-headline {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  color: var(--ink);
+  margin: 0 0 var(--space-3);
+  line-height: 1.35;
+}
+.topov2-tile .tile-body { flex: 1; }
+.topov2-call-list { list-style: none; padding: 0; margin: 0; }
+.topov2-call-list > li {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.topov2-call-list > li:last-child { border-bottom: none; }
+.topov2-call-list .svc-name {
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+.topov2-call-list .neighbours {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 0 var(--space-3);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-2);
+}
+.topov2-call-list .neighbours .row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.topov2-call-list .neighbours .count {
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+}
+.topov2-fw-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-content: flex-start;
+}
+.topov2-fw-cloud .fw-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-2);
+}
+.topov2-fw-cloud .fw-group {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  width: 100%;
+  margin-top: var(--space-3);
+}
+.topov2-fw-cloud .fw-group:first-child { margin-top: 0; }
+.topov2-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+.topov2-stat-row:last-child { border-bottom: none; }
+.topov2-stat-row .k { color: var(--ink-2); }
+.topov2-stat-row .v { color: var(--ink); font-weight: 600; }
+.topov2-stat-row .v.muted { color: var(--muted); font-weight: 400; }
+.topov2-tile-foot {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border);
+}
+.topov2-empty {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* ---- Data lineage v2 (Sankey + cylinders) ---- */
+.lineage2-frame {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  margin-bottom: var(--space-4);
+  margin-left: -56px;
+  margin-right: -56px;
+  position: relative;
+}
+@media (max-width: 880px) {
+  .lineage2-frame { margin-left: 0; margin-right: 0; }
+}
+.lineage2-headline {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+  margin: 0 0 var(--space-4);
+}
+.lineage2-headline strong { color: var(--ink); font-weight: 600; }
+.lineage2-headline em {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--accent-deep);
+}
+.lineage2-wrap {
+  overflow-x: auto;
+  margin: 0 calc(var(--space-5) * -1);
+  padding: 0 var(--space-5);
+}
+.lineage2-svg { display: block; margin: 0 auto; overflow: visible; }
+.lineage2-svc-bg {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.lineage2-svc-title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  fill: var(--ink);
+}
+.lineage2-svc-meta {
+  font-family: var(--font-mono);
+  fill: var(--ink-2);
+}
+.lineage2-band {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-opacity 0.15s ease;
+}
+.lineage2-band:hover { stroke-opacity: 0.95 !important; }
+.lineage2-band-label-bg {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.lineage2-band-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--ink-2);
+}
+.lineage2-cyl-body, .lineage2-cyl-top {
+  /* fill set per-store */
+}
+.lineage2-cyl-stroke {
+  fill: none;
+  stroke-width: 1.25;
+}
+.lineage2-cyl-name {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  fill: var(--ink);
+  font-size: 13.5px;
+}
+.lineage2-cyl-kind {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  fill: var(--muted);
+  text-transform: uppercase;
+}
+.lineage2-cyl-models {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--ink-2);
+}
+.lineage2-cyl.is-unlinked { opacity: 0.45; }
+.lineage2-cyl.is-unlinked .lineage2-cyl-models {
+  fill: var(--muted);
+  font-style: italic;
+}
+.lineage2-axis-title {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  fill: var(--muted);
+}
+
+/* ---- Lineage v2 bento ---- */
+.lineage2-bento {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.lineage2-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+}
+.lineage2-tile .tile-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: var(--space-2);
+}
+.lineage2-tile .tile-headline {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  color: var(--ink);
+  margin: 0 0 var(--space-3);
+  line-height: 1.35;
+}
+.lineage2-tile .tile-body { flex: 1; }
+.lineage2-store-list { list-style: none; padding: 0; margin: 0; }
+.lineage2-store-list > li {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.lineage2-store-list > li:last-child { border-bottom: none; }
+.lineage2-store-list .store-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+.lineage2-store-list .store-head .swatch {
+  width: 10px; height: 10px; border-radius: 2px;
+}
+.lineage2-store-list .store-head .kind {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.85em;
+}
+.lineage2-store-list .sources {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 0 var(--space-4);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-2);
+}
+.lineage2-store-list .sources .row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.lineage2-store-list .sources .row .count {
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+}
+.lineage2-store-list .sources .row.is-unlinked .count {
+  color: var(--muted);
+  background: var(--code-bg);
+}
+.lineage2-store-list .sources .row .reason {
+  font-style: italic;
+  font-family: var(--font-serif);
+  color: var(--muted);
+  font-size: 0.85em;
+}
+.lineage2-orm-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lineage2-orm-cloud .orm-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-2);
+}
+.lineage2-hot-list { list-style: none; padding: 0; margin: 0; }
+.lineage2-hot-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+.lineage2-hot-list li:last-child { border-bottom: none; }
+.lineage2-hot-list .model-name { color: var(--ink); flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lineage2-hot-list .meta {
+  color: var(--muted); font-size: 0.85em;
+}
+.lineage2-empty {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+.lineage2-tile-foot {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border);
+}
+
+/* ---- Architect-observation bullets (shared across sections) ---- */
+.observations {
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent-deep);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: var(--space-3) var(--space-5);
+  margin: var(--space-3) 0 var(--space-4);
+}
+.observations-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-deep);
+  margin-bottom: var(--space-2);
+}
+.observations ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.observations li {
+  font-family: var(--font-serif);
+  font-size: 0.96rem;
+  line-height: 1.55;
+  color: var(--ink);
+  padding-left: 1.1em;
+  position: relative;
+}
+.observations li::before {
+  content: '◆';
+  position: absolute;
+  left: 0;
+  top: 0.05em;
+  color: var(--accent-deep);
+  font-size: 0.78em;
+}
+.observations li strong { color: var(--ink); font-weight: 700; }
+.observations li code {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 0.05em 0.4em;
+  border-radius: 4px;
+  font-size: 0.92em;
+}
+
+/* ---- Critical paths (swimlane behaviour view) ---- */
+.cpaths-frame {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  margin-bottom: var(--space-4);
+  margin-left: -72px;
+  margin-right: -72px;
+  position: relative;
+}
+@media (max-width: 920px) {
+  .cpaths-frame { margin-left: 0; margin-right: 0; }
+}
+.cpaths-headline {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+  margin: 0 0 var(--space-4);
+}
+.cpaths-headline strong { color: var(--ink); font-weight: 600; }
+.cpaths-headline em {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--accent-deep);
+}
+.cpaths-wrap {
+  overflow-x: auto;
+  margin: 0 calc(var(--space-5) * -1);
+  padding: 0 var(--space-5);
+}
+.cpaths-svg { display: block; margin: 0 auto; overflow: visible; }
+.cpaths-header-text {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  fill: var(--muted);
+}
+.cpaths-row-stripe {
+  /* Alternating row backgrounds for legibility on long lists. */
+}
+.cpaths-row-stripe.is-even { fill: var(--bg); }
+.cpaths-row-stripe.is-odd { fill: var(--surface); }
+.cpaths-caller-pill, .cpaths-store-pill {
+  /* fill set per item from kind/store color. */
+}
+.cpaths-caller-text, .cpaths-store-text {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  fill: white;
+  font-weight: 500;
+  paint-order: stroke;
+  stroke: oklch(20% 0.012 250 / 0.25);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+}
+.cpaths-entry-bg {
+  fill: var(--surface);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.cpaths-entry-name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+.cpaths-entry-sample {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  fill: var(--muted);
+}
+.cpaths-ep-badge {
+  fill: var(--accent-soft);
+  stroke: var(--accent-deep);
+  stroke-width: 0.75;
+}
+.cpaths-ep-badge-text {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  fill: var(--accent-deep);
+}
+.cpaths-dep-pill {
+  fill: var(--code-bg);
+  stroke: var(--border);
+  stroke-width: 0.75;
+}
+.cpaths-dep-pill-text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--ink-2);
+}
+.cpaths-dep-pill.is-shared {
+  fill: var(--code-bg);
+  stroke: var(--border);
+  stroke-dasharray: 2 2;
+}
+.cpaths-dep-overflow {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  fill: var(--muted);
+  font-style: italic;
+}
+.cpaths-arrow {
+  stroke: var(--ink-2);
+  stroke-opacity: 0.4;
+  stroke-width: 1.25;
+  fill: none;
+}
+.cpaths-empty-cell {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--muted);
+  font-style: italic;
+}
+.cpaths-overflow-note {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.92rem;
+  color: var(--muted);
+  margin-top: var(--space-3);
+  text-align: center;
+}
+
+/* ---- Cpaths bento ---- */
+.cpaths-bento {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.cpaths-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+}
+.cpaths-tile .tile-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: var(--space-2);
+}
+.cpaths-tile .tile-headline {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  color: var(--ink);
+  margin: 0 0 var(--space-3);
+  line-height: 1.35;
+}
+.cpaths-tile .tile-body { flex: 1; }
+.cpaths-method-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cpaths-method-bars .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+.cpaths-method-bars .row .method {
+  width: 56px;
+  color: white;
+  text-align: center;
+  padding: 1px 0;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+.cpaths-method-bars .row .bar {
+  flex: 1;
+  height: 8px;
+  background: var(--code-bg);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.cpaths-method-bars .row .bar > span {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: var(--accent);
+  border-radius: 999px;
+}
+.cpaths-method-bars .row .num {
+  width: 36px;
+  text-align: right;
+  color: var(--ink-2);
+}
+.cpaths-prefix-list, .cpaths-svc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.cpaths-prefix-list li, .cpaths-svc-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+.cpaths-prefix-list li:last-child,
+.cpaths-svc-list li:last-child { border-bottom: none; }
+.cpaths-prefix-list .prefix { color: var(--ink); }
+.cpaths-prefix-list .count {
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+}
+.cpaths-svc-list .svc {
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cpaths-svc-list .swatch {
+  width: 9px; height: 9px; border-radius: 2px;
+}
+.cpaths-coverage-stat {
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: center;
+  margin: var(--space-3) 0;
+}
+.cpaths-coverage-stat .denom {
+  font-size: 0.7em;
+  color: var(--muted);
+  font-weight: 400;
+}
+.cpaths-coverage-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+.cpaths-empty {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+.modgraph-tile-foot {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border);
+}
+.modgraph-tile-foot code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.95em;
+  color: var(--ink-2);
+}
+.modgraph-edge-list .arc .svc {
+  color: var(--muted);
+  font-size: 0.82em;
+  font-family: var(--font-mono);
+  margin-left: 4px;
+}
+.modgraph-edge-list .arc .svc::before { content: '· '; }
+.modgraph-edge-list .arc .svc.is-cross::before { content: ''; }
+
+/* ---- Print ---- */
+/*
+   Two page geometries.
+     - Default `@page`: Letter portrait, 0.6in margins. Used for the
+       reading sections (cover, README, languages, modules, tree, deps,
+       glossary, footer).
+     - Named `@page hero`: Letter landscape, 0.4in margins. Used for
+       the four hero diagram sections via the `page: hero` property.
+       Landscape gives ~980px of usable content width at 96 DPI, which
+       fits the matrix (790px), topology (840px), critical-paths (864px)
+       and Sankey (670px) without any horizontal scrolling or scaling.
+*/
+@page { size: Letter portrait; margin: 0.6in; }
+@page hero { size: Letter landscape; margin: 0.4in; }
+
+#codemap-modgraph-section,
+#codemap-topov2-section,
+#codemap-cpaths-section,
+#codemap-lineage2-section {
+  page: hero;
+}
+
+@media print {
+  html, body { background: white; }
+  main { padding: 0; max-width: none; }
+  .cover, .card, .stat { box-shadow: none; }
+  details { padding-left: 14px; }
+  details > summary::before { content: "•"; transform: none !important; }
+  details > * { display: block !important; }
+  details:not([open]) > *:not(summary) { display: block !important; }
+  h2 { page-break-before: auto; break-before: auto; }
+  .cover { page-break-after: avoid; }
+  .card, .deps-eco, .entries li { page-break-inside: avoid; break-inside: avoid; }
+
+  /* Each hero section starts a fresh landscape page. */
+  #codemap-modgraph-section,
+  #codemap-topov2-section,
+  #codemap-cpaths-section,
+  #codemap-lineage2-section {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  /* Avoid awkward splits between heading and body */
+  #codemap-modgraph-section h2,
+  #codemap-topov2-section h2,
+  #codemap-cpaths-section h2,
+  #codemap-lineage2-section h2 { page-break-after: avoid; break-after: avoid; }
+
+  /* On landscape hero pages the page itself is wide enough — we don't
+     need the negative-margin "escape" used on screen. */
+  .modgraph-frame,
+  .topov2-frame,
+  .cpaths-frame,
+  .lineage2-frame {
+    box-shadow: none;
+    margin-left: 0;
+    margin-right: 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Don't clip the SVG by the wrapper's overflow:auto on screen. */
+  .modgraph-matrix-wrap,
+  .topov2-wrap,
+  .cpaths-wrap,
+  .lineage2-wrap {
+    overflow: visible;
+  }
+
+  /* In print, the section-intro paragraph ("how to read this diagram")
+     is redundant — a recipient printing an architecture audit knows
+     what they're looking at. Hiding it lets the h2 + frame share a
+     single landscape page instead of stranding the heading on a
+     near-empty intro-only page above the SVG. */
+  #codemap-modgraph-section > .section-intro,
+  #codemap-topov2-section > .section-intro,
+  #codemap-cpaths-section > .section-intro,
+  #codemap-lineage2-section > .section-intro {
+    display: none;
+  }
+
+  /* Tighten the print h2 so it doesn't claim a 3rd of the page above
+     the diagram. The serif still reads as a section heading. */
+  #codemap-modgraph-section > h2,
+  #codemap-topov2-section > h2,
+  #codemap-cpaths-section > h2,
+  #codemap-lineage2-section > h2 {
+    font-size: 1.25rem;
+    margin: 0 0 var(--space-3);
+    padding-bottom: var(--space-2);
+  }
+
+  /* Centre the SVGs and cap their height so the h2 + frame
+     fit together on one landscape page. Landscape Letter usable
+     height ≈ 740px at 96 DPI; we leave ~140px for h2 + frame
+     padding + headline, so the SVG itself caps at 6.0in (~576px).
+     viewBox preserves aspect ratio while scaling — text stays
+     crisp because PDF is vector. */
+  .topov2-svg,
+  .lineage2-svg {
+    display: block;
+    margin: 0 auto;
+    width: auto !important;
+    height: auto !important;
+    max-width: 100%;
+    max-height: 6.0in;
+  }
+
+  /* The matrix is square (n x n), so on a wide landscape page it is
+     height-bound. The cap must leave room for the h2 + headline so the
+     whole frame stays on one page (a taller cap splits the grid from its
+     heading). 6.4in fits alongside the heading while still rendering the
+     matrix larger than the other heroes — the new geometry (16px cells,
+     gutter-sized labels) is already intrinsically wider than before. For
+     a dramatically larger matrix the section would need its own portrait
+     page; that is deferred because it also reshapes the section bento. */
+  .modgraph-matrix {
+    display: block;
+    margin: 0 auto;
+    width: auto !important;
+    height: auto !important;
+    max-width: 100%;
+    max-height: 6.4in;
+  }
+
+  /* Critical-paths has 16 rows of structured content (each row is
+     a self-contained trace). Letting it run slightly taller and
+     splitting at row boundaries reads cleaner than crushing 16
+     rows into 6 inches of paper. The frame removes break-inside:
+     avoid only for this section so rows can split across pages. */
+  .cpaths-svg {
+    display: block;
+    margin: 0 auto;
+    width: auto !important;
+    height: auto !important;
+    max-width: 100%;
+    max-height: 6.6in;
+  }
+
+  /* Use the extra horizontal room for a 4-up bento layout. */
+  .modgraph-bento,
+  .topov2-bento,
+  .cpaths-bento,
+  .lineage2-bento {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .modgraph-tile,
+  .topov2-tile,
+  .cpaths-tile,
+  .lineage2-tile {
+    box-shadow: none;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    min-height: 0;
+  }
+
+  /* Hide on-screen affordances that don't belong on paper. */
+  .modgraph-tip { display: none !important; }
+
+  /* Tone down the accent-soft observations block so it doesn't read
+     as a coloured box on monochrome printouts. */
+  .observations {
+    background: transparent;
+    border-left-color: var(--ink);
+  }
+}
+</style>
+</head>
+<body>
+<main>
+
+<section class="cover">
+  <div class="eyebrow">Codebase Architecture Report</div>
+  <h1>fittalk-monorepo</h1>
+  <p class="lede">Primary language <strong>TypeScript</strong> · <strong>13</strong> languages detected · <strong>496</strong> source files · <strong>150,891</strong> lines of code.</p>
+  <div class="stats">
+    <div class="stat">
+      <div class="label">Files</div>
+      <div class="value">496</div>
+    </div>
+    <div class="stat">
+      <div class="label">Lines of code</div>
+      <div class="value">150,891</div>
+    </div>
+    <div class="stat">
+      <div class="label">Languages</div>
+      <div class="value">13</div>
+    </div>
+    <div class="stat">
+      <div class="label">Modules</div>
+      <div class="value">25</div>
+    </div>
+  </div>
+  <div class="eyebrow" style="margin-top: var(--space-5); color: var(--muted);">
+    Scanned 2026-05-27T10:15:25+00:00 · depth: medium
+  </div>
+</section>
+<aside class="report-explainer">
+  <strong>New to reading codebase maps?</strong> This report is a structural snapshot of a software codebase. It shows <strong>what languages</strong> are used, <strong>what the main building blocks</strong> are, <strong>what outside packages</strong> the project relies on, and <strong>where the program starts running</strong>. Use it to onboard a new contributor, share a high-level overview with stakeholders, or audit how a project is organized. A glossary at the end explains any technical terms.
+</aside>
+
+<section>
+  <h2>From README.md</h2>
+  <p class="section-intro">The author's own words from the project README — the closest thing to an official summary of what this codebase is and what it does.</p>
+  <blockquote class="readme-quote">Monorepo containing the FitTalk backend services for a comprehensive fitness coaching platform.</blockquote>
+</section>
+
+<section>
+  <h2>Languages</h2>
+  <p class="section-intro">Programming languages are the rules and vocabulary used to write code. A codebase usually has one primary language plus several supporting ones (configuration files, documentation, build scripts).</p>
+  <div class="lang-bar"><span style="width: 35.79%; background: #3178c6;" title="TypeScript 35.8%"></span><span style="width: 22.37%; background: #292929;" title="JSON 22.4%"></span><span style="width: 11.26%; background: #e34c26;" title="HTML 11.3%"></span><span style="width: 10.13%; background: #083fa1;" title="Markdown 10.1%"></span><span style="width: 8.41%; background: #3572A5;" title="Python 8.4%"></span><span style="width: 6.71%; background: #cb171e;" title="YAML 6.7%"></span><span style="width: 2.56%; background: #89e051;" title="Shell 2.6%"></span><span style="width: 1.32%; background: #e38c00;" title="SQL 1.3%"></span><span style="width: 0.91%; background: #f1e05a;" title="JavaScript 0.9%"></span><span style="width: 0.26%; background: #563d7c;" title="CSS 0.3%"></span><span style="width: 0.12%; background: #9c4221;" title="TOML 0.1%"></span><span style="width: 0.10%; background: #427819;" title="Makefile 0.1%"></span><span style="width: 0.05%; background: #384d54;" title="Dockerfile 0.0%"></span></div>
+  <table class="lang-table">
+    <thead><tr><th>Language</th><th>Files</th><th>Lines</th><th>Share</th></tr></thead>
+    <tbody>
+        <tr>
+          <td><span class="lang-swatch" style="background: #3178c6;"></span>TypeScript</td>
+          <td class="mono">279</td>
+          <td class="mono">54,004</td>
+          <td class="mono">35.8%</td>
+        </tr>
+        
+        <tr>
+          <td><span class="lang-swatch" style="background: #292929;"></span>JSON</td>
+          <td class="mono">15</td>
+          <td class="mono">33,748</td>
+          <td class="mono">22.4%</td>
+        </tr>
+        
+        <tr>
+          <td><span class="lang-swatch" style="background: #e34c26;"></span>HTML</td>
+          <td class="mono">41</td>
+          <td class="mono">16,989</td>
+          <td class="mono">11.3%</td>
+        </tr>
+        
+        <tr>
+          <td><span class="lang-swatch" style="background: #083fa1;"></span>Markdown</td>
+          <td class="mono">41</td>
+          <td class="mono">15,291</td>
+          <td class="mono">10.1%</td>
+        </tr>
+        
+        <tr>
+          <td><span class="lang-swatch" style="background: #3572A5;"></span>Python</td>
+          <td class="mono">71</td>
+          <td class="mono">12,695</td>
+          <td class="mono">8.4%</td>
+        </tr>
+        
+        <tr>
+          <td><span class="lang-swatch" style="background: #cb171e;"></span>YAML</td>
+          <td class="mono">10</td>
+          <td class="mono">10,127</td>
+          <td class="mono">6.7%</td>
+        </tr>
+        
+        <tr>
+          <td><span class="lang-swatch" style="background: #89e051;"></span>Shell</td>
+          <td class="mono">16</td>
+          <td class="mono">3,868</td>
+          <td class="mono">2.6%</td>
+        </tr>
+        
+        <tr>
+          <td><span class="lang-swatch" style="background: #e38c00;"></span>SQL</td>
+          <td class="mono">7</td>
+          <td class="mono">1,999</td>
+          <td class="mono">1.3%</td>
+        </tr>
+        
+        <tr>
+          <td><span class="lang-swatch" style="background: #f1e05a;"></span>JavaScript</td>
+          <td class="mono">9</td>
+          <td class="mono">1,377</td>
+          <td class="mono">0.9%</td>
+        </tr>
+        
+        <tr>
+          <td><span class="lang-swatch" style="background: #563d7c;"></span>CSS</td>
+          <td class="mono">2</td>
+          <td class="mono">392</td>
+          <td class="mono">0.3%</td>
+        </tr>
+        
+        <tr>
+          <td><span class="lang-swatch" style="background: #9c4221;"></span>TOML</td>
+          <td class="mono">2</td>
+          <td class="mono">187</td>
+          <td class="mono">0.1%</td>
+        </tr>
+        
+        <tr>
+          <td><span class="lang-swatch" style="background: #427819;"></span>Makefile</td>
+          <td class="mono">1</td>
+          <td class="mono">144</td>
+          <td class="mono">0.1%</td>
+        </tr>
+        
+        <tr>
+          <td><span class="lang-swatch" style="background: #384d54;"></span>Dockerfile</td>
+          <td class="mono">2</td>
+          <td class="mono">70</td>
+          <td class="mono">0.0%</td>
+        </tr>
+        </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Top-level modules</h2>
+  <p class="section-intro">A module is a self-contained folder of related code that handles one job. Splitting a codebase into modules lets different people work on different parts at the same time without stepping on each other.</p>
+  <div class="card-grid">
+        <div class="card">
+          <div class="head">
+            <div class="name">Back-End-FitTalk/src/modules/workouts</div>
+            <div class="meta">23 files · 6,759 LOC</div>
+          </div>
+          <p class="desc">Complete workout scheduling and real-time session management for the FitTalk fitness application.</p>
+          <div class="langs">
+            <span class="tag">Markdown</span><span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Back-End-FitTalk/src/modules/nutrition</div>
+            <div class="meta">22 files · 5,349 LOC</div>
+          </div>
+          <p class="desc">The Nutrition Module handles nutrition tracking functionality for the FitTalk fitness platform.</p>
+          <div class="langs">
+            <span class="tag">Markdown</span><span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Front-End-FitTalk/app/(app)</div>
+            <div class="meta">31 files · 5,330 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Back-End-FitTalk/src/common</div>
+            <div class="meta">33 files · 4,560 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">Markdown</span><span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Back-End-FitTalk/src/modules/consultation</div>
+            <div class="meta">14 files · 3,868 LOC</div>
+          </div>
+          <p class="desc">The Consultation &amp; Availability module handles the user onboarding flow and weekly availability management for the FitTalk fitness application. This is a **critical module** as it captures the initial user data needed to generate personalized workout plans via AI.</p>
+          <div class="langs">
+            <span class="tag">Markdown</span><span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Back-End-FitTalk/src/modules/workout-logging</div>
+            <div class="meta">8 files · 3,019 LOC</div>
+          </div>
+          <p class="desc">The Workout Logging Module handles all functionality related to logging completed workouts, tracking performance data, and maintaining workout history.</p>
+          <div class="langs">
+            <span class="tag">Markdown</span><span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Back-End-FitTalk/src/modules/notifications</div>
+            <div class="meta">9 files · 2,794 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">analysis</div>
+            <div class="meta">6 files · 2,697 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">HTML</span><span class="tag">JSON</span><span class="tag">Python</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Back-End-FitTalk/src/modules/programs</div>
+            <div class="meta">12 files · 1,898 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">FitTalk_AI/app/api</div>
+            <div class="meta">17 files · 1,812 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">Python</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">FitTalk_AI/app/services/analysis</div>
+            <div class="meta">3 files · 1,765 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">Python</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Back-End-FitTalk/src/modules/admin</div>
+            <div class="meta">9 files · 1,761 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">FitTalk_AI/app/db</div>
+            <div class="meta">6 files · 1,724 LOC</div>
+          </div>
+          <p class="desc">Database layer and migrations.</p>
+          <div class="langs">
+            <span class="tag">Python</span><span class="tag">SQL</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Back-End-FitTalk/src/modules/support</div>
+            <div class="meta">5 files · 1,310 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">FitTalk_AI/app/services/planning</div>
+            <div class="meta">4 files · 1,257 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">Python</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Back-End-FitTalk/src/modules/ai-coaching</div>
+            <div class="meta">14 files · 1,058 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">FitTalk_AI/app/core</div>
+            <div class="meta">6 files · 1,043 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">Python</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Back-End-FitTalk/src/modules/auth</div>
+            <div class="meta">13 files · 1,002 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Back-End-FitTalk/src/modules/goals</div>
+            <div class="meta">8 files · 931 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">FitTalk_AI/app/services/coach</div>
+            <div class="meta">4 files · 733 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">Python</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Front-End-FitTalk/services/api</div>
+            <div class="meta">7 files · 692 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">.github</div>
+            <div class="meta">5 files · 445 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">Markdown</span><span class="tag">YAML</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Front-End-FitTalk/services/cache</div>
+            <div class="meta">2 files · 337 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">TypeScript</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">docs</div>
+            <div class="meta">2 files · 336 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">Markdown</span>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="head">
+            <div class="name">Front-End-FitTalk/app/(auth)</div>
+            <div class="meta">4 files · 327 LOC</div>
+          </div>
+          
+          <div class="langs">
+            <span class="tag">TypeScript</span>
+          </div>
+        </div>
+        </div>
+</section>
+
+<section id="codemap-modgraph-section">
+  <h2>How the modules connect</h2>
+  <p class="section-intro">Each row and column is a module. A coloured cell at row <em>A</em>, column <em>B</em> means <em>A imports from B</em> — darker cells mean more imports flow that way. Modules are grouped by service (the coloured bands on the edges), with each service's modules sorted from largest to smallest. A clean codebase shows tight <strong>blocks along the diagonal</strong> (each service mostly depends on itself); off-diagonal blocks indicate cross-service coupling. The pale grey diagonal just marks where each module sits — modules don't import themselves.</p>
+  <div class="modgraph-frame" style="position: relative;">
+    <p class="modgraph-headline"><strong>42 import relationships</strong> were detected, <strong>all of them staying inside a single service</strong>. Visually that’s the block-diagonal pattern below — a sign of clean service boundaries.</p>
+    <div class="modgraph-matrix-wrap"><svg class="modgraph-matrix" viewBox="0 0 944 870" width="944" role="img" aria-label="Module dependency matrix"><title>Module dependency matrix · 37 modules · 42 edges</title><rect x="124" y="102" width="740" height="740" fill="var(--bg)" /><rect class="modgraph-svc-bar" x="124" y="94" width="300" height="6" fill="#3178c6" fill-opacity="0.85" /><rect class="modgraph-svc-bar" x="116" y="102" width="6" height="300" fill="#3178c6" fill-opacity="0.85" /><rect class="modgraph-svc-bar" x="424" y="94" width="220" height="6" fill="#e34c26" fill-opacity="0.85" /><rect class="modgraph-svc-bar" x="116" y="402" width="6" height="220" fill="#e34c26" fill-opacity="0.85" /><rect class="modgraph-svc-bar" x="644" y="94" width="140" height="6" fill="#292929" fill-opacity="0.85" /><rect class="modgraph-svc-bar" x="116" y="622" width="6" height="140" fill="#292929" fill-opacity="0.85" /><rect class="modgraph-svc-bar" x="784" y="94" width="80" height="6" fill="#9aa0a6" fill-opacity="0.85" /><rect class="modgraph-svc-bar" x="116" y="762" width="6" height="80" fill="#9aa0a6" fill-opacity="0.85" /><rect class="modgraph-row-band" data-row="0" x="124" y="102" width="740" height="20" /><rect class="modgraph-row-band" data-row="1" x="124" y="122" width="740" height="20" /><rect class="modgraph-row-band" data-row="2" x="124" y="142" width="740" height="20" /><rect class="modgraph-row-band" data-row="3" x="124" y="162" width="740" height="20" /><rect class="modgraph-row-band" data-row="4" x="124" y="182" width="740" height="20" /><rect class="modgraph-row-band" data-row="5" x="124" y="202" width="740" height="20" /><rect class="modgraph-row-band" data-row="6" x="124" y="222" width="740" height="20" /><rect class="modgraph-row-band" data-row="7" x="124" y="242" width="740" height="20" /><rect class="modgraph-row-band" data-row="8" x="124" y="262" width="740" height="20" /><rect class="modgraph-row-band" data-row="9" x="124" y="282" width="740" height="20" /><rect class="modgraph-row-band" data-row="10" x="124" y="302" width="740" height="20" /><rect class="modgraph-row-band" data-row="11" x="124" y="322" width="740" height="20" /><rect class="modgraph-row-band" data-row="12" x="124" y="342" width="740" height="20" /><rect class="modgraph-row-band" data-row="13" x="124" y="362" width="740" height="20" /><rect class="modgraph-row-band" data-row="14" x="124" y="382" width="740" height="20" /><rect class="modgraph-row-band" data-row="15" x="124" y="402" width="740" height="20" /><rect class="modgraph-row-band" data-row="16" x="124" y="422" width="740" height="20" /><rect class="modgraph-row-band" data-row="17" x="124" y="442" width="740" height="20" /><rect class="modgraph-row-band" data-row="18" x="124" y="462" width="740" height="20" /><rect class="modgraph-row-band" data-row="19" x="124" y="482" width="740" height="20" /><rect class="modgraph-row-band" data-row="20" x="124" y="502" width="740" height="20" /><rect class="modgraph-row-band" data-row="21" x="124" y="522" width="740" height="20" /><rect class="modgraph-row-band" data-row="22" x="124" y="542" width="740" height="20" /><rect class="modgraph-row-band" data-row="23" x="124" y="562" width="740" height="20" /><rect class="modgraph-row-band" data-row="24" x="124" y="582" width="740" height="20" /><rect class="modgraph-row-band" data-row="25" x="124" y="602" width="740" height="20" /><rect class="modgraph-row-band" data-row="26" x="124" y="622" width="740" height="20" /><rect class="modgraph-row-band" data-row="27" x="124" y="642" width="740" height="20" /><rect class="modgraph-row-band" data-row="28" x="124" y="662" width="740" height="20" /><rect class="modgraph-row-band" data-row="29" x="124" y="682" width="740" height="20" /><rect class="modgraph-row-band" data-row="30" x="124" y="702" width="740" height="20" /><rect class="modgraph-row-band" data-row="31" x="124" y="722" width="740" height="20" /><rect class="modgraph-row-band" data-row="32" x="124" y="742" width="740" height="20" /><rect class="modgraph-row-band" data-row="33" x="124" y="762" width="740" height="20" /><rect class="modgraph-row-band" data-row="34" x="124" y="782" width="740" height="20" /><rect class="modgraph-row-band" data-row="35" x="124" y="802" width="740" height="20" /><rect class="modgraph-row-band" data-row="36" x="124" y="822" width="740" height="20" /><rect class="modgraph-col-band" data-col="0" x="124" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="1" x="144" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="2" x="164" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="3" x="184" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="4" x="204" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="5" x="224" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="6" x="244" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="7" x="264" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="8" x="284" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="9" x="304" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="10" x="324" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="11" x="344" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="12" x="364" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="13" x="384" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="14" x="404" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="15" x="424" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="16" x="444" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="17" x="464" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="18" x="484" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="19" x="504" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="20" x="524" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="21" x="544" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="22" x="564" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="23" x="584" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="24" x="604" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="25" x="624" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="26" x="644" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="27" x="664" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="28" x="684" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="29" x="704" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="30" x="724" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="31" x="744" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="32" x="764" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="33" x="784" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="34" x="804" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="35" x="824" y="102" width="20" height="740" /><rect class="modgraph-col-band" data-col="36" x="844" y="102" width="20" height="740" /><rect class="modgraph-diag" x="125" y="103" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="145" y="123" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="165" y="143" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="185" y="163" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="205" y="183" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="225" y="203" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="245" y="223" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="265" y="243" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="285" y="263" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="305" y="283" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="325" y="303" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="345" y="323" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="365" y="343" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="385" y="363" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="405" y="383" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="425" y="403" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="445" y="423" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="465" y="443" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="485" y="463" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="505" y="483" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="525" y="503" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="545" y="523" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="565" y="543" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="585" y="563" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="605" y="583" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="625" y="603" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="645" y="623" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="665" y="643" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="685" y="663" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="705" y="683" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="725" y="703" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="745" y="723" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="765" y="743" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="785" y="763" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="805" y="783" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="825" y="803" width="18" height="18" rx="1.5" /><rect class="modgraph-diag" x="845" y="823" width="18" height="18" rx="1.5" /><rect class="modgraph-cell" data-row="4" data-col="0" data-weight="20" x="125" y="183" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.95"><title>nutrition → common · 20 imports</title></rect><rect class="modgraph-cell" data-row="3" data-col="0" data-weight="19" x="125" y="163" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.938"><title>workouts → common · 19 imports</title></rect><rect class="modgraph-cell" data-row="11" data-col="0" data-weight="15" x="125" y="323" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.881"><title>ai-coaching → common · 15 imports</title></rect><rect class="modgraph-cell" data-row="9" data-col="0" data-weight="13" x="125" y="283" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.847"><title>admin → common · 13 imports</title></rect><rect class="modgraph-cell" data-row="5" data-col="0" data-weight="12" x="125" y="203" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.829"><title>consultation → common · 12 imports</title></rect><rect class="modgraph-cell" data-row="10" data-col="0" data-weight="10" x="125" y="303" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.786"><title>support → common · 10 imports</title></rect><rect class="modgraph-cell" data-row="4" data-col="2" data-weight="6" x="165" y="183" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.672"><title>nutrition → prisma · 6 imports</title></rect><rect class="modgraph-cell" data-row="7" data-col="2" data-weight="6" x="165" y="243" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.672"><title>notifications → prisma · 6 imports</title></rect><rect class="modgraph-cell" data-row="3" data-col="2" data-weight="5" x="165" y="163" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.633"><title>workouts → prisma · 5 imports</title></rect><rect class="modgraph-cell" data-row="5" data-col="2" data-weight="5" x="165" y="203" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.633"><title>consultation → prisma · 5 imports</title></rect><rect class="modgraph-cell" data-row="5" data-col="7" data-weight="5" x="265" y="203" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.633"><title>consultation → notifications · 5 imports</title></rect><rect class="modgraph-cell" data-row="6" data-col="0" data-weight="5" x="125" y="223" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.633"><title>workout-logging → common · 5 imports</title></rect><rect class="modgraph-cell" data-row="7" data-col="0" data-weight="5" x="125" y="243" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.633"><title>notifications → common · 5 imports</title></rect><rect class="modgraph-cell" data-row="8" data-col="0" data-weight="5" x="125" y="263" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.633"><title>programs → common · 5 imports</title></rect><rect class="modgraph-cell" data-row="11" data-col="2" data-weight="5" x="165" y="323" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.633"><title>ai-coaching → prisma · 5 imports</title></rect><rect class="modgraph-cell" data-row="12" data-col="0" data-weight="5" x="125" y="343" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.633"><title>auth → common · 5 imports</title></rect><rect class="modgraph-cell" data-row="13" data-col="0" data-weight="5" x="125" y="363" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.633"><title>goals → common · 5 imports</title></rect><rect class="modgraph-cell" data-row="3" data-col="7" data-weight="3" x="265" y="163" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.531"><title>workouts → notifications · 3 imports</title></rect><rect class="modgraph-cell" data-row="0" data-col="2" data-weight="3" x="165" y="103" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.531"><title>common → prisma · 3 imports</title></rect><rect class="modgraph-cell" data-row="5" data-col="8" data-weight="3" x="285" y="203" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.531"><title>consultation → programs · 3 imports</title></rect><rect class="modgraph-cell" data-row="6" data-col="2" data-weight="3" x="165" y="223" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.531"><title>workout-logging → prisma · 3 imports</title></rect><rect class="modgraph-cell" data-row="6" data-col="7" data-weight="3" x="265" y="223" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.531"><title>workout-logging → notifications · 3 imports</title></rect><rect class="modgraph-cell" data-row="8" data-col="2" data-weight="3" x="165" y="263" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.531"><title>programs → prisma · 3 imports</title></rect><rect class="modgraph-cell" data-row="9" data-col="2" data-weight="3" x="165" y="283" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.531"><title>admin → prisma · 3 imports</title></rect><rect class="modgraph-cell" data-row="12" data-col="2" data-weight="3" x="165" y="343" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.531"><title>auth → prisma · 3 imports</title></rect><rect class="modgraph-cell" data-row="13" data-col="2" data-weight="3" x="165" y="363" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.531"><title>goals → prisma · 3 imports</title></rect><rect class="modgraph-cell" data-row="14" data-col="0" data-weight="3" x="125" y="383" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.531"><title>analytics → common · 3 imports</title></rect><rect class="modgraph-cell" data-row="9" data-col="8" data-weight="2" x="285" y="283" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.458"><title>admin → programs · 2 imports</title></rect><rect class="modgraph-cell" data-row="9" data-col="7" data-weight="2" x="265" y="283" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.458"><title>admin → notifications · 2 imports</title></rect><rect class="modgraph-cell" data-row="10" data-col="2" data-weight="2" x="165" y="303" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.458"><title>support → prisma · 2 imports</title></rect><rect class="modgraph-cell" data-row="14" data-col="2" data-weight="2" x="165" y="383" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.458"><title>analytics → prisma · 2 imports</title></rect><rect class="modgraph-cell" data-row="3" data-col="5" data-weight="1" x="225" y="163" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.355"><title>workouts → consultation · 1 import</title></rect><rect class="modgraph-cell" data-row="0" data-col="12" data-weight="1" x="365" y="103" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.355"><title>common → auth · 1 import</title></rect><rect class="modgraph-cell" data-row="7" data-col="3" data-weight="1" x="185" y="243" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.355"><title>notifications → workouts · 1 import</title></rect><rect class="modgraph-cell" data-row="8" data-col="12" data-weight="1" x="365" y="263" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.355"><title>programs → auth · 1 import</title></rect><rect class="modgraph-cell" data-row="9" data-col="5" data-weight="1" x="225" y="283" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.355"><title>admin → consultation · 1 import</title></rect><rect class="modgraph-cell" data-row="11" data-col="7" data-weight="1" x="265" y="323" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.355"><title>ai-coaching → notifications · 1 import</title></rect><rect class="modgraph-cell" data-row="13" data-col="12" data-weight="1" x="365" y="363" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.355"><title>goals → auth · 1 import</title></rect><rect class="modgraph-cell" data-row="28" data-col="32" data-weight="1" x="765" y="663" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.355"><title>api → auth · 1 import</title></rect><rect class="modgraph-cell" data-row="28" data-col="29" data-weight="1" x="705" y="663" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.355"><title>api → cache · 1 import</title></rect><rect class="modgraph-cell" data-row="29" data-col="28" data-weight="1" x="685" y="683" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.355"><title>cache → api · 1 import</title></rect><rect class="modgraph-cell" data-row="31" data-col="28" data-weight="1" x="685" y="723" width="18" height="18" rx="1.5" fill="var(--accent)" fill-opacity="0.355"><title>notifications → api · 1 import</title></rect><line class="modgraph-domain-line" x1="184" y1="94" x2="184" y2="842" /><line class="modgraph-domain-line" x1="116" y1="162" x2="864" y2="162" /><line class="modgraph-domain-line" x1="524" y1="94" x2="524" y2="842" /><line class="modgraph-domain-line" x1="116" y1="502" x2="864" y2="502" /><line class="modgraph-domain-line" x1="684" y1="94" x2="684" y2="842" /><line class="modgraph-domain-line" x1="116" y1="662" x2="864" y2="662" /><line class="modgraph-svc-line" x1="424" y1="94" x2="424" y2="842" /><line class="modgraph-svc-line" x1="116" y1="402" x2="864" y2="402" /><line class="modgraph-svc-line" x1="644" y1="94" x2="644" y2="842" /><line class="modgraph-svc-line" x1="116" y1="622" x2="864" y2="622" /><line class="modgraph-svc-line" x1="784" y1="94" x2="784" y2="842" /><line class="modgraph-svc-line" x1="116" y1="762" x2="864" y2="762" /><rect x="124" y="102" width="740" height="740" fill="none" stroke="var(--border)" stroke-width="1" /><text class="modgraph-label" data-row="0" x="110" y="115.8" text-anchor="end" font-size="11">common</text><text class="modgraph-label" data-row="1" x="110" y="135.8" text-anchor="end" font-size="11">config</text><text class="modgraph-label" data-row="2" x="110" y="155.8" text-anchor="end" font-size="11">prisma</text><text class="modgraph-label" data-row="3" x="110" y="175.8" text-anchor="end" font-size="11">workouts</text><text class="modgraph-label" data-row="4" x="110" y="195.8" text-anchor="end" font-size="11">nutrition</text><text class="modgraph-label" data-row="5" x="110" y="215.8" text-anchor="end" font-size="11">consultation</text><text class="modgraph-label" data-row="6" x="110" y="235.8" text-anchor="end" font-size="11">workout-logging</text><text class="modgraph-label" data-row="7" x="110" y="255.8" text-anchor="end" font-size="11">notifications</text><text class="modgraph-label" data-row="8" x="110" y="275.9" text-anchor="end" font-size="11">programs</text><text class="modgraph-label" data-row="9" x="110" y="295.9" text-anchor="end" font-size="11">admin</text><text class="modgraph-label" data-row="10" x="110" y="315.9" text-anchor="end" font-size="11">support</text><text class="modgraph-label" data-row="11" x="110" y="335.9" text-anchor="end" font-size="11">ai-coaching</text><text class="modgraph-label" data-row="12" x="110" y="355.9" text-anchor="end" font-size="11">auth</text><text class="modgraph-label" data-row="13" x="110" y="375.9" text-anchor="end" font-size="11">goals</text><text class="modgraph-label" data-row="14" x="110" y="395.9" text-anchor="end" font-size="11">analytics</text><text class="modgraph-label" data-row="15" x="110" y="415.9" text-anchor="end" font-size="11">api</text><text class="modgraph-label" data-row="16" x="110" y="435.9" text-anchor="end" font-size="11">db</text><text class="modgraph-label" data-row="17" x="110" y="455.9" text-anchor="end" font-size="11">core</text><text class="modgraph-label" data-row="18" x="110" y="475.9" text-anchor="end" font-size="11">prompts</text><text class="modgraph-label" data-row="19" x="110" y="495.9" text-anchor="end" font-size="11">utils</text><text class="modgraph-label" data-row="20" x="110" y="515.9" text-anchor="end" font-size="11">analysis</text><text class="modgraph-label" data-row="21" x="110" y="535.9" text-anchor="end" font-size="11">planning</text><text class="modgraph-label" data-row="22" x="110" y="555.9" text-anchor="end" font-size="11">coach</text><text class="modgraph-label" data-row="23" x="110" y="575.9" text-anchor="end" font-size="11">embeddings</text><text class="modgraph-label" data-row="24" x="110" y="595.9" text-anchor="end" font-size="11">llm</text><text class="modgraph-label" data-row="25" x="110" y="615.9" text-anchor="end" font-size="11">voice</text><text class="modgraph-label" data-row="26" x="110" y="635.9" text-anchor="end" font-size="11">(app)</text><text class="modgraph-label" data-row="27" x="110" y="655.9" text-anchor="end" font-size="11">(auth)</text><text class="modgraph-label" data-row="28" x="110" y="675.9" text-anchor="end" font-size="11">api</text><text class="modgraph-label" data-row="29" x="110" y="695.9" text-anchor="end" font-size="11">cache</text><text class="modgraph-label" data-row="30" x="110" y="715.9" text-anchor="end" font-size="11">websocket</text><text class="modgraph-label" data-row="31" x="110" y="735.9" text-anchor="end" font-size="11">notifications</text><text class="modgraph-label" data-row="32" x="110" y="755.9" text-anchor="end" font-size="11">auth</text><text class="modgraph-label" data-row="33" x="110" y="775.9" text-anchor="end" font-size="11">analysis</text><text class="modgraph-label" data-row="34" x="110" y="795.9" text-anchor="end" font-size="11">.github</text><text class="modgraph-label" data-row="35" x="110" y="815.9" text-anchor="end" font-size="11">docs</text><text class="modgraph-label" data-row="36" x="110" y="835.9" text-anchor="end" font-size="11">scripts</text><text class="modgraph-label" data-col="0" x="134.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 134.0 88.0)">common</text><text class="modgraph-label" data-col="1" x="154.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 154.0 88.0)">config</text><text class="modgraph-label" data-col="2" x="174.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 174.0 88.0)">prisma</text><text class="modgraph-label" data-col="3" x="194.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 194.0 88.0)">workouts</text><text class="modgraph-label" data-col="4" x="214.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 214.0 88.0)">nutrition</text><text class="modgraph-label" data-col="5" x="234.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 234.0 88.0)">consultation</text><text class="modgraph-label" data-col="6" x="254.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 254.0 88.0)">workout-logging</text><text class="modgraph-label" data-col="7" x="274.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 274.0 88.0)">notifications</text><text class="modgraph-label" data-col="8" x="294.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 294.0 88.0)">programs</text><text class="modgraph-label" data-col="9" x="314.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 314.0 88.0)">admin</text><text class="modgraph-label" data-col="10" x="334.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 334.0 88.0)">support</text><text class="modgraph-label" data-col="11" x="354.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 354.0 88.0)">ai-coaching</text><text class="modgraph-label" data-col="12" x="374.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 374.0 88.0)">auth</text><text class="modgraph-label" data-col="13" x="394.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 394.0 88.0)">goals</text><text class="modgraph-label" data-col="14" x="414.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 414.0 88.0)">analytics</text><text class="modgraph-label" data-col="15" x="434.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 434.0 88.0)">api</text><text class="modgraph-label" data-col="16" x="454.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 454.0 88.0)">db</text><text class="modgraph-label" data-col="17" x="474.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 474.0 88.0)">core</text><text class="modgraph-label" data-col="18" x="494.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 494.0 88.0)">prompts</text><text class="modgraph-label" data-col="19" x="514.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 514.0 88.0)">utils</text><text class="modgraph-label" data-col="20" x="534.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 534.0 88.0)">analysis</text><text class="modgraph-label" data-col="21" x="554.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 554.0 88.0)">planning</text><text class="modgraph-label" data-col="22" x="574.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 574.0 88.0)">coach</text><text class="modgraph-label" data-col="23" x="594.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 594.0 88.0)">embeddings</text><text class="modgraph-label" data-col="24" x="614.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 614.0 88.0)">llm</text><text class="modgraph-label" data-col="25" x="634.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 634.0 88.0)">voice</text><text class="modgraph-label" data-col="26" x="654.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 654.0 88.0)">(app)</text><text class="modgraph-label" data-col="27" x="674.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 674.0 88.0)">(auth)</text><text class="modgraph-label" data-col="28" x="694.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 694.0 88.0)">api</text><text class="modgraph-label" data-col="29" x="714.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 714.0 88.0)">cache</text><text class="modgraph-label" data-col="30" x="734.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 734.0 88.0)">websocket</text><text class="modgraph-label" data-col="31" x="754.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 754.0 88.0)">notifications</text><text class="modgraph-label" data-col="32" x="774.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 774.0 88.0)">auth</text><text class="modgraph-label" data-col="33" x="794.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 794.0 88.0)">analysis</text><text class="modgraph-label" data-col="34" x="814.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 814.0 88.0)">.github</text><text class="modgraph-label" data-col="35" x="834.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 834.0 88.0)">docs</text><text class="modgraph-label" data-col="36" x="854.0" y="88.0" text-anchor="start" font-size="11" transform="rotate(-45 854.0 88.0)">scripts</text><text class="modgraph-axis-title" x="494.0" y="14" text-anchor="middle">IMPORTS → (target module)</text><text class="modgraph-axis-title" x="14" y="472.0" text-anchor="middle" transform="rotate(-90 14 472.0)">← IMPORTING module (source)</text></svg></div>
+    <div class="modgraph-tip" role="status" aria-live="polite"></div>
+  </div>
+  <p class="diagram-note">Import detection currently supports <strong>Python, JavaScript, TypeScript, and Go</strong>. These languages appear here but were not parsed: <em>HTML, JSON, Markdown, SQL, Shell, YAML</em>.</p>
+  <aside class="observations" role="note"><div class="observations-label">Observations</div><ul><li><strong><code>admin</code></strong> in <code>Back-End-FitTalk</code> imports from <strong>5</strong> other modules — the highest fan-out in the codebase. Watch for god-module drift.</li><li><strong><code>prisma</code></strong> in <code>Back-End-FitTalk</code> is depended on by <strong>13</strong> other modules — any change here ripples widely; treat as a stable interface.</li><li><strong>Zero cross-service imports</strong> were detected — services are fully decoupled at the file level. Network calls (see the topology section) are the only inter-service contract.</li><li><strong><code>prisma</code></strong> is a <em>utility hub</em> — <strong>13</strong> modules depend on it. Strong consistency benefit; also a single point of churn when its API evolves.</li></ul></aside>
+  
+<div class="modgraph-bento">
+  <div class="modgraph-tile is-donut">
+    <div class="tile-label">Composition</div>
+    <div class="tile-headline">Lines of code by service</div>
+    <div class="tile-body" style="width:100%;"><div style="display:flex; flex-direction:column; align-items:center;"><svg viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="Service composition donut"><circle cx="80.0" cy="80.0" r="60" fill="none" stroke="#3178c6" stroke-width="22" stroke-dasharray="203.563 173.429" stroke-dashoffset="-0.000" transform="rotate(-90 80.0 80.0)"><title>Back-End-FitTalk · 79,908 LOC · 54.0%</title></circle><circle cx="80.0" cy="80.0" r="60" fill="none" stroke="#e34c26" stroke-width="22" stroke-dasharray="103.954 273.037" stroke-dashoffset="-203.563" transform="rotate(-90 80.0 80.0)"><title>FitTalk_AI · 40,807 LOC · 27.6%</title></circle><circle cx="80.0" cy="80.0" r="60" fill="none" stroke="#292929" stroke-width="22" stroke-dasharray="69.474 307.517" stroke-dashoffset="-307.517" transform="rotate(-90 80.0 80.0)"><title>Front-End-FitTalk · 27,272 LOC · 18.4%</title></circle><text x="80.0" y="78.0" text-anchor="middle" font-family="var(--font-serif)" font-size="20" font-weight="600" fill="var(--ink)">147,987</text><text x="80.0" y="94.0" text-anchor="middle" font-family="var(--font-mono)" font-size="9" letter-spacing="0.08em" fill="var(--muted)">LOC TOTAL</text></svg><div class="donut-legend"><div class="donut-legend-row"><span class="swatch" style="background:#3178c6;"></span><span class="name">Back-End-FitTalk</span><span class="pct">54.0%</span></div><div class="donut-legend-row"><span class="swatch" style="background:#e34c26;"></span><span class="name">FitTalk_AI</span><span class="pct">27.6%</span></div><div class="donut-legend-row"><span class="swatch" style="background:#292929;"></span><span class="name">Front-End-FitTalk</span><span class="pct">18.4%</span></div></div></div></div>
+  </div>
+  <div class="modgraph-tile">
+    <div class="tile-label">Hottest edges</div>
+    <div class="tile-headline">Top imports between modules</div>
+    <div class="tile-body"><ul class="modgraph-edge-list"><li><span class="arc"><strong>nutrition</strong><span class="arrow">→</span><strong>common</strong> <span class="svc">Back-End-FitTalk</span></span><span class="weight">20</span></li><li><span class="arc"><strong>workouts</strong><span class="arrow">→</span><strong>common</strong> <span class="svc">Back-End-FitTalk</span></span><span class="weight">19</span></li><li><span class="arc"><strong>ai-coaching</strong><span class="arrow">→</span><strong>common</strong> <span class="svc">Back-End-FitTalk</span></span><span class="weight">15</span></li><li><span class="arc"><strong>admin</strong><span class="arrow">→</span><strong>common</strong> <span class="svc">Back-End-FitTalk</span></span><span class="weight">13</span></li><li><span class="arc"><strong>consultation</strong><span class="arrow">→</span><strong>common</strong> <span class="svc">Back-End-FitTalk</span></span><span class="weight">12</span></li><li><span class="arc"><strong>support</strong><span class="arrow">→</span><strong>common</strong> <span class="svc">Back-End-FitTalk</span></span><span class="weight">10</span></li><li><span class="arc"><strong>nutrition</strong><span class="arrow">→</span><strong>prisma</strong> <span class="svc">Back-End-FitTalk</span></span><span class="weight">6</span></li><li><span class="arc"><strong>notifications</strong><span class="arrow">→</span><strong>prisma</strong> <span class="svc">Back-End-FitTalk</span></span><span class="weight">6</span></li><li><span class="arc"><strong>workouts</strong><span class="arrow">→</span><strong>prisma</strong> <span class="svc">Back-End-FitTalk</span></span><span class="weight">5</span></li><li><span class="arc"><strong>consultation</strong><span class="arrow">→</span><strong>prisma</strong> <span class="svc">Back-End-FitTalk</span></span><span class="weight">5</span></li></ul><p class="modgraph-tile-foot">Modules named <code>common</code>, <code>shared</code>, <code>prisma</code>, <code>utils</code>, or <code>core</code> are within-service infrastructure libraries — the database client, type definitions, validation helpers, and so on. Every other module in the same service usually imports from them, which is why they top the rankings.</p></div>
+  </div>
+  <div class="modgraph-tile">
+    <div class="tile-label">Entry points</div>
+    <div class="tile-headline">Modules exposing HTTP endpoints</div>
+    <div class="tile-body"><ul class="modgraph-entry-list"><li><span class="mod-name">nutrition<span class="mod-svc">Back-End-FitTalk</span></span><span class="count">20 endpoints</span></li><li><span class="mod-name">workouts<span class="mod-svc">Back-End-FitTalk</span></span><span class="count">19 endpoints</span></li><li><span class="mod-name">programs<span class="mod-svc">Back-End-FitTalk</span></span><span class="count">13 endpoints</span></li><li><span class="mod-name">admin<span class="mod-svc">Back-End-FitTalk</span></span><span class="count">13 endpoints</span></li><li><span class="mod-name">auth<span class="mod-svc">Back-End-FitTalk</span></span><span class="count">12 endpoints</span></li><li><span class="mod-name">consultation<span class="mod-svc">Back-End-FitTalk</span></span><span class="count">10 endpoints</span></li><li><span class="mod-name">api<span class="mod-svc">FitTalk_AI</span></span><span class="count">9 endpoints</span></li><li><span class="mod-name">ai-coaching<span class="mod-svc">Back-End-FitTalk</span></span><span class="count">7 endpoints</span></li></ul></div>
+  </div>
+  <div class="modgraph-tile">
+    <div class="tile-label">Languages</div>
+    <div class="tile-headline">Used inside the modules above</div>
+    <div class="tile-body"><div class="modgraph-langs-cloud"><span class="lang-pill"><span class="swatch" style="background:#3178c6;"></span>TypeScript<span class="share">77%</span></span><span class="lang-pill"><span class="swatch" style="background:#3572A5;"></span>Python<span class="share">16%</span></span><span class="lang-pill"><span class="swatch" style="background:#292929;"></span>JSON<span class="share">5%</span></span><span class="lang-pill"><span class="swatch" style="background:#cb171e;"></span>YAML<span class="share">1%</span></span><span class="lang-pill"><span class="swatch" style="background:#083fa1;"></span>Markdown<span class="share">1%</span></span><span class="lang-pill"><span class="swatch" style="background:#89e051;"></span>Shell<span class="share">0%</span></span></div></div>
+  </div>
+</div>
+
+</section>
+<script>
+(function () {
+  var frame = document.getElementById('codemap-modgraph-section');
+  if (!frame) return;
+  var svg = frame.querySelector('.modgraph-matrix');
+  if (!svg) return;
+  var rowBands = svg.querySelectorAll('.modgraph-row-band');
+  var colBands = svg.querySelectorAll('.modgraph-col-band');
+  var labels = svg.querySelectorAll('.modgraph-label');
+  var tip = frame.querySelector('.modgraph-tip');
+
+  function setActive(row, col) {
+    if (row == null && col == null) {
+      svg.classList.remove('modgraph-hovered');
+      rowBands.forEach(function (el) { el.removeAttribute('data-active'); });
+      colBands.forEach(function (el) { el.removeAttribute('data-active'); });
+      labels.forEach(function (el) { el.classList.remove('is-active'); });
+      if (tip) tip.style.opacity = 0;
+      return;
+    }
+    svg.classList.add('modgraph-hovered');
+    rowBands.forEach(function (el) {
+      el.setAttribute('data-active', el.getAttribute('data-row') === String(row) ? '1' : '0');
+    });
+    colBands.forEach(function (el) {
+      el.setAttribute('data-active', el.getAttribute('data-col') === String(col) ? '1' : '0');
+    });
+    labels.forEach(function (el) {
+      var r = el.getAttribute('data-row');
+      var c = el.getAttribute('data-col');
+      var active = (r != null && r === String(row)) || (c != null && c === String(col));
+      el.classList.toggle('is-active', active);
+    });
+  }
+
+  // Safe tooltip construction: build the DOM nodes with createElement +
+  // textContent so a module name like `<img onerror=...>` (which would
+  // have round-tripped through escape() → SVG text → .textContent and
+  // come back un-escaped) can never be re-interpreted as HTML here.
+  function buildTipContent(rowName, colName, weight) {
+    var frag = document.createDocumentFragment();
+    var srcStrong = document.createElement('strong');
+    srcStrong.textContent = rowName;
+    var arrow = document.createElement('span');
+    arrow.className = 't-arrow';
+    arrow.textContent = ' imports ';
+    var tgtStrong = document.createElement('strong');
+    tgtStrong.textContent = colName;
+    var br = document.createElement('br');
+    var meta = document.createElement('span');
+    meta.className = 't-meta';
+    meta.textContent = weight + ' import' + (weight === 1 ? '' : 's');
+    frag.appendChild(srcStrong);
+    frag.appendChild(arrow);
+    frag.appendChild(tgtStrong);
+    frag.appendChild(br);
+    frag.appendChild(meta);
+    return frag;
+  }
+
+  svg.addEventListener('mouseover', function (e) {
+    var t = e.target;
+    if (!(t instanceof Element)) return;
+    var cell = t.closest('.modgraph-cell');
+    if (cell) {
+      var row = parseInt(cell.getAttribute('data-row'), 10);
+      var col = parseInt(cell.getAttribute('data-col'), 10);
+      var weight = parseInt(cell.getAttribute('data-weight'), 10) || 0;
+      setActive(row, col);
+      if (tip) {
+        var rowLabel = svg.querySelector('.modgraph-label[data-row="' + row + '"]');
+        var colLabel = svg.querySelector('.modgraph-label[data-col="' + col + '"]');
+        var rowName = rowLabel ? rowLabel.textContent : '#' + row;
+        var colName = colLabel ? colLabel.textContent : '#' + col;
+        // Clear and repopulate via DOM API — never innerHTML.
+        while (tip.firstChild) tip.removeChild(tip.firstChild);
+        tip.appendChild(buildTipContent(rowName, colName, weight));
+        tip.style.opacity = 1;
+      }
+    }
+  });
+  svg.addEventListener('mousemove', function (e) {
+    if (!tip || tip.style.opacity === '0') return;
+    var rect = frame.getBoundingClientRect();
+    tip.style.left = (e.clientX - rect.left + 14) + 'px';
+    tip.style.top  = (e.clientY - rect.top + 14) + 'px';
+  });
+  svg.addEventListener('mouseleave', function () { setActive(null, null); });
+})();
+</script>
+
+<section id="codemap-topov2-section">
+  <h2>How the services talk to each other</h2>
+  <p class="section-intro">Each card is a separately-deployable service — its own app or process, with its own deployment lifecycle. The coloured strip across the top and the badge in the corner tell you what kind of service it is (<em>frontend</em>, <em>backend</em>, <em>worker</em>, …). The arrows between cards are <strong>HTTP calls</strong> aggregated across every route the source service makes to the target — the number on each arrow is the total call count, so thicker arrows mean heavier traffic. Where the matrix above showed file-level imports inside services, this view shows the conversation between services across the network.</p>
+  <div class="topov2-frame">
+    <p class="topov2-headline"><strong>3 services</strong> form a linear chain: <strong>Front-End-FitTalk</strong> → <strong>Back-End-FitTalk</strong> → <strong>FitTalk_AI</strong>. <strong>Front-End-FitTalk</strong> drives the bulk of the traffic with <strong>54 calls</strong> to its downstream.</p>
+    <div class="topov2-wrap"><svg class="topov2-svg" viewBox="0 0 840 168" width="840" role="img" aria-label="Service topology"><defs><marker id="topov2-arrow" viewBox="0 -5 10 10" refX="9" refY="0" markerWidth="7" markerHeight="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,-5L10,0L0,5" fill="oklch(38% 0.012 250 / 0.7)"/></marker></defs><path class="topov2-edge" d="M240.0,76.0 L306.0,76.0" stroke-width="6.5" marker-end="url(#topov2-arrow)"><title>Front-End-FitTalk → Back-End-FitTalk · 54 calls</title></path><rect class="topov2-edge-label-bg" x="245.0" y="67.0" width="60" height="18" rx="9" /><text class="topov2-edge-label" x="275.0" y="79.5" text-anchor="middle">54 calls</text><path class="topov2-edge" d="M530.0,76.0 L596.0,76.0" stroke-width="2.36" marker-end="url(#topov2-arrow)"><title>Back-End-FitTalk → FitTalk_AI · 1 call</title></path><rect class="topov2-edge-label-bg" x="541.0" y="67.0" width="48" height="18" rx="9" /><text class="topov2-edge-label" x="565.0" y="79.5" text-anchor="middle">1 call</text><rect class="topov2-node-bg" x="310.0" y="16.0" width="220" height="120" rx="10" /><rect class="topov2-node-stripe" x="310.0" y="16.0" width="220" height="5" rx="10" fill="#cc785c" /><rect x="310.0" y="18.0" width="220" height="3" fill="#cc785c" /><text class="topov2-node-title" x="326.0" y="49.0" font-size="14.5">Back-End-FitTalk</text><rect class="topov2-kind-chip" x="464.0" y="35.0" width="54" height="16" rx="4" fill="#cc785c" /><text class="topov2-kind-chip-text" x="491.0" y="46.5" text-anchor="middle">BACKEND</text><text class="topov2-node-stack" x="326.0" y="67.0" font-size="11">@nestjs/ · express · fastify</text><text class="topov2-node-stat" x="326.0" y="120.0" font-size="10.5">79.9k LOC · 249 files</text><rect class="topov2-node-bg" x="600.0" y="16.0" width="220" height="120" rx="10" /><rect class="topov2-node-stripe" x="600.0" y="16.0" width="220" height="5" rx="10" fill="#cc785c" /><rect x="600.0" y="18.0" width="220" height="3" fill="#cc785c" /><text class="topov2-node-title" x="616.0" y="49.0" font-size="14.5">FitTalk_AI</text><rect class="topov2-kind-chip" x="754.0" y="35.0" width="54" height="16" rx="4" fill="#cc785c" /><text class="topov2-kind-chip-text" x="781.0" y="46.5" text-anchor="middle">BACKEND</text><text class="topov2-node-stack" x="616.0" y="67.0" font-size="11">fastapi</text><text class="topov2-node-stat" x="616.0" y="120.0" font-size="10.5">40.8k LOC · 165 files</text><rect class="topov2-node-bg" x="20.0" y="16.0" width="220" height="120" rx="10" /><rect class="topov2-node-stripe" x="20.0" y="16.0" width="220" height="5" rx="10" fill="#7aa2f7" /><rect x="20.0" y="18.0" width="220" height="3" fill="#7aa2f7" /><text class="topov2-node-title" x="36.0" y="49.0" font-size="14.5">Front-End-FitTalk</text><rect class="topov2-kind-chip" x="168.0" y="35.0" width="60" height="16" rx="4" fill="#7aa2f7" /><text class="topov2-kind-chip-text" x="198.0" y="46.5" text-anchor="middle">FRONTEND</text><text class="topov2-node-stack" x="36.0" y="67.0" font-size="11">expo · react · react-dom · re…</text><text class="topov2-node-stat" x="36.0" y="120.0" font-size="10.5">27.3k LOC · 92 files</text></svg></div>
+  </div>
+  <p class="diagram-note"><strong>16</strong> outbound HTTP calls couldn't be matched to a known endpoint — likely external APIs, dynamic URLs, or routes the scanner didn't pick up. They're not drawn above.</p>
+  <aside class="observations" role="note"><div class="observations-label">Observations</div><ul><li><strong>Back-End-FitTalk</strong> sits on <strong>2</strong> of the 2 call edges — it's the network hub. Loss of this service breaks the most flows.</li><li><strong>98%</strong> of all inter-service traffic flows on a single edge: <strong>Front-End-FitTalk</strong> → <strong>Back-End-FitTalk</strong>. That edge is the system's primary failure-correlation surface.</li><li><strong>2 server frameworks</strong> are in use (<code>FastAPI, NestJS</code>) — heterogeneous, meaning observability, middleware, and request-handling conventions differ per service.</li><li><strong>16</strong> outbound HTTP calls didn't resolve to a known endpoint — likely external APIs, dynamic URLs, or routes the scanner missed. They aren't drawn in the diagram.</li></ul></aside>
+  
+<div class="topov2-bento">
+  <div class="topov2-tile">
+    <div class="tile-label">Call relationships</div>
+    <div class="tile-headline">Who each service talks to</div>
+    <div class="tile-body"><ul class="topov2-call-list"><li><div class="svc-name">Back-End-FitTalk</div><div class="neighbours"><div class="row"><span>← Front-End-FitTalk</span><span class="count">54</span></div><div class="row"><span>→ FitTalk_AI</span><span class="count">1</span></div></div></li><li><div class="svc-name">FitTalk_AI</div><div class="neighbours"><div class="row"><span>← Back-End-FitTalk</span><span class="count">1</span></div></div></li><li><div class="svc-name">Front-End-FitTalk</div><div class="neighbours"><div class="row"><span>→ Back-End-FitTalk</span><span class="count">54</span></div></div></li></ul></div>
+  </div>
+  <div class="topov2-tile">
+    <div class="tile-label">Entry points</div>
+    <div class="tile-headline">Modules exposing HTTP endpoints per service</div>
+    <div class="tile-body"><ul class="topov2-call-list"><li><div class="svc-name">Back-End-FitTalk</div><div class="neighbours"><div class="row"><span>nutrition</span><span class="count">20</span></div><div class="row"><span>workouts</span><span class="count">19</span></div><div class="row"><span>programs</span><span class="count">13</span></div></div></li><li><div class="svc-name">FitTalk_AI</div><div class="neighbours"><div class="row"><span>api</span><span class="count">9</span></div><div class="row"><span>utils</span><span class="count">2</span></div><div class="row"><span>core</span><span class="count">2</span></div></div></li></ul></div>
+  </div>
+  <div class="topov2-tile">
+    <div class="tile-label">Server frameworks</div>
+    <div class="tile-headline">Detected from route declarations</div>
+    <div class="tile-body"><div class="topov2-fw-cloud"><span class="fw-pill">FastAPI</span><span class="fw-pill">NestJS</span></div></div>
+  </div>
+  <div class="topov2-tile">
+    <div class="tile-label">HTTP clients</div>
+    <div class="tile-headline">Libraries used to make outbound calls</div>
+    <div class="tile-body">
+      <div class="topov2-fw-cloud"><span class="fw-pill">aiohttp</span><span class="fw-pill">axios</span><span class="fw-pill">fetch</span><span class="fw-pill">httpClient (custom)</span><span class="fw-pill">local API wrapper</span><span class="fw-pill">requests/httpx</span></div>
+      <div style="margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border);">
+        <div class="topov2-stat-row"><span class="k">Resolved calls</span><span class="v">55</span></div><div class="topov2-stat-row"><span class="k">Unresolved calls</span><span class="v ">16</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</section>
+
+<section id="codemap-cpaths-section">
+  <h2>What happens when a request flows through</h2>
+  <p class="section-intro">Where the diagrams above show <em>structure</em>, this one shows <em>behaviour</em> — what happens when a request flows through the system. Each row is one <strong>entry-point module</strong>: the caller(s) on the left, the module receiving the request in the middle, that module's key code dependencies, and the data store the flow ultimately writes to on the right. Reading top-to-bottom gives you a near-complete map of which HTTP surfaces exist in this codebase and how each one connects all the way down to persistence.</p>
+  <div class="cpaths-frame">
+    <p class="cpaths-headline"><strong>16 entry-point modules</strong> expose HTTP endpoints in this codebase. The rows below trace each one from <em>caller</em> to <em>data store</em>; <strong>8</strong> have a complete caller→deps→store chain detected.</p>
+    <div class="cpaths-wrap"><svg class="cpaths-svg" viewBox="0 0 864 864" width="864" role="img" aria-label="Critical paths"><defs><marker id="cpaths-arrow" viewBox="0 -5 10 10" refX="6" refY="0" markerWidth="6" markerHeight="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,-5L10,0L0,5" fill="oklch(38% 0.012 250 / 0.55)"/></marker></defs><text class="cpaths-header-text" x="81.0" y="30.0" text-anchor="middle">CALLERS</text><text class="cpaths-header-text" x="280.0" y="30.0" text-anchor="middle">ENTRY MODULE</text><text class="cpaths-header-text" x="554.0" y="30.0" text-anchor="middle">KEY DEPENDENCIES</text><text class="cpaths-header-text" x="783.0" y="30.0" text-anchor="middle">STORE</text><rect class="cpaths-row-stripe is-even" x="16" y="48.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-odd" x="16" y="98.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-even" x="16" y="148.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-odd" x="16" y="198.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-even" x="16" y="248.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-odd" x="16" y="298.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-even" x="16" y="348.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-odd" x="16" y="398.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-even" x="16" y="448.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-odd" x="16" y="498.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-even" x="16" y="548.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-odd" x="16" y="598.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-even" x="16" y="648.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-odd" x="16" y="698.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-even" x="16" y="748.0" width="832" height="50" rx="6" /><rect class="cpaths-row-stripe is-odd" x="16" y="798.0" width="832" height="50" rx="6" /><rect class="cpaths-caller-pill" x="16" y="64.0" width="113.2" height="18" rx="9" fill="#7aa2f7" /><text class="cpaths-caller-text" x="72.6" y="76.5" text-anchor="middle">Front-End-FitTa…</text><path class="cpaths-arrow" d="M146 73.0 L166 73.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="54.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="71.0">nutrition</text><rect class="cpaths-ep-badge" x="307.2" y="58.0" width="76.8" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="345.6" y="68.5" text-anchor="middle">20 endpoints</text><text class="cpaths-entry-sample" x="180" y="87.0">GET /api/v1/nutrition/foods/:id</text><path class="cpaths-arrow" d="M390 73.0 L410 73.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-dep-pill is-shared" x="414.0" y="64.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="439.5" y="76.5" text-anchor="middle">common</text><rect class="cpaths-dep-pill is-shared" x="471.0" y="64.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="496.5" y="76.5" text-anchor="middle">prisma</text><path class="cpaths-arrow" d="M694 73.0 L714 73.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="63.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="76.5" text-anchor="middle">PostgreSQL</text><rect class="cpaths-caller-pill" x="16" y="114.0" width="113.2" height="18" rx="9" fill="#7aa2f7" /><text class="cpaths-caller-text" x="72.6" y="126.5" text-anchor="middle">Front-End-FitTa…</text><path class="cpaths-arrow" d="M146 123.0 L166 123.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="104.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="121.0">workouts</text><rect class="cpaths-ep-badge" x="307.2" y="108.0" width="76.8" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="345.6" y="118.5" text-anchor="middle">19 endpoints</text><text class="cpaths-entry-sample" x="180" y="137.0">POST /api/v1/workouts/schedule/we…</text><path class="cpaths-arrow" d="M390 123.0 L410 123.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-dep-pill is-shared" x="414.0" y="114.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="439.5" y="126.5" text-anchor="middle">common</text><rect class="cpaths-dep-pill is-shared" x="471.0" y="114.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="496.5" y="126.5" text-anchor="middle">prisma</text><rect class="cpaths-dep-pill" x="528.0" y="114.0" width="96.5" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="576.2" y="126.5" text-anchor="middle">notifications</text><text class="cpaths-dep-overflow" x="632.5" y="126.5">+1</text><path class="cpaths-arrow" d="M694 123.0 L714 123.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="113.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="126.5" text-anchor="middle">PostgreSQL</text><rect class="cpaths-caller-pill" x="16" y="164.0" width="113.2" height="18" rx="9" fill="#7aa2f7" /><text class="cpaths-caller-text" x="72.6" y="176.5" text-anchor="middle">Front-End-FitTa…</text><path class="cpaths-arrow" d="M146 173.0 L166 173.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="154.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="171.0">programs</text><rect class="cpaths-ep-badge" x="307.2" y="158.0" width="76.8" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="345.6" y="168.5" text-anchor="middle">13 endpoints</text><text class="cpaths-entry-sample" x="180" y="187.0">POST /api/v1/programs</text><path class="cpaths-arrow" d="M390 173.0 L410 173.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-dep-pill is-shared" x="414.0" y="164.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="439.5" y="176.5" text-anchor="middle">common</text><rect class="cpaths-dep-pill is-shared" x="471.0" y="164.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="496.5" y="176.5" text-anchor="middle">prisma</text><rect class="cpaths-dep-pill" x="528.0" y="164.0" width="48.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="552.0" y="176.5" text-anchor="middle">auth</text><path class="cpaths-arrow" d="M694 173.0 L714 173.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="163.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="176.5" text-anchor="middle">PostgreSQL</text><text class="cpaths-empty-cell" x="81.0" y="226.0" text-anchor="middle">— no caller detected</text><path class="cpaths-arrow" d="M146 223.0 L166 223.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="204.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="221.0">admin</text><rect class="cpaths-ep-badge" x="307.2" y="208.0" width="76.8" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="345.6" y="218.5" text-anchor="middle">13 endpoints</text><text class="cpaths-entry-sample" x="180" y="237.0">GET /api/v1/admin/users</text><path class="cpaths-arrow" d="M390 223.0 L410 223.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-dep-pill is-shared" x="414.0" y="214.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="439.5" y="226.5" text-anchor="middle">common</text><rect class="cpaths-dep-pill is-shared" x="471.0" y="214.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="496.5" y="226.5" text-anchor="middle">prisma</text><rect class="cpaths-dep-pill" x="528.0" y="214.0" width="64.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="560.0" y="226.5" text-anchor="middle">programs</text><text class="cpaths-dep-overflow" x="600.0" y="226.5">+2</text><path class="cpaths-arrow" d="M694 223.0 L714 223.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="213.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="226.5" text-anchor="middle">PostgreSQL</text><rect class="cpaths-caller-pill" x="16" y="264.0" width="113.2" height="18" rx="9" fill="#7aa2f7" /><text class="cpaths-caller-text" x="72.6" y="276.5" text-anchor="middle">Front-End-FitTa…</text><path class="cpaths-arrow" d="M146 273.0 L166 273.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="254.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="271.0">auth</text><rect class="cpaths-ep-badge" x="307.2" y="258.0" width="76.8" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="345.6" y="268.5" text-anchor="middle">12 endpoints</text><text class="cpaths-entry-sample" x="180" y="287.0">POST /api/v1/auth/profile</text><path class="cpaths-arrow" d="M390 273.0 L410 273.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-dep-pill is-shared" x="414.0" y="264.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="439.5" y="276.5" text-anchor="middle">common</text><rect class="cpaths-dep-pill is-shared" x="471.0" y="264.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="496.5" y="276.5" text-anchor="middle">prisma</text><path class="cpaths-arrow" d="M694 273.0 L714 273.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="263.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="276.5" text-anchor="middle">PostgreSQL</text><rect class="cpaths-caller-pill" x="16" y="314.0" width="113.2" height="18" rx="9" fill="#7aa2f7" /><text class="cpaths-caller-text" x="72.6" y="326.5" text-anchor="middle">Front-End-FitTa…</text><path class="cpaths-arrow" d="M146 323.0 L166 323.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="304.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="321.0">consultation</text><rect class="cpaths-ep-badge" x="307.2" y="308.0" width="76.8" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="345.6" y="318.5" text-anchor="middle">10 endpoints</text><text class="cpaths-entry-sample" x="180" y="337.0">POST /api/v1/availability</text><path class="cpaths-arrow" d="M390 323.0 L410 323.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-dep-pill is-shared" x="414.0" y="314.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="439.5" y="326.5" text-anchor="middle">common</text><rect class="cpaths-dep-pill is-shared" x="471.0" y="314.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="496.5" y="326.5" text-anchor="middle">prisma</text><rect class="cpaths-dep-pill" x="528.0" y="314.0" width="96.5" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="576.2" y="326.5" text-anchor="middle">notifications</text><text class="cpaths-dep-overflow" x="632.5" y="326.5">+1</text><path class="cpaths-arrow" d="M694 323.0 L714 323.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="313.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="326.5" text-anchor="middle">PostgreSQL</text><rect class="cpaths-caller-pill" x="16" y="364.0" width="113.2" height="18" rx="9" fill="#cc785c" /><text class="cpaths-caller-text" x="72.6" y="376.5" text-anchor="middle">Back-End-FitTalk</text><path class="cpaths-arrow" d="M146 373.0 L166 373.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="354.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="371.0">api</text><rect class="cpaths-ep-badge" x="312.6" y="358.0" width="71.4" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="348.3" y="368.5" text-anchor="middle">9 endpoints</text><text class="cpaths-entry-sample" x="180" y="387.0">GET /api/v1/health/ready</text><path class="cpaths-arrow" d="M390 373.0 L410 373.0" marker-end="url(#cpaths-arrow)" /><text class="cpaths-empty-cell" x="554.0" y="376.5" text-anchor="middle">— no internal imports</text><path class="cpaths-arrow" d="M694 373.0 L714 373.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="363.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="376.5" text-anchor="middle">PostgreSQL</text><text class="cpaths-empty-cell" x="81.0" y="426.0" text-anchor="middle">— no caller detected</text><path class="cpaths-arrow" d="M146 423.0 L166 423.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="404.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="421.0">ai-coaching</text><rect class="cpaths-ep-badge" x="312.6" y="408.0" width="71.4" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="348.3" y="418.5" text-anchor="middle">7 endpoints</text><text class="cpaths-entry-sample" x="180" y="437.0">POST /api/v1/ai-coaching/analysis</text><path class="cpaths-arrow" d="M390 423.0 L410 423.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-dep-pill is-shared" x="414.0" y="414.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="439.5" y="426.5" text-anchor="middle">common</text><rect class="cpaths-dep-pill is-shared" x="471.0" y="414.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="496.5" y="426.5" text-anchor="middle">prisma</text><rect class="cpaths-dep-pill" x="528.0" y="414.0" width="96.5" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="576.2" y="426.5" text-anchor="middle">notifications</text><path class="cpaths-arrow" d="M694 423.0 L714 423.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="413.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="426.5" text-anchor="middle">PostgreSQL</text><text class="cpaths-empty-cell" x="81.0" y="476.0" text-anchor="middle">— no caller detected</text><path class="cpaths-arrow" d="M146 473.0 L166 473.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="454.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="471.0">support</text><rect class="cpaths-ep-badge" x="312.6" y="458.0" width="71.4" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="348.3" y="468.5" text-anchor="middle">6 endpoints</text><text class="cpaths-entry-sample" x="180" y="487.0">POST /api/v1/support/tickets</text><path class="cpaths-arrow" d="M390 473.0 L410 473.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-dep-pill is-shared" x="414.0" y="464.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="439.5" y="476.5" text-anchor="middle">common</text><rect class="cpaths-dep-pill is-shared" x="471.0" y="464.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="496.5" y="476.5" text-anchor="middle">prisma</text><path class="cpaths-arrow" d="M694 473.0 L714 473.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="463.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="476.5" text-anchor="middle">PostgreSQL</text><text class="cpaths-empty-cell" x="81.0" y="526.0" text-anchor="middle">— no caller detected</text><path class="cpaths-arrow" d="M146 523.0 L166 523.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="504.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="521.0">goals</text><rect class="cpaths-ep-badge" x="312.6" y="508.0" width="71.4" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="348.3" y="518.5" text-anchor="middle">6 endpoints</text><text class="cpaths-entry-sample" x="180" y="537.0">POST /api/v1/goals</text><path class="cpaths-arrow" d="M390 523.0 L410 523.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-dep-pill is-shared" x="414.0" y="514.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="439.5" y="526.5" text-anchor="middle">common</text><rect class="cpaths-dep-pill is-shared" x="471.0" y="514.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="496.5" y="526.5" text-anchor="middle">prisma</text><rect class="cpaths-dep-pill" x="528.0" y="514.0" width="48.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="552.0" y="526.5" text-anchor="middle">auth</text><path class="cpaths-arrow" d="M694 523.0 L714 523.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="513.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="526.5" text-anchor="middle">PostgreSQL</text><rect class="cpaths-caller-pill" x="16" y="564.0" width="113.2" height="18" rx="9" fill="#7aa2f7" /><text class="cpaths-caller-text" x="72.6" y="576.5" text-anchor="middle">Front-End-FitTa…</text><path class="cpaths-arrow" d="M146 573.0 L166 573.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="554.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="571.0">workout-logging</text><rect class="cpaths-ep-badge" x="312.6" y="558.0" width="71.4" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="348.3" y="568.5" text-anchor="middle">5 endpoints</text><text class="cpaths-entry-sample" x="180" y="587.0">POST /api/v1/workout-logging</text><path class="cpaths-arrow" d="M390 573.0 L410 573.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-dep-pill is-shared" x="414.0" y="564.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="439.5" y="576.5" text-anchor="middle">common</text><rect class="cpaths-dep-pill is-shared" x="471.0" y="564.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="496.5" y="576.5" text-anchor="middle">prisma</text><rect class="cpaths-dep-pill" x="528.0" y="564.0" width="96.5" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="576.2" y="576.5" text-anchor="middle">notifications</text><path class="cpaths-arrow" d="M694 573.0 L714 573.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="563.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="576.5" text-anchor="middle">PostgreSQL</text><text class="cpaths-empty-cell" x="81.0" y="626.0" text-anchor="middle">— no caller detected</text><path class="cpaths-arrow" d="M146 623.0 L166 623.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="604.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="621.0">common</text><rect class="cpaths-ep-badge" x="312.6" y="608.0" width="71.4" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="348.3" y="618.5" text-anchor="middle">5 endpoints</text><text class="cpaths-entry-sample" x="180" y="637.0">GET /api/v1/users</text><path class="cpaths-arrow" d="M390 623.0 L410 623.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-dep-pill is-shared" x="414.0" y="614.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="439.5" y="626.5" text-anchor="middle">prisma</text><rect class="cpaths-dep-pill" x="471.0" y="614.0" width="48.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="495.0" y="626.5" text-anchor="middle">auth</text><path class="cpaths-arrow" d="M694 623.0 L714 623.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="613.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="626.5" text-anchor="middle">PostgreSQL</text><rect class="cpaths-caller-pill" x="16" y="664.0" width="113.2" height="18" rx="9" fill="#7aa2f7" /><text class="cpaths-caller-text" x="72.6" y="676.5" text-anchor="middle">Front-End-FitTa…</text><path class="cpaths-arrow" d="M146 673.0 L166 673.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="654.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="671.0">analytics</text><rect class="cpaths-ep-badge" x="312.6" y="658.0" width="71.4" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="348.3" y="668.5" text-anchor="middle">3 endpoints</text><text class="cpaths-entry-sample" x="180" y="687.0">GET /api/v1/analytics/prs</text><path class="cpaths-arrow" d="M390 673.0 L410 673.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-dep-pill is-shared" x="414.0" y="664.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="439.5" y="676.5" text-anchor="middle">common</text><rect class="cpaths-dep-pill is-shared" x="471.0" y="664.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="496.5" y="676.5" text-anchor="middle">prisma</text><path class="cpaths-arrow" d="M694 673.0 L714 673.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="663.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="676.5" text-anchor="middle">PostgreSQL</text><rect class="cpaths-caller-pill" x="16" y="714.0" width="113.2" height="18" rx="9" fill="#7aa2f7" /><text class="cpaths-caller-text" x="72.6" y="726.5" text-anchor="middle">Front-End-FitTa…</text><path class="cpaths-arrow" d="M146 723.0 L166 723.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="704.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="721.0">notifications</text><rect class="cpaths-ep-badge" x="312.6" y="708.0" width="71.4" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="348.3" y="718.5" text-anchor="middle">3 endpoints</text><text class="cpaths-entry-sample" x="180" y="737.0">GET /api/v1/notifications</text><path class="cpaths-arrow" d="M390 723.0 L410 723.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-dep-pill is-shared" x="414.0" y="714.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="439.5" y="726.5" text-anchor="middle">prisma</text><rect class="cpaths-dep-pill is-shared" x="471.0" y="714.0" width="51.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="496.5" y="726.5" text-anchor="middle">common</text><rect class="cpaths-dep-pill" x="528.0" y="714.0" width="64.0" height="18" rx="9" /><text class="cpaths-dep-pill-text" x="560.0" y="726.5" text-anchor="middle">workouts</text><path class="cpaths-arrow" d="M694 723.0 L714 723.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="713.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="726.5" text-anchor="middle">PostgreSQL</text><text class="cpaths-empty-cell" x="81.0" y="776.0" text-anchor="middle">— no caller detected</text><path class="cpaths-arrow" d="M146 773.0 L166 773.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="754.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="771.0">utils</text><rect class="cpaths-ep-badge" x="312.6" y="758.0" width="71.4" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="348.3" y="768.5" text-anchor="middle">2 endpoints</text><text class="cpaths-entry-sample" x="180" y="787.0">POST /api/v1/chat</text><path class="cpaths-arrow" d="M390 773.0 L410 773.0" marker-end="url(#cpaths-arrow)" /><text class="cpaths-empty-cell" x="554.0" y="776.5" text-anchor="middle">— no internal imports</text><path class="cpaths-arrow" d="M694 773.0 L714 773.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="763.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="776.5" text-anchor="middle">PostgreSQL</text><text class="cpaths-empty-cell" x="81.0" y="826.0" text-anchor="middle">— no caller detected</text><path class="cpaths-arrow" d="M146 823.0 L166 823.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-entry-bg" x="170" y="804.0" width="220" height="38.0" rx="6" /><text class="cpaths-entry-name" x="180" y="821.0">core</text><rect class="cpaths-ep-badge" x="312.6" y="808.0" width="71.4" height="14" rx="7" /><text class="cpaths-ep-badge-text" x="348.3" y="818.5" text-anchor="middle">2 endpoints</text><text class="cpaths-entry-sample" x="180" y="837.0">GET /api/v1</text><path class="cpaths-arrow" d="M390 823.0 L410 823.0" marker-end="url(#cpaths-arrow)" /><text class="cpaths-empty-cell" x="554.0" y="826.5" text-anchor="middle">— no internal imports</text><path class="cpaths-arrow" d="M694 823.0 L714 823.0" marker-end="url(#cpaths-arrow)" /><rect class="cpaths-store-pill" x="718" y="813.0" width="80.0" height="20" rx="10" fill="#336791" /><text class="cpaths-store-text" x="758.0" y="826.5" text-anchor="middle">PostgreSQL</text></svg></div>
+    
+  </div>
+  <aside class="observations" role="note"><div class="observations-label">Observations</div><ul><li><strong><code>nutrition</code></strong> in <code>Back-End-FitTalk</code> exposes <strong>20</strong> HTTP endpoints — the largest single attack surface in this codebase.</li><li><strong>7 entry modules</strong> (<code>admin</code>, <code>ai-coaching</code>, <code>support</code>, <code>goals</code>) have no detected callers in this codebase — either called from outside (mobile apps, webhooks, scheduled jobs) or dead code worth confirming.</li><li><strong>13</strong> of the 16 entry modules depend on <code>prisma</code> — a strong consistency win, but any breaking change to <code>prisma</code> ripples across most of the HTTP surface.</li><li><strong>Every traced flow</strong> ultimately writes to <strong>POSTGRES</strong> — uniform persistence makes reasoning about transactions easier, but also means the database is the single point of contention under load.</li><li>Only <strong>39 of 135 endpoints</strong> (29%) were matched to a caller in the scan — most endpoints have no detected internal client, suggesting external callers (mobile/web apps) or unscanned consumers.</li></ul></aside>
+  
+<div class="cpaths-bento">
+  <div class="cpaths-tile">
+    <div class="tile-label">Methods</div>
+    <div class="tile-headline">HTTP verb distribution across endpoints</div>
+    <div class="tile-body"><div class="cpaths-method-bars"><div class="row"><span class="method" style="background:#16a34a;">GET</span><span class="bar"><span style="width:100.0%;background:#16a34a;"></span></span><span class="num">56</span></div><div class="row"><span class="method" style="background:#2563eb;">POST</span><span class="bar"><span style="width:83.9%;background:#2563eb;"></span></span><span class="num">47</span></div><div class="row"><span class="method" style="background:#f59e0b;">PUT</span><span class="bar"><span style="width:5.4%;background:#f59e0b;"></span></span><span class="num">3</span></div><div class="row"><span class="method" style="background:#ca8a04;">PATCH</span><span class="bar"><span style="width:28.6%;background:#ca8a04;"></span></span><span class="num">16</span></div><div class="row"><span class="method" style="background:#dc2626;">DELETE</span><span class="bar"><span style="width:30.4%;background:#dc2626;"></span></span><span class="num">17</span></div></div></div>
+  </div>
+  <div class="cpaths-tile">
+    <div class="tile-label">Resource families</div>
+    <div class="tile-headline">Top URL path prefixes</div>
+    <div class="tile-body"><ul class="cpaths-prefix-list"><li><span class="prefix">/api/v1/nutrition</span><span class="count">21</span></li><li><span class="prefix">/api/v1/workouts</span><span class="count">19</span></li><li><span class="prefix">/api/v1/admin</span><span class="count">14</span></li><li><span class="prefix">/api/v1/programs</span><span class="count">13</span></li><li><span class="prefix">/api/v1/auth</span><span class="count">12</span></li><li><span class="prefix">/api/v1/ai-coaching</span><span class="count">7</span></li><li><span class="prefix">/api/v1/consultation</span><span class="count">7</span></li><li><span class="prefix">/api/v1/support</span><span class="count">6</span></li><li><span class="prefix">/api/v1/goals</span><span class="count">6</span></li><li><span class="prefix">/api/v1/workout-logging</span><span class="count">5</span></li></ul></div>
+  </div>
+  <div class="cpaths-tile">
+    <div class="tile-label">Per-service surface</div>
+    <div class="tile-headline">Endpoints declared by each service</div>
+    <div class="tile-body"><ul class="cpaths-svc-list"><li><span class="svc"><span class="swatch" style="background:#cc785c;"></span>Back-End-FitTalk</span><span class="count" style="background:var(--accent-soft); color:var(--accent-deep); padding:0 7px; border-radius:999px; font-size:0.78rem;">123</span></li><li><span class="svc"><span class="swatch" style="background:#cc785c;"></span>FitTalk_AI</span><span class="count" style="background:var(--accent-soft); color:var(--accent-deep); padding:0 7px; border-radius:999px; font-size:0.78rem;">16</span></li></ul></div>
+  </div>
+  <div class="cpaths-tile">
+    <div class="tile-label">Coverage</div>
+    <div class="tile-headline">How much of the HTTP surface is fully traced</div>
+    <div class="tile-body"><div class="cpaths-coverage-stat">8<span class="denom"> / 16</span></div><div class="cpaths-coverage-label">Fully traced rows</div><div style="margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--border);"><div class="topov2-stat-row"><span class="k">HTTP endpoints declared</span><span class="v">139</span></div><div class="topov2-stat-row"><span class="k">Resolved inter-service edges</span><span class="v">39</span></div><div class="topov2-stat-row"><span class="k">Unresolved client calls</span><span class="v ">16</span></div></div></div>
+  </div>
+</div>
+
+</section>
+
+<section id="codemap-lineage2-section">
+  <h2>Where each service stores its data</h2>
+  <p class="section-intro">Where does each service store its data? Cards on the left are services; the <strong>cylinders on the right are data stores</strong> — the universal database glyph. The <strong>weighted ribbon</strong> between a service and a store is sized by the number of distinct data models (database tables, document types, etc.) declared via that service's ORM. Stores drawn at <em>reduced opacity</em> were detected in environment config but have no ORM model declarations — they're typically accessed via raw client libraries (Redis SDK, Firebase Admin, etc.) rather than through an ORM.</p>
+  <div class="lineage2-frame">
+    <p class="lineage2-headline"><strong>2 services</strong> persist data to <strong>1 store</strong> via <em>Prisma, SQLAlchemy</em>. The largest footprint is <strong>Back-End-FitTalk</strong> with <strong>61</strong> models in <strong>PostgreSQL</strong>. <strong>3</strong> additional stores are referenced in env config but no ORM models link to them.</p>
+    <div class="lineage2-wrap"><svg class="lineage2-svg" viewBox="0 0 670 560" width="670" role="img" aria-label="Data lineage Sankey"><text class="lineage2-axis-title" x="120.0" y="18" text-anchor="middle">SERVICES</text><text class="lineage2-axis-title" x="575.0" y="18" text-anchor="middle">DATA STORES</text><path class="lineage2-band" d="M220.0,224.0 C360.0,224.0 360.0,86.0 500.0,86.0" stroke="#336791" stroke-opacity="0.55" stroke-width="38.0"><title>Back-End-FitTalk → postgres · 61 models via Prisma</title></path><rect class="lineage2-band-label-bg" x="326.0" y="146.0" width="68" height="18" rx="9" /><text class="lineage2-band-label" x="360.0" y="158.5" text-anchor="middle">61 models</text><path class="lineage2-band" d="M220.0,344.0 C360.0,344.0 360.0,86.0 500.0,86.0" stroke="#336791" stroke-opacity="0.55" stroke-width="14.52"><title>FitTalk_AI → postgres · 2 models via SQLAlchemy</title></path><rect class="lineage2-band-label-bg" x="329.0" y="206.0" width="62" height="18" rx="9" /><text class="lineage2-band-label" x="360.0" y="218.5" text-anchor="middle">2 models</text><rect class="lineage2-svc-bg" x="20.0" y="180.0" width="200" height="88" rx="10" /><rect x="20.0" y="180.0" width="5" height="88" rx="10" fill="#cc785c" /><rect x="22.0" y="180.0" width="3" height="88" fill="#cc785c" /><text class="lineage2-svc-title" x="34.0" y="206.0" font-size="14">Back-End-FitTalk</text><text class="lineage2-svc-meta" x="34.0" y="226.0" font-size="11">61 models · Prisma</text><rect x="34.0" y="246.0" width="54" height="15" rx="3" fill="#cc785c" /><text class="topov2-kind-chip-text" x="61.0" y="257.0" text-anchor="middle">BACKEND</text><rect class="lineage2-svc-bg" x="20.0" y="300.0" width="200" height="88" rx="10" /><rect x="20.0" y="300.0" width="5" height="88" rx="10" fill="#cc785c" /><rect x="22.0" y="300.0" width="3" height="88" fill="#cc785c" /><text class="lineage2-svc-title" x="34.0" y="326.0" font-size="14">FitTalk_AI</text><text class="lineage2-svc-meta" x="34.0" y="346.0" font-size="11">2 models · SQLAlchemy</text><rect x="34.0" y="366.0" width="54" height="15" rx="3" fill="#cc785c" /><text class="topov2-kind-chip-text" x="61.0" y="377.0" text-anchor="middle">BACKEND</text><g class="lineage2-cyl"><rect x="500.0" y="44.0" width="150" height="84.0" fill="#336791" fill-opacity="0.88" /><ellipse cx="575.0" cy="128.0" rx="75.0" ry="8" fill="#336791" fill-opacity="0.88" /><ellipse cx="575.0" cy="44.0" rx="75.0" ry="8" fill="#336791" fill-opacity="1" /><line class="lineage2-cyl-stroke" x1="500.0" y1="44.0" x2="500.0" y2="128.0" stroke="oklch(20% 0.012 250 / 0.18)" /><line class="lineage2-cyl-stroke" x1="650.0" y1="44.0" x2="650.0" y2="128.0" stroke="oklch(20% 0.012 250 / 0.18)" /><ellipse cx="575.0" cy="44.0" rx="75.0" ry="8" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><path d="M500.0,128.0 A75.0,8 0 0 0 650.0,128.0" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><text class="lineage2-cyl-name" x="575.0" y="86.0" text-anchor="middle" style="fill: white; paint-order: stroke; stroke: oklch(20% 0.012 250 / 0.35); stroke-width: 3px; stroke-linejoin: round;">PostgreSQL</text><text class="lineage2-cyl-kind" x="575.0" y="101.0" text-anchor="middle" style="fill: white; opacity: 0.9;">POSTGRES</text><text class="lineage2-cyl-models" x="575.0" y="150.0" text-anchor="middle">63 models</text></g><g class="lineage2-cyl is-unlinked"><rect x="500.0" y="176.0" width="150" height="84.0" fill="#3ecf8e" fill-opacity="0.88" /><ellipse cx="575.0" cy="260.0" rx="75.0" ry="8" fill="#3ecf8e" fill-opacity="0.88" /><ellipse cx="575.0" cy="176.0" rx="75.0" ry="8" fill="#3ecf8e" fill-opacity="1" /><line class="lineage2-cyl-stroke" x1="500.0" y1="176.0" x2="500.0" y2="260.0" stroke="oklch(20% 0.012 250 / 0.18)" /><line class="lineage2-cyl-stroke" x1="650.0" y1="176.0" x2="650.0" y2="260.0" stroke="oklch(20% 0.012 250 / 0.18)" /><ellipse cx="575.0" cy="176.0" rx="75.0" ry="8" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><path d="M500.0,260.0 A75.0,8 0 0 0 650.0,260.0" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><text class="lineage2-cyl-name" x="575.0" y="218.0" text-anchor="middle" style="fill: white; paint-order: stroke; stroke: oklch(20% 0.012 250 / 0.35); stroke-width: 3px; stroke-linejoin: round;">Supabase</text><text class="lineage2-cyl-kind" x="575.0" y="233.0" text-anchor="middle" style="fill: white; opacity: 0.9;">SUPABASE</text><text class="lineage2-cyl-models" x="575.0" y="282.0" text-anchor="middle">no ORM models declared</text></g><g class="lineage2-cyl is-unlinked"><rect x="500.0" y="308.0" width="150" height="84.0" fill="#d82c20" fill-opacity="0.88" /><ellipse cx="575.0" cy="392.0" rx="75.0" ry="8" fill="#d82c20" fill-opacity="0.88" /><ellipse cx="575.0" cy="308.0" rx="75.0" ry="8" fill="#d82c20" fill-opacity="1" /><line class="lineage2-cyl-stroke" x1="500.0" y1="308.0" x2="500.0" y2="392.0" stroke="oklch(20% 0.012 250 / 0.18)" /><line class="lineage2-cyl-stroke" x1="650.0" y1="308.0" x2="650.0" y2="392.0" stroke="oklch(20% 0.012 250 / 0.18)" /><ellipse cx="575.0" cy="308.0" rx="75.0" ry="8" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><path d="M500.0,392.0 A75.0,8 0 0 0 650.0,392.0" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><text class="lineage2-cyl-name" x="575.0" y="350.0" text-anchor="middle" style="fill: white; paint-order: stroke; stroke: oklch(20% 0.012 250 / 0.35); stroke-width: 3px; stroke-linejoin: round;">Redis</text><text class="lineage2-cyl-kind" x="575.0" y="365.0" text-anchor="middle" style="fill: white; opacity: 0.9;">REDIS</text><text class="lineage2-cyl-models" x="575.0" y="414.0" text-anchor="middle">no ORM models declared</text></g><g class="lineage2-cyl is-unlinked"><rect x="500.0" y="440.0" width="150" height="84.0" fill="#ffa611" fill-opacity="0.88" /><ellipse cx="575.0" cy="524.0" rx="75.0" ry="8" fill="#ffa611" fill-opacity="0.88" /><ellipse cx="575.0" cy="440.0" rx="75.0" ry="8" fill="#ffa611" fill-opacity="1" /><line class="lineage2-cyl-stroke" x1="500.0" y1="440.0" x2="500.0" y2="524.0" stroke="oklch(20% 0.012 250 / 0.18)" /><line class="lineage2-cyl-stroke" x1="650.0" y1="440.0" x2="650.0" y2="524.0" stroke="oklch(20% 0.012 250 / 0.18)" /><ellipse cx="575.0" cy="440.0" rx="75.0" ry="8" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><path d="M500.0,524.0 A75.0,8 0 0 0 650.0,524.0" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><text class="lineage2-cyl-name" x="575.0" y="482.0" text-anchor="middle" style="fill: white; paint-order: stroke; stroke: oklch(20% 0.012 250 / 0.35); stroke-width: 3px; stroke-linejoin: round;">Firebase / Firestore</text><text class="lineage2-cyl-kind" x="575.0" y="497.0" text-anchor="middle" style="fill: white; opacity: 0.9;">FIREBASE</text><text class="lineage2-cyl-models" x="575.0" y="546.0" text-anchor="middle">no ORM models declared</text></g></svg></div>
+  </div>
+  <aside class="observations" role="note"><div class="observations-label">Observations</div><ul><li><strong>100%</strong> of modeled writes go to <strong>PostgreSQL</strong> — the primary data store. No read replica or write/cache split was detected at the ORM level.</li><li><strong>2 services</strong> write to <strong>PostgreSQL</strong> (<code>Back-End-FitTalk, FitTalk_AI</code>) — shared ownership of a data store. Watch for schema-coupling and migration coordination overhead.</li><li><strong>3 stores</strong> (Supabase, Redis, Firebase / Firestore) are referenced in env config but no ORM models declare them — direct client-library usage. Add coverage by inspecting the matching service's source for the relevant SDK calls.</li><li><strong>2 ORM frameworks</strong> are in use (<code>Prisma, SQLAlchemy</code>) — different migration paths, different schema-evolution tooling per service.</li></ul></aside>
+  
+<div class="lineage2-bento">
+  <div class="lineage2-tile">
+    <div class="tile-label">Fan-in</div>
+    <div class="tile-headline">Which services write to each store</div>
+    <div class="tile-body"><ul class="lineage2-store-list"><li><div class="store-head"><span class="swatch" style="background:#336791;"></span>PostgreSQL<span class="kind">POSTGRES</span></div><div class="sources"><div class="row"><span>← Back-End-FitTalk</span><span class="count">61 models</span></div><div class="row"><span>← FitTalk_AI</span><span class="count">2 models</span></div></div></li><li><div class="store-head"><span class="swatch" style="background:#3ecf8e;"></span>Supabase<span class="kind">SUPABASE</span></div><div class="sources"><div class="row is-unlinked"><span class="reason">Detected via env config</span><span class="count">0 models</span></div></div></li><li><div class="store-head"><span class="swatch" style="background:#d82c20;"></span>Redis<span class="kind">REDIS</span></div><div class="sources"><div class="row is-unlinked"><span class="reason">Detected via env config</span><span class="count">0 models</span></div></div></li><li><div class="store-head"><span class="swatch" style="background:#ffa611;"></span>Firebase / Firestore<span class="kind">FIREBASE</span></div><div class="sources"><div class="row is-unlinked"><span class="reason">Detected via env config</span><span class="count">0 models</span></div></div></li></ul></div>
+  </div>
+  <div class="lineage2-tile">
+    <div class="tile-label">ORM frameworks</div>
+    <div class="tile-headline">Used to declare data models</div>
+    <div class="tile-body"><div class="lineage2-orm-cloud"><span class="orm-pill">Prisma</span><span class="orm-pill">SQLAlchemy</span></div><p class="lineage2-tile-foot">Frameworks were inferred from ORM model declarations (<code>@Entity</code>, <code>Base</code> subclasses, <code>model</code> blocks in <code>schema.prisma</code>, etc.) in the scanned source files.</p></div>
+  </div>
+  <div class="lineage2-tile">
+    <div class="tile-label">Hot models</div>
+    <div class="tile-headline">Most-referenced entities</div>
+    <div class="tile-body"><ul class="lineage2-hot-list"><li><span class="model-name">User</span><span class="meta">Back-End-FitTalk</span></li><li><span class="model-name">Profile</span><span class="meta">Back-End-FitTalk</span></li><li><span class="model-name">Session</span><span class="meta">Back-End-FitTalk</span></li><li><span class="model-name">Device</span><span class="meta">Back-End-FitTalk</span></li><li><span class="model-name">Workoutlog</span><span class="meta">Back-End-FitTalk</span></li><li><span class="model-name">Scheduledworkout</span><span class="meta">Back-End-FitTalk</span></li><li><span class="model-name">Aiplanfailure</span><span class="meta">Back-End-FitTalk</span></li><li><span class="model-name">Workoutplan</span><span class="meta">Back-End-FitTalk</span></li></ul></div>
+  </div>
+  <div class="lineage2-tile">
+    <div class="tile-label">Detected stores</div>
+    <div class="tile-headline">All data stores found in this codebase</div>
+    <div class="tile-body"><div class="lineage2-orm-cloud"><span class="orm-pill" style="border-left: 4px solid #3ecf8e;">Supabase <span style="color: var(--muted); margin-left: 4px;">5 refs</span></span><span class="orm-pill" style="border-left: 4px solid #336791;">PostgreSQL <span style="color: var(--muted); margin-left: 4px;">4 refs</span></span><span class="orm-pill" style="border-left: 4px solid #d82c20;">Redis <span style="color: var(--muted); margin-left: 4px;">2 refs</span></span><span class="orm-pill" style="border-left: 4px solid #ffa611;">Firebase / Firestore <span style="color: var(--muted); margin-left: 4px;">2 refs</span></span></div><p class="lineage2-tile-foot">Each pill is a data store detected somewhere in the codebase — connection strings in <code>.env</code> files, <code>docker-compose</code> services, or SDK initialisations. The number is how many distinct references were found.</p></div>
+  </div>
+</div>
+
+</section>
+
+<section>
+  <h2>Directory tree</h2>
+  <p class="section-intro">The directory tree is the physical layout of folders and files on disk. Folder names usually hint at what lives inside; file names usually hint at purpose.</p>
+  <div class="tree"><details open><summary><strong>fittalk-monorepo</strong> <span class="meta">537 files · 153,276 LOC</span></summary><details><summary><strong>.github</strong> <span class="meta">5 files · 445 LOC</span></summary><details><summary><strong>workflows</strong> <span class="meta">2 files · 353 LOC</span></summary><span class="file">ci.yml<span class="meta">YAML · 222</span></span>
+<span class="file">deploy.yml<span class="meta">YAML · 131</span></span></details>
+<span class="file">CODEOWNERS<span class="meta">7</span></span>
+<span class="file">dependabot.yml<span class="meta">YAML · 58</span></span>
+<span class="file">PULL_REQUEST_TEMPLATE.md<span class="meta">Markdown · 27</span></span></details>
+<details><summary><strong>analysis</strong> <span class="meta">6 files · 2,697 LOC</span></summary><details><summary><strong>fittalk</strong> <span class="meta">6 files · 2,697 LOC</span></summary><span class="file">call-graph.mmd<span class="meta">54</span></span>
+<span class="file">critical-path.mmd<span class="meta">31</span></span>
+<span class="file">data-lineage.mmd<span class="meta">114</span></span>
+<span class="file">extract_topology.py<span class="meta">Python · 490</span></span>
+<span class="file">TOPOLOGY.html<span class="meta">HTML · 274</span></span>
+<span class="file">topology.json<span class="meta">JSON · 1,734</span></span></details></details>
+<details><summary><strong>Back-End-FitTalk</strong> <span class="meta">250 files · 79,968 LOC</span></summary><details><summary><strong>.github</strong> <span class="meta">1 files · 32 LOC</span></summary><details><summary><strong>workflows</strong> <span class="meta">1 files · 32 LOC</span></summary><span class="file">ci.yml<span class="meta">YAML · 32</span></span></details></details>
+<details><summary><strong>prisma</strong> <span class="meta">10 files · 3,200 LOC</span></summary><details><summary><strong>migrations</strong> <span class="meta">6 files · 1,933 LOC</span></summary><details><summary><strong>20251013201532_init</strong> <span class="meta">1 files · 861 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>20251013202040_init</strong> <span class="meta">1 files · 8 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>20251013202818_init</strong> <span class="meta">1 files · 8 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>20251113000538_init</strong> <span class="meta">1 files · 1,045 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>20260312123000_add_notification_read_tracking</strong> <span class="meta">1 files · 8 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<span class="file">migration_lock.toml<span class="meta">TOML · 3</span></span></details>
+<span class="file">README.md<span class="meta">Markdown · 335</span></span>
+<span class="file">schema.prisma<span class="meta">834</span></span>
+<span class="file">seed-exercises.ts<span class="meta">TypeScript · 72</span></span>
+<span class="file">seed.ts<span class="meta">TypeScript · 26</span></span></details>
+<details><summary><strong>scripts</strong> <span class="meta">3 files · 386 LOC</span></summary><span class="file">ai-trigger-smoke.sh<span class="meta">Shell · 26</span></span>
+<span class="file">AI_VERIFY.md<span class="meta">Markdown · 61</span></span>
+<span class="file">verify-ai-plan.ts<span class="meta">TypeScript · 299</span></span></details>
+<details><summary><strong>src</strong> <span class="meta">189 files · 35,325 LOC</span></summary><details><summary><strong>common</strong> <span class="meta">33 files · 4,560 LOC</span></summary><details><summary><strong>decorators</strong> <span class="meta">6 files · 122 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>enums</strong> <span class="meta">1 files · 37 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>exceptions</strong> <span class="meta">1 files · 190 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>guards</strong> <span class="meta">10 files · 2,196 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>interceptors</strong> <span class="meta">4 files · 362 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>pipes</strong> <span class="meta">1 files · 91 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>redis</strong> <span class="meta">2 files · 125 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>sentry</strong> <span class="meta">2 files · 169 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>services</strong> <span class="meta">5 files · 966 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>utils</strong> <span class="meta">1 files · 302 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details></details>
+<details><summary><strong>config</strong> <span class="meta">9 files · 313 LOC</span></summary><span class="file">ai.config.ts<span class="meta">TypeScript · 28</span></span>
+<span class="file">app.config.ts<span class="meta">TypeScript · 24</span></span>
+<span class="file">cache.config.ts<span class="meta">TypeScript · 64</span></span>
+<span class="file">database.config.ts<span class="meta">TypeScript · 5</span></span>
+<span class="file">index.ts<span class="meta">TypeScript · 8</span></span>
+<span class="file">redis.config.ts<span class="meta">TypeScript · 13</span></span>
+<span class="file">supabase.config.ts<span class="meta">TypeScript · 37</span></span>
+<span class="file">throttle.config.ts<span class="meta">TypeScript · 73</span></span>
+<span class="file">transaction.config.ts<span class="meta">TypeScript · 61</span></span></details>
+<details><summary><strong>modules</strong> <span class="meta">140 files · 30,068 LOC</span></summary><details><summary><strong>admin</strong> <span class="meta">9 files · 1,761 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>ai-coaching</strong> <span class="meta">14 files · 1,058 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>analytics</strong> <span class="meta">3 files · 319 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>auth</strong> <span class="meta">13 files · 1,002 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>consultation</strong> <span class="meta">14 files · 3,868 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>goals</strong> <span class="meta">8 files · 931 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>notifications</strong> <span class="meta">9 files · 2,794 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>nutrition</strong> <span class="meta">22 files · 5,349 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>programs</strong> <span class="meta">12 files · 1,898 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>support</strong> <span class="meta">5 files · 1,310 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>workout-logging</strong> <span class="meta">8 files · 3,019 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>workouts</strong> <span class="meta">23 files · 6,759 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details></details>
+<details><summary><strong>prisma</strong> <span class="meta">2 files · 95 LOC</span></summary><span class="file">prisma.module.ts<span class="meta">TypeScript · 9</span></span>
+<span class="file">prisma.service.ts<span class="meta">TypeScript · 86</span></span></details>
+<span class="file">app.controller.spec.ts<span class="meta">TypeScript · 22</span></span>
+<span class="file">app.controller.ts<span class="meta">TypeScript · 12</span></span>
+<span class="file">app.module.ts<span class="meta">TypeScript · 127</span></span>
+<span class="file">app.service.ts<span class="meta">TypeScript · 8</span></span>
+<span class="file">main.ts<span class="meta">TypeScript · 120</span></span></details>
+<details><summary><strong>test</strong> <span class="meta">23 files · 13,979 LOC</span></summary><span class="file">analytics.e2e-spec.ts<span class="meta">TypeScript · 1,407</span></span>
+<span class="file">app.e2e-spec.ts<span class="meta">TypeScript · 61</span></span>
+<span class="file">auth-manual-test.ts<span class="meta">TypeScript · 63</span></span>
+<span class="file">auth.e2e-spec.ts<span class="meta">TypeScript · 1,137</span></span>
+<span class="file">availability.e2e-spec.ts<span class="meta">TypeScript · 1,880</span></span>
+<span class="file">cleanup.sh<span class="meta">Shell · 226</span></span>
+<span class="file">get-test-jwt.js<span class="meta">JavaScript · 116</span></span>
+<span class="file">goals.e2e-spec.ts<span class="meta">TypeScript · 1,524</span></span>
+<span class="file">jest-e2e.json<span class="meta">JSON · 12</span></span>
+<span class="file">jest-e2e.setup.ts<span class="meta">TypeScript · 44</span></span>
+<span class="file">notifications.e2e-spec.ts<span class="meta">TypeScript · 1,140</span></span>
+<span class="file">nutrition.controller.spec.ts<span class="meta">TypeScript · 378</span></span>
+<span class="file">nutrition.e2e-spec.ts<span class="meta">TypeScript · 461</span></span>
+<span class="file">profile.e2e-spec.ts<span class="meta">TypeScript · 1,474</span></span>
+<span class="file">programs.e2e-spec.ts<span class="meta">TypeScript · 2,236</span></span>
+<span class="file">run-websocket-test.sh<span class="meta">Shell · 56</span></span>
+<span class="file">test-all-endpoints.sh<span class="meta">Shell · 62</span></span>
+<span class="file">test-complete-workflow.sh<span class="meta">Shell · 340</span></span>
+<span class="file">test-utils.ts<span class="meta">TypeScript · 30</span></span>
+<span class="file">test-websocket-live.js<span class="meta">JavaScript · 223</span></span>
+<span class="file">test-websocket.js<span class="meta">JavaScript · 169</span></span>
+<span class="file">test-workouts.sh<span class="meta">Shell · 493</span></span>
+<span class="file">WORKOUTS_TESTING.md<span class="meta">Markdown · 447</span></span></details>
+<span class="file">.dockerignore<span class="meta">13</span></span>
+<span class="file">.env<span class="meta">60</span></span>
+<span class="file">.env.example<span class="meta">92</span></span>
+<span class="file">.env.release.local<span class="meta">4</span></span>
+<span class="file">.gitattributes<span class="meta">2</span></span>
+<span class="file">.gitignore<span class="meta">65</span></span>
+<span class="file">.prettierrc<span class="meta">4</span></span>
+<span class="file">ADMIN_SUPPORT_FEATURE.md<span class="meta">Markdown · 505</span></span>
+<span class="file">docker-compose.yml<span class="meta">YAML · 42</span></span>
+<span class="file">Dockerfile<span class="meta">Dockerfile · 33</span></span>
+<span class="file">eslint.config.mjs<span class="meta">JavaScript · 34</span></span>
+<span class="file">get-jwt.mjs<span class="meta">JavaScript · 24</span></span>
+<span class="file">nest-cli.json<span class="meta">JSON · 8</span></span>
+<span class="file">package-lock.json<span class="meta">JSON · 14,234</span></span>
+<span class="file">package.json<span class="meta">JSON · 119</span></span>
+<span class="file">pnpm-lock.yaml<span class="meta">YAML · 9,503</span></span>
+<span class="file">pnpm-workspace.yaml<span class="meta">YAML · 9</span></span>
+<span class="file">RATE_LIMITING_IMPLEMENTATION_GUIDE.md<span class="meta">Markdown · 604</span></span>
+<span class="file">README.md<span class="meta">Markdown · 555</span></span>
+<span class="file">SECURITY_AUDIT.md<span class="meta">Markdown · 253</span></span>
+<span class="file">setup.sh<span class="meta">Shell · 85</span></span>
+<span class="file">TESTING.md<span class="meta">Markdown · 769</span></span>
+<span class="file">tsconfig.build.json<span class="meta">JSON · 4</span></span>
+<span class="file">tsconfig.json<span class="meta">JSON · 25</span></span></details>
+<details><summary><strong>docs</strong> <span class="meta">2 files · 336 LOC</span></summary><span class="file">ARCHITECTURE.md<span class="meta">Markdown · 185</span></span>
+<span class="file">ROADMAP.md<span class="meta">Markdown · 151</span></span></details>
+<details><summary><strong>FitTalk_AI</strong> <span class="meta">169 files · 40,961 LOC</span></summary><details><summary><strong>.github</strong> <span class="meta">1 files · 72 LOC</span></summary><details><summary><strong>workflows</strong> <span class="meta">1 files · 72 LOC</span></summary><span class="file">ci.yml<span class="meta">YAML · 72</span></span></details></details>
+<details><summary><strong>app</strong> <span class="meta">56 files · 9,257 LOC</span></summary><details><summary><strong>api</strong> <span class="meta">17 files · 1,812 LOC</span></summary><details><summary><strong>v1</strong> <span class="meta">16 files · 1,812 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<span class="file">__init__.py<span class="meta">Python · 0</span></span></details>
+<details><summary><strong>core</strong> <span class="meta">6 files · 1,043 LOC</span></summary><span class="file">__init__.py<span class="meta">Python · 0</span></span>
+<span class="file">config.py<span class="meta">Python · 456</span></span>
+<span class="file">errors.py<span class="meta">Python · 118</span></span>
+<span class="file">logging.py<span class="meta">Python · 262</span></span>
+<span class="file">middleware.py<span class="meta">Python · 129</span></span>
+<span class="file">sentry.py<span class="meta">Python · 78</span></span></details>
+<details><summary><strong>db</strong> <span class="meta">6 files · 1,724 LOC</span></summary><details><summary><strong>migrations</strong> <span class="meta">2 files · 8 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>seed</strong> <span class="meta">2 files · 1,536 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<span class="file">__init__.py<span class="meta">Python · 1</span></span>
+<span class="file">pool.py<span class="meta">Python · 179</span></span></details>
+<details><summary><strong>prompts</strong> <span class="meta">3 files · 164 LOC</span></summary><span class="file">__init__.py<span class="meta">Python · 0</span></span>
+<span class="file">coach.py<span class="meta">Python · 145</span></span>
+<span class="file">planner.py<span class="meta">Python · 19</span></span></details>
+<details><summary><strong>services</strong> <span class="meta">19 files · 4,163 LOC</span></summary><details><summary><strong>analysis</strong> <span class="meta">3 files · 1,765 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>coach</strong> <span class="meta">4 files · 733 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>embeddings</strong> <span class="meta">2 files · 204 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>llm</strong> <span class="meta">2 files · 176 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>planning</strong> <span class="meta">4 files · 1,257 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>voice</strong> <span class="meta">3 files · 27 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<span class="file">__init__.py<span class="meta">Python · 1</span></span></details>
+<details><summary><strong>utils</strong> <span class="meta">3 files · 140 LOC</span></summary><span class="file">__init__.py<span class="meta">Python · 0</span></span>
+<span class="file">auth.py<span class="meta">Python · 134</span></span>
+<span class="file">langsmith.py<span class="meta">Python · 6</span></span></details>
+<span class="file">__init__.py<span class="meta">Python · 0</span></span>
+<span class="file">main.py<span class="meta">Python · 211</span></span></details>
+<details><summary><strong>docs</strong> <span class="meta">13 files · 6,300 LOC</span></summary><span class="file">ai-service.types.ts<span class="meta">TypeScript · 580</span></span>
+<span class="file">API_CONTRACT.md<span class="meta">Markdown · 848</span></span>
+<span class="file">BACKEND_INTEGRATION.md<span class="meta">Markdown · 62</span></span>
+<span class="file">DATABASE_SETUP.md<span class="meta">Markdown · 182</span></span>
+<span class="file">FEATURES.md<span class="meta">Markdown · 605</span></span>
+<span class="file">FIT-102_IMPLEMENTATION_GUIDE.md<span class="meta">Markdown · 630</span></span>
+<span class="file">IMPLEMENTATION_PLAN.md<span class="meta">Markdown · 532</span></span>
+<span class="file">openapi.json<span class="meta">JSON · 719</span></span>
+<span class="file">PARTNER_SETUP.md<span class="meta">Markdown · 445</span></span>
+<span class="file">QUICKSTART.md<span class="meta">Markdown · 293</span></span>
+<span class="file">RAG_IMPLEMENTATION.md<span class="meta">Markdown · 854</span></span>
+<span class="file">README.md<span class="meta">Markdown · 59</span></span>
+<span class="file">TECH_STACK.md<span class="meta">Markdown · 491</span></span></details>
+<details><summary><strong>fittalk_ai_service.egg-info</strong> <span class="meta">5 files · 93 LOC</span></summary><span class="file">dependency_links.txt<span class="meta">1</span></span>
+<span class="file">PKG-INFO<span class="meta">43</span></span>
+<span class="file">requires.txt<span class="meta">38</span></span>
+<span class="file">SOURCES.txt<span class="meta">10</span></span>
+<span class="file">top_level.txt<span class="meta">1</span></span></details>
+<details><summary><strong>htmlcov</strong> <span class="meta">46 files · 17,842 LOC</span></summary><span class="file">.gitignore<span class="meta">2</span></span>
+<span class="file">class_index.html<span class="meta">HTML · 1,231</span></span>
+<span class="file">coverage_html_cb_dd2e7eb5.js<span class="meta">JavaScript · 735</span></span>
+<span class="file">favicon_32_cb_c827f16f.png<span class="meta">0</span></span>
+<span class="file">function_index.html<span class="meta">HTML · 2,271</span></span>
+<span class="file">index.html<span class="meta">HTML · 441</span></span>
+<span class="file">keybd_closed_cb_900cfef5.png<span class="meta">0</span></span>
+<span class="file">status.json<span class="meta">JSON · 1</span></span>
+<span class="file">style_cb_9ff733b0.css<span class="meta">CSS · 389</span></span>
+<span class="file">z_05e4b3dcf7443557_exercise_selector_py.html<span class="meta">HTML · 442</span></span>
+<span class="file">z_05e4b3dcf7443557_progression_py.html<span class="meta">HTML · 825</span></span>
+<span class="file">z_05e4b3dcf7443557_workout_planner_py.html<span class="meta">HTML · 252</span></span>
+<span class="file">z_09fcb14b062f9ca5_performance_analyzer_py.html<span class="meta">HTML · 1,064</span></span>
+<span class="file">z_09fcb14b062f9ca5_recommendation_engine_py.html<span class="meta">HTML · 895</span></span>
+<span class="file">z_11b68a27c677f339_analysis_py.html<span class="meta">HTML · 248</span></span>
+<span class="file">z_11b68a27c677f339_chat_py.html<span class="meta">HTML · 209</span></span>
+<span class="file">z_11b68a27c677f339_coach_py.html<span class="meta">HTML · 272</span></span>
+<span class="file">z_11b68a27c677f339_embed_py.html<span class="meta">HTML · 139</span></span>
+<span class="file">z_11b68a27c677f339_rag_py.html<span class="meta">HTML · 191</span></span>
+<span class="file">z_11b68a27c677f339_workout_py.html<span class="meta">HTML · 173</span></span>
+<span class="file">z_3727b4af3282208d_nasm_knowledge_py.html<span class="meta">HTML · 1,633</span></span>
+<span class="file">z_395c4f306d1419cf_pool_py.html<span class="meta">HTML · 276</span></span>
+<span class="file">z_39d167e5f5056a72_client_py.html<span class="meta">HTML · 268</span></span>
+<span class="file">z_5f5a17c013354698_main_py.html<span class="meta">HTML · 304</span></span>
+<span class="file">z_748a0465d46c2a16_auth_py.html<span class="meta">HTML · 228</span></span>
+<span class="file">z_748a0465d46c2a16_langsmith_py.html<span class="meta">HTML · 103</span></span>
+<span class="file">z_8f7e1016f2d37417_config_py.html<span class="meta">HTML · 553</span></span>
+<span class="file">z_8f7e1016f2d37417_errors_py.html<span class="meta">HTML · 215</span></span>
+<span class="file">z_8f7e1016f2d37417_logging_py.html<span class="meta">HTML · 359</span></span>
+<span class="file">z_8f7e1016f2d37417_middleware_py.html<span class="meta">HTML · 226</span></span>
+<span class="file">z_954d2c6e05da298a_advanced_rag_py.html<span class="meta">HTML · 438</span></span>
+<span class="file">z_954d2c6e05da298a_coach_service_py.html<span class="meta">HTML · 250</span></span>
+<span class="file">z_954d2c6e05da298a_safety_validator_py.html<span class="meta">HTML · 336</span></span>
+<span class="file">z_983ee523fab28f6a_analysis_py.html<span class="meta">HTML · 242</span></span>
+<span class="file">z_983ee523fab28f6a_chat_py.html<span class="meta">HTML · 203</span></span>
+<span class="file">z_983ee523fab28f6a_coach_py.html<span class="meta">HTML · 327</span></span>
+<span class="file">z_983ee523fab28f6a_embed_py.html<span class="meta">HTML · 151</span></span>
+<span class="file">z_983ee523fab28f6a_health_py.html<span class="meta">HTML · 258</span></span>
+<span class="file">z_983ee523fab28f6a_rag_py.html<span class="meta">HTML · 324</span></span>
+<span class="file">z_983ee523fab28f6a_voice_py.html<span class="meta">HTML · 122</span></span>
+<span class="file">z_ac93c93299f04029_analyst_py.html<span class="meta">HTML · 371</span></span>
+<span class="file">z_ac93c93299f04029_coach_py.html<span class="meta">HTML · 242</span></span>
+<span class="file">z_ac93c93299f04029_planner_py.html<span class="meta">HTML · 116</span></span>
+<span class="file">z_b6e89b04e60d85c5_stt_service_py.html<span class="meta">HTML · 117</span></span>
+<span class="file">z_b6e89b04e60d85c5_tts_service_py.html<span class="meta">HTML · 104</span></span>
+<span class="file">z_b932c17af0d8fd29_client_py.html<span class="meta">HTML · 296</span></span></details>
+<details><summary><strong>infra</strong> <span class="meta">2 files · 61 LOC</span></summary><span class="file">db.sql<span class="meta">SQL · 61</span></span>
+<span class="file">openapi<span class="meta">0</span></span></details>
+<details><summary><strong>scripts</strong> <span class="meta">2 files · 320 LOC</span></summary><span class="file">ai-smoke.sh<span class="meta">Shell · 40</span></span>
+<span class="file">chat_demo.py<span class="meta">Python · 280</span></span></details>
+<details><summary><strong>tests</strong> <span class="meta">17 files · 2,725 LOC</span></summary><details><summary><strong>e2e</strong> <span class="meta">2 files · 9 LOC</span></summary><span class="file">__init__.py<span class="meta">Python · 0</span></span>
+<span class="file">README.md<span class="meta">Markdown · 9</span></span></details>
+<details><summary><strong>integration</strong> <span class="meta">2 files · 17 LOC</span></summary><span class="file">__init__.py<span class="meta">Python · 0</span></span>
+<span class="file">README.md<span class="meta">Markdown · 17</span></span></details>
+<details><summary><strong>unit</strong> <span class="meta">11 files · 2,628 LOC</span></summary><span class="file">__init__.py<span class="meta">Python · 0</span></span>
+<span class="file">conftest.py<span class="meta">Python · 278</span></span>
+<span class="file">README.md<span class="meta">Markdown · 23</span></span>
+<span class="file">test_advanced_rag.py<span class="meta">Python · 647</span></span>
+<span class="file">test_auth.py<span class="meta">Python · 269</span></span>
+<span class="file">test_chat.py<span class="meta">Python · 286</span></span>
+<span class="file">test_coach.py<span class="meta">Python · 568</span></span>
+<span class="file">test_health.py<span class="meta">Python · 242</span></span>
+<span class="file">test_performance_analysis.py<span class="meta">Python · 158</span></span>
+<span class="file">test_safety_validator.py<span class="meta">Python · 47</span></span>
+<span class="file">test_workout_plan.py<span class="meta">Python · 110</span></span></details>
+<span class="file">__init__.py<span class="meta">Python · 0</span></span>
+<span class="file">test_main.py<span class="meta">Python · 71</span></span></details>
+<span class="file">.coverage<span class="meta">0</span></span>
+<span class="file">.cursorignore<span class="meta">33</span></span>
+<span class="file">.dockerignore<span class="meta">73</span></span>
+<span class="file">.env<span class="meta">154</span></span>
+<span class="file">.env.bak-pre-fireworks-embed<span class="meta">154</span></span>
+<span class="file">.env.example<span class="meta">165</span></span>
+<span class="file">.gitattributes<span class="meta">2</span></span>
+<span class="file">.gitignore<span class="meta">76</span></span>
+<span class="file">.pre-commit-config.yaml<span class="meta">YAML · 17</span></span>
+<span class="file">.scripts-help.txt<span class="meta">68</span></span>
+<span class="file">.uvicorn.log<span class="meta">39</span></span>
+<span class="file">AGENTS.md<span class="meta">Markdown · 407</span></span>
+<span class="file">alembic.ini<span class="meta">42</span></span>
+<span class="file">build.log<span class="meta">17</span></span>
+<span class="file">build.sh<span class="meta">Shell · 714</span></span>
+<span class="file">chat.sh<span class="meta">Shell · 24</span></span>
+<span class="file">cleanup_project.sh<span class="meta">Shell · 289</span></span>
+<span class="file">create_structure.sh<span class="meta">Shell · 685</span></span>
+<span class="file">cspell.json<span class="meta">JSON · 67</span></span>
+<span class="file">docker-compose.yml<span class="meta">YAML · 41</span></span>
+<span class="file">Dockerfile<span class="meta">Dockerfile · 37</span></span>
+<span class="file">install.sh<span class="meta">Shell · 243</span></span>
+<span class="file">Makefile<span class="meta">Makefile · 144</span></span>
+<span class="file">pyproject.toml<span class="meta">TOML · 184</span></span>
+<span class="file">README.md<span class="meta">Markdown · 186</span></span>
+<span class="file">run.sh<span class="meta">Shell · 173</span></span>
+<span class="file">setup-db.sh<span class="meta">Shell · 257</span></span></details>
+<details><summary><strong>Front-End-FitTalk</strong> <span class="meta">94 files · 27,284 LOC</span></summary><details><summary><strong>app</strong> <span class="meta">37 files · 5,832 LOC</span></summary><details><summary><strong>(app)</strong> <span class="meta">31 files · 5,330 LOC</span></summary><details><summary><strong>(tabs)</strong> <span class="meta">6 files · 973 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>analytics</strong> <span class="meta">2 files · 388 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>history</strong> <span class="meta">3 files · 481 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>nutrition</strong> <span class="meta">3 files · 581 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>onboarding</strong> <span class="meta">5 files · 931 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>profile</strong> <span class="meta">3 files · 461 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>programs</strong> <span class="meta">3 files · 393 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<details><summary><strong>workout</strong> <span class="meta">4 files · 846 LOC</span></summary><span class="truncated">… truncated (depth limit reached)</span></details>
+<span class="file">_layout.tsx<span class="meta">TypeScript · 7</span></span>
+<span class="file">notifications.tsx<span class="meta">TypeScript · 269</span></span></details>
+<details><summary><strong>(auth)</strong> <span class="meta">4 files · 327 LOC</span></summary><span class="file">_layout.tsx<span class="meta">TypeScript · 7</span></span>
+<span class="file">forgot-password.tsx<span class="meta">TypeScript · 95</span></span>
+<span class="file">login.tsx<span class="meta">TypeScript · 105</span></span>
+<span class="file">register.tsx<span class="meta">TypeScript · 120</span></span></details>
+<span class="file">_layout.tsx<span class="meta">TypeScript · 150</span></span>
+<span class="file">index.tsx<span class="meta">TypeScript · 25</span></span></details>
+<details><summary><strong>assets</strong> <span class="meta">1 files · 0 LOC</span></summary><details><summary><strong>images</strong> <span class="meta">1 files · 0 LOC</span></summary><span class="file">favicon.png<span class="meta">0</span></span></details></details>
+<details><summary><strong>components</strong> <span class="meta">20 files · 916 LOC</span></summary><details><summary><strong>chat</strong> <span class="meta">2 files · 92 LOC</span></summary><span class="file">MessageBubble.tsx<span class="meta">TypeScript · 37</span></span>
+<span class="file">TypingIndicator.tsx<span class="meta">TypeScript · 55</span></span></details>
+<details><summary><strong>skeletons</strong> <span class="meta">3 files · 151 LOC</span></summary><span class="file">HomeSkeleton.tsx<span class="meta">TypeScript · 67</span></span>
+<span class="file">ProgramListSkeleton.tsx<span class="meta">TypeScript · 42</span></span>
+<span class="file">ScheduleSkeleton.tsx<span class="meta">TypeScript · 42</span></span></details>
+<details><summary><strong>ui</strong> <span class="meta">13 files · 492 LOC</span></summary><span class="file">Avatar.tsx<span class="meta">TypeScript · 56</span></span>
+<span class="file">Badge.tsx<span class="meta">TypeScript · 40</span></span>
+<span class="file">Button.tsx<span class="meta">TypeScript · 77</span></span>
+<span class="file">Card.tsx<span class="meta">TypeScript · 34</span></span>
+<span class="file">Divider.tsx<span class="meta">TypeScript · 10</span></span>
+<span class="file">EmptyState.tsx<span class="meta">TypeScript · 39</span></span>
+<span class="file">ErrorFallback.tsx<span class="meta">TypeScript · 39</span></span>
+<span class="file">index.ts<span class="meta">TypeScript · 12</span></span>
+<span class="file">Input.tsx<span class="meta">TypeScript · 56</span></span>
+<span class="file">LoadingScreen.tsx<span class="meta">TypeScript · 17</span></span>
+<span class="file">NetworkBanner.tsx<span class="meta">TypeScript · 34</span></span>
+<span class="file">Skeleton.tsx<span class="meta">TypeScript · 47</span></span>
+<span class="file">SkeletonCard.tsx<span class="meta">TypeScript · 31</span></span></details>
+<details><summary><strong>workout</strong> <span class="meta">1 files · 108 LOC</span></summary><span class="file">RestTimer.tsx<span class="meta">TypeScript · 108</span></span></details>
+<span class="file">ErrorBoundary.tsx<span class="meta">TypeScript · 73</span></span></details>
+<details><summary><strong>hooks</strong> <span class="meta">2 files · 224 LOC</span></summary><span class="file">useOfflineStatus.ts<span class="meta">TypeScript · 123</span></span>
+<span class="file">useRetry.ts<span class="meta">TypeScript · 101</span></span></details>
+<details><summary><strong>services</strong> <span class="meta">12 files · 1,587 LOC</span></summary><details><summary><strong>api</strong> <span class="meta">7 files · 692 LOC</span></summary><span class="file">ai.ts<span class="meta">TypeScript · 42</span></span>
+<span class="file">analytics.ts<span class="meta">TypeScript · 79</span></span>
+<span class="file">client.ts<span class="meta">TypeScript · 207</span></span>
+<span class="file">consultation.ts<span class="meta">TypeScript · 87</span></span>
+<span class="file">notifications.ts<span class="meta">TypeScript · 44</span></span>
+<span class="file">nutrition.ts<span class="meta">TypeScript · 66</span></span>
+<span class="file">workouts.ts<span class="meta">TypeScript · 167</span></span></details>
+<details><summary><strong>auth</strong> <span class="meta">1 files · 144 LOC</span></summary><span class="file">supabase.ts<span class="meta">TypeScript · 144</span></span></details>
+<details><summary><strong>cache</strong> <span class="meta">2 files · 337 LOC</span></summary><span class="file">offlineQueue.ts<span class="meta">TypeScript · 166</span></span>
+<span class="file">queryPersist.ts<span class="meta">TypeScript · 171</span></span></details>
+<details><summary><strong>notifications</strong> <span class="meta">1 files · 184 LOC</span></summary><span class="file">push.ts<span class="meta">TypeScript · 184</span></span></details>
+<details><summary><strong>websocket</strong> <span class="meta">1 files · 230 LOC</span></summary><span class="file">liveWorkout.ts<span class="meta">TypeScript · 230</span></span></details></details>
+<details><summary><strong>stores</strong> <span class="meta">4 files · 776 LOC</span></summary><span class="file">authStore.ts<span class="meta">TypeScript · 198</span></span>
+<span class="file">chatStore.ts<span class="meta">TypeScript · 95</span></span>
+<span class="file">consultationStore.ts<span class="meta">TypeScript · 157</span></span>
+<span class="file">workoutStore.ts<span class="meta">TypeScript · 326</span></span></details>
+<details><summary><strong>types</strong> <span class="meta">1 files · 445 LOC</span></summary><span class="file">api.ts<span class="meta">TypeScript · 445</span></span></details>
+<span class="file">.env<span class="meta">12</span></span>
+<span class="file">.env.bak-pre-key-rotation<span class="meta">12</span></span>
+<span class="file">.env.example<span class="meta">12</span></span>
+<span class="file">.gitignore<span class="meta">72</span></span>
+<span class="file">app.json<span class="meta">JSON · 65</span></span>
+<span class="file">babel.config.js<span class="meta">JavaScript · 9</span></span>
+<span class="file">CLAUDE.md<span class="meta">Markdown · 348</span></span>
+<span class="file">expo-env.d.ts<span class="meta">TypeScript · 3</span></span>
+<span class="file">global.css<span class="meta">CSS · 3</span></span>
+<span class="file">LICENSE<span class="meta">21</span></span>
+<span class="file">metro.config.js<span class="meta">JavaScript · 6</span></span>
+<span class="file">nativewind-env.d.ts<span class="meta">TypeScript · 1</span></span>
+<span class="file">package-lock.json<span class="meta">JSON · 16,655</span></span>
+<span class="file">package.json<span class="meta">JSON · 60</span></span>
+<span class="file">README.md<span class="meta">Markdown · 127</span></span>
+<span class="file">tailwind.config.js<span class="meta">JavaScript · 61</span></span>
+<span class="file">tsconfig.json<span class="meta">JSON · 37</span></span></details>
+<details><summary><strong>scripts</strong> <span class="meta">1 files · 155 LOC</span></summary><span class="file">check-secrets.sh<span class="meta">Shell · 155</span></span></details>
+<span class="file">.env.secret-guard-test<span class="meta">1</span></span>
+<span class="file">.gitignore<span class="meta">57</span></span>
+<span class="file">.mcp.json<span class="meta">JSON · 8</span></span>
+<span class="file">AI-Integration-v1.md<span class="meta">Markdown · 176</span></span>
+<span class="file">CLAUDE.md<span class="meta">Markdown · 276</span></span>
+<span class="file">HANDOFF.md<span class="meta">Markdown · 169</span></span>
+<span class="file">KNOWN_ISSUES.md<span class="meta">Markdown · 72</span></span>
+<span class="file">PROJECT_STATUS.md<span class="meta">Markdown · 179</span></span>
+<span class="file">README.md<span class="meta">Markdown · 164</span></span>
+<span class="file">SETUP.md<span class="meta">Markdown · 328</span></span></details></div>
+</section>
+
+<section class="glossary">
+  <h2>Glossary</h2>
+  <p class="section-intro">Plain-English definitions for the technical terms used above. Only includes entries relevant to what was found in this codebase.</p>
+  
+        <div class="glossary-group">
+          <div class="group-label">Concepts</div>
+          <dl><dt>Module</dt><dd>A self-contained folder of related code that handles one responsibility — for example an &#x27;auth&#x27; module handles login, a &#x27;billing&#x27; module handles payments. Most codebases split work into modules so contributors can focus on one area at a time.</dd><dt>Package</dt><dd>A piece of reusable code published by someone else that this codebase depends on. Adding a package is faster and safer than re-writing the same code from scratch.</dd><dt>Dependency</dt><dd>An external package this project needs to run. The dependency listing is essentially the project&#x27;s shopping list of outside code.</dd><dt>Entry point</dt><dd>The specific file the program starts running from when launched. Languages have different conventions: Python uses `main.py`, JavaScript uses `index.js`, Go uses `main.go`, Rust uses `main.rs`.</dd><dt>Manifest</dt><dd>A small file at the project&#x27;s root that declares its dependencies and metadata. Examples: `package.json`, `requirements.txt`, `Cargo.toml`, `go.mod`.</dd><dt>LOC (Lines of code)</dt><dd>A rough size indicator — *not* a quality measure. A 100-LOC module isn&#x27;t necessarily worse than a 1,000-LOC one. Use LOC for orientation, not judgement.</dd><dt>Source root</dt><dd>A directory holding the main program code, kept separate from configuration, tests, and build artifacts. Common names: `src`, `lib`, `app`, `cmd`, `pkg`.</dd><dt>Service</dt><dd>An independently deployable unit of code — its own app, its own process, its own deploy. A monorepo can hold many services (e.g. one for the mobile app, one for the backend API, one for the AI worker). Services talk to each other over the network, not by importing each other&#x27;s code.</dd><dt>Endpoint</dt><dd>A specific URL a service responds to, paired with an HTTP method. `GET /api/v1/users/:id` is an endpoint. Services advertise endpoints; other services call them.</dd><dt>ORM (Object-Relational Mapper)</dt><dd>A library that lets you read and write database rows using normal code objects instead of writing SQL by hand. Popular ORMs: Prisma (TS), SQLAlchemy (Python), Mongoose (Mongo), ActiveRecord (Ruby).</dd><dt>Data store</dt><dd>A place where data persists between requests. Databases (Postgres, MySQL, Mongo), caches (Redis), and object storage (S3, MinIO) are all data stores.</dd><dt>Topology</dt><dd>The shape of a system — which pieces exist and how they connect. A topology diagram answers &quot;what&#x27;s deployed and what talks to what.&quot;</dd></dl>
+        </div>
+        
+  
+        <div class="glossary-group">
+          <div class="group-label">Programming languages</div>
+          <dl><dt>CSS</dt><dd>The styling language of web pages — controls colors, layout, fonts, and animations.</dd><dt>Dockerfile</dt><dd>A set of instructions for building a container image. A container packages an app with its OS and dependencies so it runs identically anywhere.</dd><dt>HTML</dt><dd>The markup language of web pages — defines the structure of a page (headings, paragraphs, links, images).</dd><dt>JSON</dt><dd>A data format used to send structured data between systems. Most web APIs speak JSON.</dd><dt>JavaScript</dt><dd>The programming language of the web — runs in every browser. Also runs servers (via Node.js). The most widely used language on the planet.</dd><dt>Makefile</dt><dd>A build script format. Defines named tasks (build, test, clean) that you run with `make &lt;task&gt;`. Old but still widely used.</dd><dt>Markdown</dt><dd>A lightweight format for writing formatted text. Used for READMEs, documentation, and notes. Compiles to HTML.</dd><dt>Python</dt><dd>A general-purpose programming language known for readable syntax. Popular for scripting, data analysis, AI/ML, web backends, and automation.</dd><dt>SQL</dt><dd>The language used to query and manipulate databases. Stands for Structured Query Language.</dd><dt>Shell</dt><dd>Scripting language for the command line (Bash, Zsh, etc.). Used for automation, build steps, and glue code between programs.</dd><dt>TOML</dt><dd>A configuration format chosen for readability. Used by Rust&#x27;s Cargo, Python&#x27;s pyproject.toml, and others.</dd><dt>TypeScript</dt><dd>A programming language that adds type checking on top of JavaScript. Popular for web frontends, Node.js servers, and large applications where catching bugs before running the code matters.</dd><dt>YAML</dt><dd>A human-readable data format. Used heavily for configuration files in CI/CD, Kubernetes, and modern dev tooling.</dd></dl>
+        </div>
+        
+  
+</section>
+
+<footer>
+  Generated by <span class="brand">smokeyp-codebase-mapper</span> v0.3.0
+</footer>
+
+</main>
+</body>
+</html>

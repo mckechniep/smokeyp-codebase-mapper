@@ -4946,7 +4946,15 @@ def render_entry_points(data: dict[str, Any]) -> str:
 """
 
 
-def render_readme(data: dict[str, Any]) -> str:
+def render_overview(data: dict[str, Any], enrichment: dict[str, Any] | None = None) -> str:
+    """Prominent LLM-authored 'what this is' opener. Renders only when
+    enrichment is present; otherwise empty (deterministic-only report)."""
+    if not enrichment or not enrichment.get("overview"):
+        return ""
+    return ""  # filled in a later task
+
+
+def render_readme(data: dict[str, Any], enrichment: dict[str, Any] | None = None) -> str:
     r = data.get("readme") or {}
     if not r.get("file"):
         return ""
@@ -5020,11 +5028,12 @@ def render_footer(data: dict[str, Any]) -> str:
 
 # -------- page assembly ------------------------------------------------
 
-def render_document(data: dict[str, Any]) -> str:
+def render_document(data: dict[str, Any], enrichment: dict[str, Any] | None = None) -> str:
     project_name = escape(data["project"]["name"])
     body = (
         render_cover(data)
-        + render_readme(data)
+        + render_overview(data, enrichment)
+        + render_readme(data, enrichment)
         + render_languages(data)
         + render_modules(data)
         # Module-graph section: dependency-matrix hero + bento.
@@ -5068,6 +5077,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Render a codemap HTML report from JSON.")
     parser.add_argument("--in", dest="inp", required=True, help="Path to codemap.json")
     parser.add_argument("--out", required=True, help="Path to output HTML file")
+    parser.add_argument("--enrichment", default=None, help="Optional codemap.enrichment.json")
     args = parser.parse_args()
 
     inp = Path(args.inp).expanduser().resolve()
@@ -5080,7 +5090,18 @@ def main() -> int:
         print(f"error: invalid JSON in {inp}: {e}", file=sys.stderr)
         return 2
 
-    html = render_document(data)
+    enrichment = None
+    if args.enrichment:
+        ep = Path(args.enrichment).expanduser().resolve()
+        if ep.is_file():
+            try:
+                enrichment = json.loads(ep.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as e:
+                print(f"warning: ignoring invalid enrichment {ep}: {e}", file=sys.stderr)
+        else:
+            print(f"warning: enrichment not found, rendering without it: {ep}", file=sys.stderr)
+
+    html = render_document(data, enrichment)
     out = Path(args.out).expanduser().resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")
