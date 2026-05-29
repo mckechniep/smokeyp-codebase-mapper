@@ -587,32 +587,43 @@ def detect_modules(root: Path, max_modules: int | None) -> list[dict[str, Any]]:
 
 
 def guess_module_description(module_root: Path) -> str | None:
-    """Best-effort module description from README, package.json, or
-    top-of-file docstring of a likely entry file."""
-    # Module-local README
-    for readme_name in ("README.md", "readme.md", "README"):
-        rp = module_root / readme_name
-        if rp.is_file():
-            text = safe_read(rp, limit=4096)
-            if text:
-                return first_paragraph(text)
-    # package.json description
+    """Best-effort module description.
+
+    Preference order: package.json "description" (curated, single line) >
+    module README first prose paragraph > Python __init__.py docstring.
+    package.json is checked first for JS/TS packages because their READMEs
+    routinely open with a shields.io badge row rather than a real
+    sentence; the curated manifest description is more reliable."""
+    # package.json description — curated and reliable for JS/TS packages.
     pj = module_root / "package.json"
     if pj.is_file():
         try:
             data = json.loads(pj.read_text(encoding="utf-8", errors="replace"))
             if isinstance(data, dict) and data.get("description"):
-                return str(data["description"])
+                desc = str(data["description"]).strip()
+                if desc:
+                    return desc
         except (json.JSONDecodeError, OSError):
             pass
-    # Python __init__.py docstring
+    # Module-local README — first prose paragraph (badges/links filtered).
+    for readme_name in ("README.md", "readme.md", "README"):
+        rp = module_root / readme_name
+        if rp.is_file():
+            text = safe_read(rp, limit=4096)
+            if text:
+                para = first_paragraph(text)
+                if para:
+                    return para
+    # Python __init__.py docstring.
     init = module_root / "__init__.py"
     if init.is_file():
         text = safe_read(init, limit=2048)
         if text:
             m = re.search(r'^"""(.+?)"""', text, flags=re.DOTALL | re.MULTILINE)
             if m:
-                return first_paragraph(m.group(1).strip())
+                para = first_paragraph(m.group(1).strip())
+                if para:
+                    return para
     return None
 
 
@@ -624,17 +635,54 @@ def safe_read(path: Path, limit: int = 65536) -> str:
         return ""
 
 
+# Markdown/HTML noise that is never a real description line.
+_BADGE_RE = re.compile(r"\[!\[")               # [![alt][ref]] / [![alt](src)] badge
+_LINKREF_RE = re.compile(r"^\[[^\]]+\]:\s*\S+")  # [ref]: https://...  link definition
+_HTML_TAG_RE = re.compile(r"^<[^>]+>")          # <p align=...>, <div>, <img ...>, <a ...>
+_HTML_COMMENT_RE = re.compile(r"^<!--")         # <!-- comment -->
+_IMAGE_RE = re.compile(r"^!\[")                 # ![alt](src) bare image
+_URL_RE = re.compile(r"https?://\S+")
+
+
+def _looks_like_prose(line: str) -> bool:
+    """True if a line reads like a sentence rather than markup/badges/links."""
+    s = line.strip()
+    if not s:
+        return False
+    if (
+        s.startswith("#")
+        or _BADGE_RE.search(s)
+        or _LINKREF_RE.match(s)
+        or _HTML_TAG_RE.match(s)
+        or _HTML_COMMENT_RE.match(s)
+        or _IMAGE_RE.match(s)
+    ):
+        return False
+    # Strip links/images, inline code, emphasis, and URLs, then require that
+    # real letters dominate what remains — i.e. it's a sentence, not a
+    # cluster of brackets and links.
+    cleaned = _URL_RE.sub("", s)
+    cleaned = re.sub(r"!?\[[^\]]*\]\([^)]*\)", "", cleaned)  # [text](url) / ![alt](src)
+    cleaned = re.sub(r"!?\[[^\]]*\]\[[^\]]*\]", "", cleaned)  # [text][ref]
+    cleaned = cleaned.replace("`", "").replace("*", "").replace("_", "")
+    letters = sum(c.isalpha() for c in cleaned)
+    return letters >= 12  # at least a few real words
+
+
 def first_paragraph(text: str) -> str:
-    """Return the first non-empty, non-heading paragraph (trimmed)."""
+    """Return the first paragraph that reads like prose.
+
+    Skips headings, shields.io badge rows, link-reference definitions,
+    HTML wrappers (e.g. <p align="center">), and bare image lines — the
+    markup that commonly opens an OSS README before any real sentence."""
     paragraphs = re.split(r"\n\s*\n", text.strip())
     for p in paragraphs:
-        stripped = p.strip()
-        if not stripped:
-            continue
-        if stripped.startswith("#"):
-            continue
-        # Collapse whitespace
-        return re.sub(r"\s+", " ", stripped)[:500]
+        # A paragraph may mix a badge/logo line with a real sentence; keep
+        # only the prose lines within it.
+        prose_lines = [ln for ln in p.splitlines() if _looks_like_prose(ln)]
+        if prose_lines:
+            joined = " ".join(prose_lines)
+            return re.sub(r"\s+", " ", joined).strip()[:500]
     return ""
 
 

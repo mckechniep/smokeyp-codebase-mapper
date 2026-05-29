@@ -1534,7 +1534,6 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
      padding + headline, so the SVG itself caps at 6.0in (~576px).
      viewBox preserves aspect ratio while scaling — text stays
      crisp because PDF is vector. */
-  .modgraph-matrix,
   .topov2-svg,
   .lineage2-svg {
     display: block;
@@ -1543,6 +1542,23 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
     height: auto !important;
     max-width: 100%;
     max-height: 6.0in;
+  }
+
+  /* The matrix is square (n x n), so on a wide landscape page it is
+     height-bound. The cap must leave room for the h2 + headline so the
+     whole frame stays on one page (a taller cap splits the grid from its
+     heading). 6.4in fits alongside the heading while still rendering the
+     matrix larger than the other heroes — the new geometry (16px cells,
+     gutter-sized labels) is already intrinsically wider than before. For
+     a dramatically larger matrix the section would need its own portrait
+     page; that is deferred because it also reshapes the section bento. */
+  .modgraph-matrix {
+    display: block;
+    margin: 0 auto;
+    width: auto !important;
+    height: auto !important;
+    max-width: 100%;
+    max-height: 6.4in;
   }
 
   /* Critical-paths has 16 rows of structured content (each row is
@@ -2235,23 +2251,29 @@ def _observations_for_lineage(
 # diagonal indicate internal cohesion; off-diagonal mass indicates
 # cross-service coupling.
 
-MAX_MATRIX_NODES = 60
+MAX_MATRIX_NODES = 55
+
+# Axis labels are truncated to this many characters; the full module name
+# is preserved in an SVG <title> for hover. The gutters are sized from this
+# bound so long names can never overflow or overprint each other.
+MAX_LABEL_CHARS = 18
 
 
 def _matrix_cell_size(n: int) -> int:
-    """Adapt cell size so the matrix fits the frame width (~796px inner
-    after the -56px margin escape applied in CSS). Sized tiers were
-    chosen to keep cells readable while never forcing horizontal
-    scrolling on the common monorepo case."""
+    """Adapt cell size to N. The floor (16px at the node cap) is kept at or
+    above the label line-height so adjacent axis labels never collide
+    vertically, and so the 45deg-rotated column labels keep enough
+    perpendicular spacing to stay legible. Larger N yields a bigger SVG
+    that scrolls on screen and scales-to-fit on the landscape PDF page."""
     if n <= 18:
-        return 32
-    if n <= 26:
-        return 24
-    if n <= 38:
-        return 18
-    if n <= 50:
-        return 14
-    return 11
+        return 34
+    if n <= 28:
+        return 26
+    if n <= 40:
+        return 20
+    if n <= 55:
+        return 16
+    return 14  # absolute floor; never below label line-height
 
 
 def _module_short_name(module_id: str, leaf: str) -> str:
@@ -2264,6 +2286,12 @@ def _module_short_name(module_id: str, leaf: str) -> str:
     leaf is enough on screen.
     """
     return leaf or module_id.rsplit("/", 1)[-1]
+
+
+def _truncate_label(name: str, limit: int = MAX_LABEL_CHARS) -> str:
+    """Truncate a label to `limit` chars with an ellipsis. The full name is
+    surfaced separately via an SVG <title>, so no information is lost."""
+    return name if len(name) <= limit else name[: limit - 1] + "…"
 
 
 def render_module_graph_section(data: dict[str, Any]) -> str:
@@ -2365,12 +2393,28 @@ def render_module_graph_section(data: dict[str, Any]) -> str:
 
     # ------ Geometry ------
     cell = _matrix_cell_size(n)
-    label_w = 110
-    label_h_top = 96  # space for rotated column labels
+    label_font_size = 11 if cell >= 16 else 10
     band = 8          # service-color stripe on the outer edges
     grid_size = n * cell
 
-    svg_w = label_w + band + grid_size + 6
+    # Size the label gutters from the longest *displayed* (truncated) name so
+    # labels are always fully contained — no clipping at the left edge, no
+    # rotated label overrunning the top axis title or the right edge.
+    char_px = label_font_size * 0.62  # ~monospace glyph advance
+    longest_label = max(
+        (
+            len(_truncate_label(_module_short_name(nd.get("id", ""), nd.get("name", ""))))
+            for nd in matrix_nodes
+        ),
+        default=8,
+    )
+    label_px = longest_label * char_px
+    diag_px = label_px * 0.7071        # 45deg projection of a label
+    label_w = int(label_px) + 14       # left gutter: full horizontal Y label + pad
+    label_h_top = int(diag_px) + 22    # top gutter: rotated X label rise + axis title
+    right_pad = int(diag_px) + 8       # rotated X labels extend up-and-right
+
+    svg_w = label_w + band + grid_size + right_pad
     svg_h = label_h_top + band + grid_size + 28  # +28 for x-axis title at bottom
 
     grid_x0 = label_w + band
@@ -2505,31 +2549,34 @@ def render_module_graph_section(data: dict[str, Any]) -> str:
         f'fill="none" stroke="var(--border)" stroke-width="1" />'
     )
 
-    # Row labels (left, right-aligned).
-    label_font_size = 10 if cell < 14 else 11
+    # Row labels (left, right-aligned). Truncated for layout; full name in <title>.
     for i, node in enumerate(matrix_nodes):
         y = grid_y0 + i * cell + cell / 2 + label_font_size * 0.35
-        name = _module_short_name(node.get("id", ""), node.get("name", ""))
+        full = _module_short_name(node.get("id", ""), node.get("name", ""))
+        shown = _truncate_label(full)
+        title = f"<title>{escape(full)}</title>" if shown != full else ""
         parts.append(
             f'<text class="modgraph-label" data-row="{i}" '
             f'x="{label_w - 6}" y="{y:.1f}" '
             f'text-anchor="end" '
             f'font-size="{label_font_size}">'
-            f'{escape(name)}</text>'
+            f'{escape(shown)}{title}</text>'
         )
 
-    # Column labels (top, rotated -45°).
+    # Column labels (top, rotated -45°). Truncated for layout; full name in <title>.
     for i, node in enumerate(matrix_nodes):
         x = grid_x0 + i * cell + cell / 2
         y = label_h_top - 6
-        name = _module_short_name(node.get("id", ""), node.get("name", ""))
+        full = _module_short_name(node.get("id", ""), node.get("name", ""))
+        shown = _truncate_label(full)
+        title = f"<title>{escape(full)}</title>" if shown != full else ""
         parts.append(
             f'<text class="modgraph-label" data-col="{i}" '
             f'x="{x:.1f}" y="{y:.1f}" '
             f'text-anchor="start" '
             f'font-size="{label_font_size}" '
             f'transform="rotate(-45 {x:.1f} {y:.1f})">'
-            f'{escape(name)}</text>'
+            f'{escape(shown)}{title}</text>'
         )
 
     # Axis titles.
