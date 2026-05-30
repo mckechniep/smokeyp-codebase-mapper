@@ -5067,13 +5067,20 @@ def render_readme(data: dict[str, Any], enrichment: dict[str, Any] | None = None
     if enrichment and enrichment.get("overview"):
         section_open = '<section class="readme-section readme-demoted">'
         heading = "What the README says"
+        # The LLM Overview above is now the authoritative summary, so frame
+        # the README as secondary (a README is often a roadmap or aspiration
+        # rather than a description of what the code actually does).
+        intro = ('<p class="section-intro">The author’s own words from the project '
+                 'README. Treat this as secondary — the Overview above is derived from '
+                 'the code itself, which is the more reliable description.</p>')
     else:
         section_open = "<section>"
         heading = f"From {escape(r['file'])}"
+        intro = section_intro("readme")
     return f"""
 {section_open}
   <h2>{heading}</h2>
-  {section_intro("readme")}
+  {intro}
   <blockquote class="readme-quote">{escape(first_para)}</blockquote>
 </section>
 """
