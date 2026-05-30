@@ -1602,6 +1602,10 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
     background: transparent;
     border-left-color: var(--ink);
   }
+
+  /* Keep each flow card intact across page breaks; don't strand the heading. */
+  .flow-card { break-inside: avoid; page-break-inside: avoid; }
+  .key-flows h2 { break-after: avoid; page-break-after: avoid; }
 }
 
 /* ---- LLM evaluation: Overview ---- */
