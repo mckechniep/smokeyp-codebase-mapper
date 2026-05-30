@@ -1603,6 +1603,15 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
     border-left-color: var(--ink);
   }
 }
+
+/* ---- LLM evaluation: Overview ---- */
+.overview { margin: var(--space-5) 0; }
+.overview-lede { font-size: 1.4rem; font-weight: 600; line-height: 1.3; color: var(--ink); margin: 0 0 var(--space-3); font-family: var(--font-serif); }
+.overview-body p { margin: 0 0 var(--space-2); color: var(--ink-2); }
+.overview-stack { margin: var(--space-3) 0; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.overview-caveats { margin: var(--space-3) 0; padding: var(--space-2) var(--space-3); border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 var(--radius) var(--radius) 0; }
+.overview-caveats ul { margin: 4px 0 0; padding-left: 18px; }
+.overview-conf { font-size: 0.82rem; color: var(--muted); font-family: var(--font-mono); margin-top: var(--space-2); }
 """
 
 
@@ -4951,7 +4960,32 @@ def render_overview(data: dict[str, Any], enrichment: dict[str, Any] | None = No
     enrichment is present; otherwise empty (deterministic-only report)."""
     if not enrichment or not enrichment.get("overview"):
         return ""
-    return ""  # filled in a later task
+    ov = enrichment["overview"]
+    stack = "".join(
+        f'<span class="tag">{escape(s)}</span>' for s in ov.get("primary_stack", [])
+    )
+    caveat_html = ""
+    caveats = ov.get("caveats", [])
+    if caveats:
+        items = "".join(f"<li>{escape(c)}</li>" for c in caveats)
+        caveat_html = (
+            f'<div class="overview-caveats"><div class="group-label">Caveats</div>'
+            f'<ul>{items}</ul></div>'
+        )
+    conf = escape(ov.get("confidence", ""))
+    return f"""
+<section class="overview">
+  <h2>What this codebase is</h2>
+  <p class="overview-lede">{escape(ov.get('what_it_is', ''))}</p>
+  <div class="overview-body">
+    <p>{escape(ov.get('what_it_does', ''))}</p>
+    <p>{escape(ov.get('how_it_works', ''))}</p>
+  </div>
+  <div class="overview-stack"><span class="group-label">Stack</span> {stack}</div>
+  {caveat_html}
+  <p class="overview-conf">Assessed from the source by an LLM · confidence: {conf}</p>
+</section>
+"""
 
 
 def render_readme(data: dict[str, Any], enrichment: dict[str, Any] | None = None) -> str:
