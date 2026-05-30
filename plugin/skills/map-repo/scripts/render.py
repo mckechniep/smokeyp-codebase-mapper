@@ -1619,6 +1619,24 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 .card.is-vendored .name { color: var(--muted); }
 .readme-demoted { opacity: 0.85; }
 .readme-demoted .readme-quote { font-size: 0.92rem; }
+
+/* ---- LLM evaluation: Key flows ---- */
+.key-flows { margin: var(--space-6) 0; }
+.flow-list { display: flex; flex-direction: column; gap: var(--space-4); }
+.flow-card { border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4); background: var(--surface); }
+.flow-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.flow-kind { font-size: 0.68rem; font-family: var(--font-mono); letter-spacing: 0.08em; color: var(--accent-deep); border: 1px solid var(--accent); border-radius: 4px; padding: 1px 6px; }
+.flow-name { font-size: 1.15rem; font-weight: 600; font-family: var(--font-serif); }
+.flow-trigger, .flow-terminates { font-size: 0.9rem; color: var(--ink); margin: 4px 0; }
+.flow-narration { color: var(--muted); margin: 4px 0 12px; }
+.flow-body { display: grid; grid-template-columns: 22px 1fr; gap: 14px; }
+.flow-spine { display: block; }
+.flow-steps { display: flex; flex-direction: column; }
+.flow-step { min-height: 56px; padding-bottom: 8px; }
+.flow-step-label { font-weight: 600; font-size: 0.95rem; color: var(--ink); }
+.flow-step-cite { font-size: 0.8rem; color: var(--muted); }
+.flow-step-cite code { font-family: var(--font-mono); }
+.flow-step-note { font-size: 0.85rem; color: var(--ink-2); }
 """
 
 
@@ -1640,6 +1658,9 @@ REPORT_EXPLAINER = (
 SECTION_INTROS: dict[str, str] = {
     "readme":   "The author's own words from the project README — the closest thing to an "
                 "official summary of what this codebase is and what it does.",
+    "flows":    "These are the main paths a request or job takes through the code, traced "
+                "from a real trigger to where it ends. Each step cites the actual file and "
+                "function it runs, so you can follow the path in the source yourself.",
     "languages": "Programming languages are the rules and vocabulary used to write code. "
                  "A codebase usually has one primary language plus several supporting ones "
                  "(configuration files, documentation, build scripts).",
@@ -5108,6 +5129,84 @@ def render_footer(data: dict[str, Any]) -> str:
 """
 
 
+# -------- Key flows (LLM evaluation) -----------------------------------
+# Flow-kind chips reuse the editorial palette without new accent colors.
+FLOW_KIND_LABELS = {
+    "request": "REQUEST", "background": "BACKGROUND", "scheduled": "SCHEDULED",
+    "state-machine": "STATE MACHINE", "pipeline": "PIPELINE", "bootstrap": "BOOTSTRAP",
+}
+
+# Row pitch (px) for a flow step; the SVG spine's nodes are spaced to match
+# so the numbered nodes line up with the HTML step rows beside them.
+FLOW_ROW_PX = 56
+
+
+def _render_flow_card(flow: dict[str, Any]) -> str:
+    steps = flow.get("steps", [])
+    n = len(steps)
+    spine_h = max(FLOW_ROW_PX * n, FLOW_ROW_PX)
+    nodes = []
+    for i in range(n):
+        cy = i * FLOW_ROW_PX + FLOW_ROW_PX / 2
+        nodes.append(
+            f'<circle cx="11" cy="{cy:.0f}" r="9" fill="var(--bg)" '
+            f'stroke="var(--accent)" stroke-width="2"/>'
+            f'<text x="11" y="{cy + 3:.0f}" text-anchor="middle" '
+            f'font-size="10" font-family="var(--font-mono)" fill="var(--ink)">{i + 1}</text>'
+        )
+    spine = (
+        f'<svg class="flow-spine" width="22" height="{spine_h}" '
+        f'viewBox="0 0 22 {spine_h}" aria-hidden="true">'
+        f'<line x1="11" y1="9" x2="11" y2="{spine_h - 9}" stroke="var(--border)" stroke-width="2"/>'
+        f'{"".join(nodes)}</svg>'
+    )
+    rows = []
+    for s in steps:
+        cite = escape(s.get("file", ""))
+        sym = escape(s.get("symbol", ""))
+        line = f':{escape(str(s["line"]))}' if s.get("line") else ""
+        note = escape(s.get("note", ""))
+        note_html = f'<div class="flow-step-note">{note}</div>' if note else ""
+        rows.append(
+            f'<div class="flow-step">'
+            f'<div class="flow-step-label">{escape(s.get("label", "") or sym)}</div>'
+            f'<div class="flow-step-cite"><code>{cite}{line}</code> · <code>{sym}</code></div>'
+            f'{note_html}'
+            f'</div>'
+        )
+    kind = FLOW_KIND_LABELS.get(flow.get("kind", ""), escape(flow.get("kind", "").upper()))
+    return f"""
+    <div class="flow-card">
+      <div class="flow-head">
+        <span class="flow-kind">{kind}</span>
+        <span class="flow-name">{escape(flow.get('name', ''))}</span>
+      </div>
+      <div class="flow-trigger"><strong>Trigger:</strong> {escape(flow.get('trigger', ''))}</div>
+      <div class="flow-narration">{escape(flow.get('narration', ''))}</div>
+      <div class="flow-body">
+        {spine}
+        <div class="flow-steps">{''.join(rows)}</div>
+      </div>
+      <div class="flow-terminates"><strong>Ends:</strong> {escape(flow.get('terminates', ''))}</div>
+    </div>
+    """
+
+
+def render_key_flows(data: dict[str, Any], enrichment: dict[str, Any] | None = None) -> str:
+    """Render LLM-derived end-to-end flows. Empty without flows."""
+    flows = (enrichment or {}).get("flows") or []
+    if not flows:
+        return ""
+    cards = "".join(_render_flow_card(f) for f in flows)
+    return f"""
+<section class="key-flows">
+  <h2>Key flows</h2>
+  {section_intro("flows")}
+  <div class="flow-list">{cards}</div>
+</section>
+"""
+
+
 # -------- page assembly ------------------------------------------------
 
 def render_document(data: dict[str, Any], enrichment: dict[str, Any] | None = None) -> str:
@@ -5128,6 +5227,8 @@ def render_document(data: dict[str, Any], enrichment: dict[str, Any] | None = No
         # when a request flows through. Sits between topology (call graph)
         # and lineage (persistence) because it bridges the two.
         + render_critical_paths_section(data)
+        # Key flows: LLM-derived end-to-end stories (renders only with enrichment).
+        + render_key_flows(data, enrichment)
         # Lineage section: Sankey hero with cylinder store glyphs + bento.
         + render_data_lineage_v2(data)
         + render_entry_points(data)

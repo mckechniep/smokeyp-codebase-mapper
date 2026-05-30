@@ -102,5 +102,33 @@ class ModulesTest(unittest.TestCase):
         self.assertNotIn("The web dashboard.", html)
 
 
+class FlowsTest(unittest.TestCase):
+    def _enr(self):
+        return {"schema_version": 1, "overview": {}, "classification": {},
+                "module_descriptions": [],
+                "flows": [
+                    {"name": "User signup", "kind": "request",
+                     "trigger": "GraphQL mutation signUp", "narration": "Creates an account.",
+                     "terminates": "auth token returned",
+                     "steps": [
+                        {"label": "sign_up/2", "file": "backend/lib/x.ex",
+                         "symbol": "sign_up/2", "line": 28, "note": "validates + delegates"},
+                        {"label": "Repo.transact", "file": "backend/lib/y.ex",
+                         "symbol": "create_account/1", "note": "inserts account"},
+                     ]},
+                ]}
+
+    def test_flows_render_with_citations(self):
+        html = render.render_key_flows({}, self._enr())
+        self.assertIn("User signup", html)
+        self.assertIn("sign_up/2", html)
+        self.assertIn("backend/lib/x.ex", html)
+        self.assertIn("GraphQL mutation signUp", html)
+
+    def test_no_flows_no_section(self):
+        self.assertEqual(render.render_key_flows({}, None), "")
+        self.assertEqual(render.render_key_flows({}, {"flows": []}), "")
+
+
 if __name__ == "__main__":
     unittest.main()
