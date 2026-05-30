@@ -1612,6 +1612,13 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 .overview-caveats { margin: var(--space-3) 0; padding: var(--space-2) var(--space-3); border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 var(--radius) var(--radius) 0; }
 .overview-caveats ul { margin: 4px 0 0; padding-left: 18px; }
 .overview-conf { font-size: 0.82rem; color: var(--muted); font-family: var(--font-mono); margin-top: var(--space-2); }
+
+/* ---- LLM evaluation: vendored modules + README demotion ---- */
+.vendored-badge { font-size: 0.7rem; font-family: var(--font-mono); color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; margin-left: 8px; vertical-align: middle; }
+.card.is-vendored { opacity: 0.6; }
+.card.is-vendored .name { color: var(--muted); }
+.readme-demoted { opacity: 0.85; }
+.readme-demoted .readme-quote { font-size: 0.92rem; }
 """
 
 
@@ -1891,25 +1898,57 @@ def _tree_node(node: dict[str, Any], is_root: bool = False) -> str:
     return f"<details{open_attr}>{summary}{body}</details>"
 
 
-def render_modules(data: dict[str, Any]) -> str:
+def render_modules(data: dict[str, Any], enrichment: dict[str, Any] | None = None) -> str:
     mods = data.get("modules", [])
     if not mods:
         return ""
-    cards = "".join(
-        f"""
-        <div class="card">
+
+    # Build classification + description lookups from enrichment (keyed by path).
+    vendored_ids: dict[str, dict] = {}
+    desc_by_id: dict[str, str] = {}
+    if enrichment:
+        for v in enrichment.get("classification", {}).get("vendored", []):
+            if v.get("module_id"):
+                vendored_ids[v["module_id"]] = v
+        for d in enrichment.get("module_descriptions", []):
+            if d.get("module_id") and d.get("description"):
+                desc_by_id[d["module_id"]] = d["description"]
+
+    def is_vendored(m: dict) -> bool:
+        return m.get("path") in vendored_ids
+
+    def card(m: dict) -> str:
+        path = m.get("path", "")
+        vend = is_vendored(m)
+        desc = desc_by_id.get(path) or (m.get("description") if not vend else "")
+        kind = vendored_ids.get(path, {}).get("kind", "")
+        badge = (
+            f'<span class="vendored-badge">vendored{(" · " + escape(kind)) if kind else ""}</span>'
+            if vend else ""
+        )
+        desc_html = ('<p class="desc">' + escape(desc) + '</p>') if desc else ""
+        return f"""
+        <div class="card{' is-vendored' if vend else ''}">
           <div class="head">
-            <div class="name">{escape(m['path'])}</div>
+            <div class="name">{escape(path)}{badge}</div>
             <div class="meta">{fmt_num(m['file_count'])} files · {fmt_num(m['loc'])} LOC</div>
           </div>
-          {('<p class="desc">' + escape(m['description']) + '</p>') if m.get('description') else ''}
+          {desc_html}
           <div class="langs">
             {''.join(f'<span class="tag">{escape(l)}</span>' for l in m.get('languages', []))}
           </div>
         </div>
         """
-        for m in mods
-    )
+
+    # Products first (original order), vendored last — only when classified.
+    if enrichment:
+        products = [m for m in mods if not is_vendored(m)]
+        vendored = [m for m in mods if is_vendored(m)]
+        ordered = products + vendored
+    else:
+        ordered = mods
+
+    cards = "".join(card(m) for m in ordered)
     return f"""
 <section>
   <h2>Top-level modules</h2>
@@ -4997,9 +5036,18 @@ def render_readme(data: dict[str, Any], enrichment: dict[str, Any] | None = None
         # Without a first paragraph there's nothing meaningful to render;
         # the headings-only chip cloud felt like decontextualized noise.
         return ""
+    # When the LLM overview is present, the README is demoted to a small
+    # secondary aside. Without enrichment, emit the original markup exactly
+    # (byte-identical) so the deterministic report is unchanged.
+    if enrichment and enrichment.get("overview"):
+        section_open = '<section class="readme-section readme-demoted">'
+        heading = "What the README says"
+    else:
+        section_open = "<section>"
+        heading = f"From {escape(r['file'])}"
     return f"""
-<section>
-  <h2>From {escape(r['file'])}</h2>
+{section_open}
+  <h2>{heading}</h2>
   {section_intro("readme")}
   <blockquote class="readme-quote">{escape(first_para)}</blockquote>
 </section>
@@ -5069,7 +5117,7 @@ def render_document(data: dict[str, Any], enrichment: dict[str, Any] | None = No
         + render_overview(data, enrichment)
         + render_readme(data, enrichment)
         + render_languages(data)
-        + render_modules(data)
+        + render_modules(data, enrichment)
         # Module-graph section: dependency-matrix hero + bento.
         + render_module_graph_section(data)
         # Topology section: C4-style hero + bento.

@@ -62,5 +62,45 @@ class OverviewTest(unittest.TestCase):
         self.assertEqual(render.render_overview({"project": {"name": "x"}}, None), "")
 
 
+class ModulesTest(unittest.TestCase):
+    def _data(self):
+        return {"modules": [
+            {"path": "apps/web", "file_count": 3, "loc": 100,
+             "languages": ["TypeScript"], "description": "scanner guess"},
+            {"path": "vendor-lib-master", "file_count": 2, "loc": 5000,
+             "languages": ["JavaScript"], "description": "vendor guess"},
+        ]}
+
+    def _enr(self):
+        return {
+            "schema_version": 1,
+            "overview": {"what_it_is": "x", "what_it_does": "y", "how_it_works": "z",
+                         "primary_stack": [], "confidence": "low", "caveats": []},
+            "classification": {
+                "products": [{"module_id": "apps/web", "role": "frontend", "why": "w"}],
+                "vendored": [{"module_id": "vendor-lib-master",
+                              "kind": "vendored-framework", "source": "x", "why": "w"}],
+            },
+            "module_descriptions": [
+                {"module_id": "apps/web", "description": "The web dashboard.", "is_product": True}
+            ],
+            "flows": [],
+        }
+
+    def test_product_uses_llm_description_and_sorts_first(self):
+        html = render.render_modules(self._data(), self._enr())
+        self.assertIn("The web dashboard.", html)
+        self.assertLess(html.index("apps/web"), html.index("vendor-lib-master"))
+
+    def test_vendored_is_badged(self):
+        html = render.render_modules(self._data(), self._enr())
+        self.assertIn("vendored", html.lower())
+
+    def test_modules_unchanged_without_enrichment(self):
+        html = render.render_modules(self._data(), None)
+        self.assertIn("scanner guess", html)
+        self.assertNotIn("The web dashboard.", html)
+
+
 if __name__ == "__main__":
     unittest.main()
