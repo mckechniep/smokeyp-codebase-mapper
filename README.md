@@ -7,7 +7,8 @@
 ## What's in a report
 
 - **Cover** — project name, primary language, file count, LOC, language count, monorepo flag
-- **README extract** — a clean first-paragraph blockquote so the document opens with context
+- **Overview & Key flows** *(LLM evaluation, on by default)* — an accurate, code-derived summary of what the project actually is and does, vendored/reference code flagged and de-emphasised (so it stops dominating the module list), per-module descriptions for product code, and several end-to-end execution flows where every step cites a real `file:symbol`. Derived by reading the source, not the README. Pass `--no-llm` for a fast deterministic-only report.
+- **README extract** — a clean first-paragraph blockquote (demoted to a small secondary aside when the LLM overview is present, since a README is often a roadmap rather than a description)
 - **Languages** — stacked share bar + sortable table with file counts and lines
 - **Top-level modules** — each detected module (recursive for monorepos) as a card with description (auto-detected from README, `package.json`, or `__init__.py` docstring)
 - **Module dependency matrix** *(diagram 1 — "How the modules connect")* — a Bertin-style matrix: rows are importing modules, columns are imported modules, cell shading shows import weight. Modules are ordered by service so clean architectures show a block-diagonal pattern at a glance.
@@ -58,6 +59,7 @@ Then enable the plugin in Claude Code settings.
 | `--format` | `both` | Output format: `html`, `pdf`, or `both` |
 | `--depth` | `medium` | `shallow` = 2-level tree, 10 module cards, 30 graph nodes (single-glance summary). `medium` *(default)* = 4-level tree, 25 cards, 80 graph nodes (right for most monorepos). `full` = everything, no truncation. |
 | `--out` | `<path>/.codemap/` | Output directory |
+| `--no-llm` | off (evaluation on) | Skip the LLM evaluation step (overview, classification, flows); produce the deterministic-only report. Alias: `--fast` |
 
 ### Examples
 
