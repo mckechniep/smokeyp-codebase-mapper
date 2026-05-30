@@ -216,9 +216,10 @@ Claude will load the `design-system` skill, edit `:root` in `render.py`, and re-
 - **v0.2.0** *(shipped)* — first module diagram with per-language import parsing (Python, JS/TS, Go)
 - **v0.3.0** *(shipped)* — monorepo-aware recursive module detection, service-topology HTTP graph (10 framework families), data-lineage diagram (6 ORM families), entry-point detection, `--depth medium` default
 - **v0.3.x** *(shipped)* — editorial redesign: all diagrams rebuilt as deterministic static SVG (Bertin dependency matrix, C4 service topology, critical-paths swimlane, Sankey data lineage), per-diagram architect observations + small-multiples, D3/force-simulation runtime removed. Print-first throughout.
-- **v0.4.0** — TypeScript path-alias support, Express `app.use('/api', router)` mount following, third-party service detection (external API calls grouped as "outbound services" node)
-- **v0.5.0** — optional per-service file-level matrix appendix (a static drill-down figure for a chosen module, keeping the print-first, no-JS constraint)
-- **v0.6.0** — diff mode (`map-repo --vs main`) to highlight architectural drift between branches
+- **v0.4.0** *(shipped)* — LLM evaluation layer (on by default, `--no-llm` to skip): a code-derived overview that replaces README prominence, product-vs-vendored classification (vendored code demoted), per-product-module descriptions, and a "Key flows" section of cited execution flows. Plus Elixir (`.ex`/`.exs`) import parsing and JS/TS workspace-package (`@scope/pkg`) resolution, so the dependency matrix populates for those stacks.
+- **v0.5.0** — TypeScript path-alias support, Express `app.use('/api', router)` mount following, third-party service detection (external API calls grouped as "outbound services" node)
+- **v0.6.0** — optional per-service file-level matrix appendix (a static drill-down figure for a chosen module, keeping the print-first, no-JS constraint)
+- **v0.7.0** — diff mode (`map-repo --vs main`) to highlight architectural drift between branches
 - **v1.0.0** — optional tree-sitter AST backend for sharper edge accuracy on languages where it matters
 
 ## Contributing
