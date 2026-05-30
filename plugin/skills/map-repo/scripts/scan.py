@@ -42,6 +42,8 @@ LANGUAGES: dict[str, tuple[str, str]] = {
     ".kts": ("Kotlin", "#A97BFF"),
     ".swift": ("Swift", "#F05138"),
     ".rb": ("Ruby", "#701516"),
+    ".ex": ("Elixir", "#6e4a7e"),
+    ".exs": ("Elixir", "#6e4a7e"),
     ".php": ("PHP", "#4F5D95"),
     ".c": ("C", "#555555"),
     ".h": ("C", "#555555"),
@@ -870,7 +872,7 @@ def extract_readme(root: Path) -> dict[str, Any]:
 # is unreadable spaghetti; a module graph is the architecture diagram you
 # actually want. Edge weight = count of file-level imports rolled up.
 
-GRAPH_LANGUAGES: frozenset[str] = frozenset({"Python", "JavaScript", "TypeScript", "Go"})
+GRAPH_LANGUAGES: frozenset[str] = frozenset({"Python", "JavaScript", "TypeScript", "Go", "Elixir"})
 
 PY_IMPORT_RE = re.compile(
     r"^\s*(?:from\s+(\.{0,2})([\w.]*)\s+import|import\s+([\w.]+))",
@@ -950,25 +952,72 @@ def _python_import_targets(text: str) -> list[str]:
     return targets
 
 
-def _jsts_import_targets(file_path: Path, text: str) -> list[Path]:
-    """Resolved absolute paths for relative/absolute path imports.
+def _jsts_import_targets(file_path: Path, text: str) -> tuple[list[Path], list[str]]:
+    """Split a file's imports into (resolved relative/absolute paths,
+    bare specifiers).
 
-    Bare specifiers (npm packages) are dropped — they're external.
+    Relative/absolute imports resolve to filesystem paths. Bare specifiers
+    (e.g. `lodash`, `@scope/pkg`) are returned raw so the caller can decide
+    whether they resolve to a workspace package (internal) or an external
+    npm dependency.
     """
     parent = file_path.parent
-    out: list[Path] = []
+    paths: list[Path] = []
+    bare: list[str] = []
     for m in JSTS_IMPORT_RE.finditer(text):
         spec = next((g for g in m.groups() if g), None)
         if not spec:
             continue
-        if not (spec.startswith(".") or spec.startswith("/")):
-            continue
-        try:
-            resolved = (parent / spec).resolve()
-        except (OSError, RuntimeError):
-            continue
-        out.append(resolved)
-    return out
+        if spec.startswith(".") or spec.startswith("/"):
+            try:
+                paths.append((parent / spec).resolve())
+            except (OSError, RuntimeError):
+                continue
+        else:
+            bare.append(spec)
+    return paths, bare
+
+
+def _pkg_name_of_specifier(spec: str) -> str | None:
+    """The npm package name a bare import specifier belongs to.
+
+    `@scope/pkg/sub` -> `@scope/pkg`; `pkg/sub` -> `pkg`. Relative
+    specifiers (starting with `.`) return None.
+    """
+    if not spec or spec.startswith("."):
+        return None
+    parts = spec.split("/")
+    if spec.startswith("@"):
+        return "/".join(parts[:2]) if len(parts) >= 2 else None
+    return parts[0] or None
+
+
+# Elixir: `defmodule Foo.Bar do` declares a module; `alias`/`import`/`use`/
+# `require Foo.Bar` reference one. `alias Foo.{Bar, Baz}` references both.
+ELIXIR_DEFMODULE_RE = re.compile(r"^\s*defmodule\s+([A-Z][\w.]*?)\s+do", re.MULTILINE)
+ELIXIR_MULTI_ALIAS_RE = re.compile(r"^\s*alias\s+([A-Z][\w.]*?)\.\{([^}]*)\}", re.MULTILINE)
+ELIXIR_REF_RE = re.compile(r"^\s*(?:alias|import|use|require)\s+([A-Z][\w.]*)", re.MULTILINE)
+
+
+def _elixir_defmodules(text: str) -> list[str]:
+    """Elixir module names declared in a file (`defmodule X.Y do`)."""
+    return [m.group(1) for m in ELIXIR_DEFMODULE_RE.finditer(text)]
+
+
+def _elixir_reference_targets(text: str) -> list[str]:
+    """Elixir module names referenced via alias/import/use/require."""
+    targets: list[str] = []
+    for m in ELIXIR_MULTI_ALIAS_RE.finditer(text):
+        base = m.group(1)
+        for part in m.group(2).split(","):
+            part = part.strip()
+            if part:
+                targets.append(f"{base}.{part}")
+    for m in ELIXIR_REF_RE.finditer(text):
+        name = m.group(1).rstrip(".")
+        if name:
+            targets.append(name)
+    return targets
 
 
 def _go_import_targets(text: str, module_prefix: str | None) -> list[str]:
@@ -1071,6 +1120,32 @@ def build_module_graph(
     # the root regardless of how services are arranged.
     go_prefix_by_service[None] = _read_go_module_prefix(root)
 
+    # Workspace package name -> module_id, for resolving JS/TS imports that
+    # reference a sibling package by name (e.g. `@scope/pkg`) instead of a
+    # relative path. Read each module's own package.json "name".
+    workspace_pkg_to_module: dict[str, str] = {}
+    for m in modules:
+        pj = root / m["path"] / "package.json"
+        if pj.is_file():
+            try:
+                pjdata = json.loads(pj.read_text(encoding="utf-8", errors="replace"))
+                name = pjdata.get("name") if isinstance(pjdata, dict) else None
+                if name:
+                    workspace_pkg_to_module.setdefault(str(name), m["path"])
+            except (json.JSONDecodeError, OSError):
+                pass
+
+    # Elixir module name -> defining file, built in a pre-pass so references
+    # resolve regardless of file/path naming conventions (clones, umbrellas).
+    elixir_module_index: dict[str, Path] = {}
+    for m in modules:
+        for f in iter_files((root / m["path"]).resolve()):
+            if f.suffix.lower() in (".ex", ".exs"):
+                etext = safe_read(f, limit=256 * 1024)
+                if etext:
+                    for name in _elixir_defmodules(etext):
+                        elixir_module_index.setdefault(name, f)
+
     for m in modules:
         source_id = m["path"]
         source_service = m.get("service")
@@ -1099,8 +1174,14 @@ def build_module_graph(
                     if target_id:
                         _bump_edge(edges, source_id, target_id)
             elif lname in ("JavaScript", "TypeScript"):
-                for abs_target in _jsts_import_targets(f, text):
+                js_paths, js_bare = _jsts_import_targets(f, text)
+                for abs_target in js_paths:
                     target_id = _module_for(abs_target, index)
+                    if target_id:
+                        _bump_edge(edges, source_id, target_id)
+                for spec in js_bare:
+                    pkg = _pkg_name_of_specifier(spec)
+                    target_id = workspace_pkg_to_module.get(pkg) if pkg else None
                     if target_id:
                         _bump_edge(edges, source_id, target_id)
             elif lname == "Go":
@@ -1109,6 +1190,13 @@ def build_module_graph(
                     target_id = _module_for(candidate, index)
                     if target_id:
                         _bump_edge(edges, source_id, target_id)
+            elif lname == "Elixir":
+                for ref in _elixir_reference_targets(text):
+                    deffile = elixir_module_index.get(ref)
+                    if deffile:
+                        target_id = _module_for(deffile, index)
+                        if target_id:
+                            _bump_edge(edges, source_id, target_id)
 
     edge_list = [
         {"source": s, "target": t, "weight": w}
