@@ -326,12 +326,24 @@ pre code { background: transparent; padding: 0; }
 .deps-eco .title .file { font-family: var(--font-mono); font-size: 0.85rem; color: var(--muted); }
 .deps-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: var(--space-2) var(--space-4);
   font-family: var(--font-mono);
   font-size: 0.83rem;
 }
-.deps-list .dep .ver { color: var(--muted); margin-left: 6px; }
+/* Name flexes (and wraps if very long); version is pinned right and never
+   wraps. min-width:0 lets the name shrink instead of overrunning the column. */
+.deps-list .dep {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 3px;
+}
+.deps-list .dep .dep-name { min-width: 0; overflow-wrap: anywhere; color: var(--ink); }
+.deps-list .dep .ver { color: var(--muted); flex: 0 0 auto; white-space: nowrap; }
 
 /* ---- Entry points ---- */
 .entries {
@@ -1749,12 +1761,47 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 .flow-narration { color: var(--ink-2); font-size: 0.9rem; line-height: 1.55; margin: 0 0 var(--space-3); overflow-wrap: anywhere; }
 .flow-ends { font-size: 0.86rem; color: var(--ink); margin-top: var(--space-2); overflow-wrap: anywhere; }
 
-/* minmax(0, …) + overflow-wrap let long monospace citations wrap inside a
-   narrow lane instead of overflowing the card. */
-.flow-body { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 14px; }
-.flow-spine { display: block; }
-.flow-steps { display: flex; flex-direction: column; min-width: 0; }
-.flow-step { min-height: 56px; padding-bottom: 8px; min-width: 0; }
+/* Each step owns its number badge inside its own grid row, so numbers stay
+   aligned with their text however tall a step grows. A pseudo-element draws
+   the connector between consecutive badges (pure CSS, print-safe).
+   minmax(0,1fr) + overflow-wrap keep long monospace citations from
+   overflowing a narrow lane. */
+.flow-steps { list-style: none; margin: 0; padding: 0; }
+.flow-step {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 14px;
+  position: relative;
+  padding-bottom: var(--space-3);
+  min-width: 0;
+}
+.flow-step:last-child { padding-bottom: 0; }
+.flow-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 22px;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+  transform: translateX(-50%);
+}
+.flow-step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--lane-color, var(--accent));
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink);
+  position: relative;
+  z-index: 1;
+}
+.flow-step-main { min-width: 0; }
 .flow-step-label { font-weight: 600; font-size: 0.95rem; color: var(--ink); overflow-wrap: anywhere; }
 .flow-step-cite { font-size: 0.8rem; color: var(--muted); overflow-wrap: anywhere; }
 .flow-step-cite code { font-family: var(--font-mono); overflow-wrap: anywhere; }
@@ -5442,7 +5489,8 @@ def render_deps(data: dict[str, Any]) -> str:
     blocks = []
     for eco in deps:
         items = "".join(
-            f'<div class="dep">{escape(p["name"])}<span class="ver">{escape(p.get("version", "*"))}</span></div>'
+            f'<div class="dep"><span class="dep-name">{escape(p["name"])}</span>'
+            f'<span class="ver">{escape(p.get("version", "*"))}</span></div>'
             for p in eco["packages"]
         )
         blocks.append(f"""
@@ -5454,10 +5502,21 @@ def render_deps(data: dict[str, Any]) -> str:
           <div class="deps-list">{items}</div>
         </div>
         """)
+    # A "*" version is our fallback when the manifest pins no version — explain it.
+    has_star = any(
+        p.get("version", "*") == "*" for eco in deps for p in eco.get("packages", [])
+    )
+    star_note = (
+        '<p class="diagram-note">A version shown as <code>*</code> means the manifest '
+        'doesn’t pin one — an unspecified “any version” entry, or a path / git dependency '
+        'that carries no version number (not necessarily the latest release).</p>'
+        if has_star else ""
+    )
     return f"""
 <section>
   <h2>External dependencies</h2>
   {section_intro("deps")}
+  {star_note}
   {''.join(blocks)}
 </section>
 """
@@ -5623,47 +5682,30 @@ DEFAULT_FLOW_KIND: tuple[str, str, str] = ("Flow", "An end-to-end path through t
 # Lane display order; kinds not listed fall to the end in discovery order.
 FLOW_KIND_ORDER = ["bootstrap", "request", "scheduled", "background", "state-machine", "pipeline"]
 
-# Row pitch (px) for a flow step; the SVG spine's nodes are spaced to match
-# so the numbered nodes line up with the HTML step rows beside them.
-FLOW_ROW_PX = 56
-
-
 def _render_flow_trace(flow: dict[str, Any]) -> str:
-    """The expanded detail: narration + the numbered spine and cited steps.
-    This is the detailed trace the section has always had; it now lives inside
-    a collapsible panel. The spine inherits its colour from the lane via
-    --lane-color so each kind's flows are visually consistent."""
-    steps = flow.get("steps", [])
-    n = len(steps)
-    spine_h = max(FLOW_ROW_PX * n, FLOW_ROW_PX)
-    nodes = []
-    for i in range(n):
-        cy = i * FLOW_ROW_PX + FLOW_ROW_PX / 2
-        nodes.append(
-            f'<circle cx="11" cy="{cy:.0f}" r="9" fill="var(--bg)" '
-            f'stroke="var(--lane-color, var(--accent))" stroke-width="2"/>'
-            f'<text x="11" y="{cy + 3:.0f}" text-anchor="middle" '
-            f'font-size="10" font-family="var(--font-mono)" fill="var(--ink)">{i + 1}</text>'
-        )
-    spine = (
-        f'<svg class="flow-spine" width="22" height="{spine_h}" '
-        f'viewBox="0 0 22 {spine_h}" aria-hidden="true">'
-        f'<line x1="11" y1="9" x2="11" y2="{spine_h - 9}" stroke="var(--border)" stroke-width="2"/>'
-        f'{"".join(nodes)}</svg>'
-    )
+    """The expanded detail: narration + a numbered, cited step list.
+
+    Each step carries its own number badge inside its grid row, so the numbers
+    stay aligned with their text no matter how tall a step grows (long notes
+    wrap freely). The connecting line between badges is a CSS pseudo-element,
+    so it survives the no-JS print path. Badge colour comes from the lane via
+    --lane-color."""
     rows = []
-    for s in steps:
+    for i, s in enumerate(flow.get("steps", [])):
         cite = escape(s.get("file", ""))
         sym = escape(s.get("symbol", ""))
         line = f':{escape(str(s["line"]))}' if s.get("line") else ""
         note = escape(s.get("note", ""))
         note_html = f'<div class="flow-step-note">{note}</div>' if note else ""
         rows.append(
-            f'<div class="flow-step">'
+            f'<li class="flow-step">'
+            f'<span class="flow-step-num">{i + 1}</span>'
+            f'<div class="flow-step-main">'
             f'<div class="flow-step-label">{escape(s.get("label", "") or sym)}</div>'
             f'<div class="flow-step-cite"><code>{cite}{line}</code> · <code>{sym}</code></div>'
             f'{note_html}'
             f'</div>'
+            f'</li>'
         )
     narration = escape(flow.get("narration", ""))
     narration_html = f'<p class="flow-narration">{narration}</p>' if narration else ""
@@ -5671,7 +5713,7 @@ def _render_flow_trace(flow: dict[str, Any]) -> str:
     ends_html = f'<div class="flow-ends"><strong>Ends:</strong> {ends}</div>' if ends else ""
     return (
         f'{narration_html}'
-        f'<div class="flow-body">{spine}<div class="flow-steps">{"".join(rows)}</div></div>'
+        f'<ol class="flow-steps">{"".join(rows)}</ol>'
         f'{ends_html}'
     )
 
