@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
 from html import escape
 from pathlib import Path
@@ -204,6 +205,52 @@ pre code { background: transparent; padding: 0; }
   vertical-align: middle;
 }
 
+/* ---- Languages: click-to-expand per-language profiles ---- */
+.lang-row[data-target] { cursor: pointer; }
+.lang-row[data-target] td:first-child { user-select: none; }
+.lang-caret {
+  display: inline-block;
+  width: 0.9em;
+  margin-right: 4px;
+  color: var(--muted);
+  transition: transform 150ms ease;
+}
+.lang-row.is-open .lang-caret { transform: rotate(90deg); color: var(--accent-deep); }
+.lang-caret-spacer { display: inline-block; width: 0.9em; margin-right: 4px; }
+.lang-row[data-target]:hover td { background: var(--surface); }
+.lang-row[data-target]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.lang-detail-row { display: none; }
+.lang-detail-row.is-open { display: table-row; }
+.lang-detail {
+  padding: var(--space-3) var(--space-4) var(--space-4) !important;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+}
+.lang-where {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-deep);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  margin-bottom: var(--space-2);
+}
+.lang-detail p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.94rem;
+  line-height: 1.6;
+  max-width: 72ch;
+}
+@media print {
+  /* PDF export has no JS — show every profile so nothing is lost on paper. */
+  .lang-detail-row { display: table-row !important; }
+  .lang-caret { transform: rotate(90deg); }
+}
+
 /* ---- Cards ---- */
 .card-grid {
   display: grid;
@@ -342,6 +389,17 @@ pre code { background: transparent; padding: 0; }
   margin: 0 0 var(--space-5);
 }
 
+/* Plain explanatory paragraphs under a section intro (e.g. modules). Kept
+   sans/non-italic so they read as "notes" against the editorial intro. */
+.module-note {
+  color: var(--ink-2);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0 0 var(--space-3);
+  max-width: 72ch;
+}
+.module-note .vendored-badge { margin-left: 0; }
+
 .report-explainer {
   margin: var(--space-5) 0 var(--space-3);
   padding: var(--space-4) var(--space-5);
@@ -469,10 +527,11 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 }
 .modgraph-axis-title {
   font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
+  /* font-size is set inline (SVG user units) so it scales with the diagram
+     and stays larger than the module labels — see render_module_graph_section. */
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  fill: var(--muted);
+  fill: var(--ink-2);
 }
 .modgraph-headline {
   font-family: var(--font-serif);
@@ -1606,6 +1665,13 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   /* Keep each flow card intact across page breaks; don't strand the heading. */
   .flow-card { break-inside: avoid; page-break-inside: avoid; }
   .key-flows h2 { break-after: avoid; page-break-after: avoid; }
+  /* PDF has no JS: stack the lanes full-width and expand every flow trace.
+     !important is required — the base .flow-board rule appears later in the
+     stylesheet and would otherwise win the cascade in print. */
+  .flow-board { grid-template-columns: 1fr !important; }
+  .flow-detail { display: block !important; }
+  .flow-caret { transform: rotate(90deg); }
+  .flows-toolbar { display: none; }
 }
 
 /* ---- LLM evaluation: Overview ---- */
@@ -1624,23 +1690,75 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 .readme-demoted { opacity: 0.85; }
 .readme-demoted .readme-quote { font-size: 0.92rem; }
 
-/* ---- LLM evaluation: Key flows ---- */
+/* ---- LLM evaluation: Key flows (interactive atlas) ---- */
 .key-flows { margin: var(--space-6) 0; }
-.flow-list { display: flex; flex-direction: column; gap: var(--space-4); }
-.flow-card { border: 1px solid var(--border); border-radius: var(--radius); padding: var(--space-4); background: var(--surface); }
-.flow-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
-.flow-kind { font-size: 0.68rem; font-family: var(--font-mono); letter-spacing: 0.08em; color: var(--accent-deep); border: 1px solid var(--accent); border-radius: 4px; padding: 1px 6px; }
-.flow-name { font-size: 1.15rem; font-weight: 600; font-family: var(--font-serif); }
-.flow-trigger, .flow-terminates { font-size: 0.9rem; color: var(--ink); margin: 4px 0; }
-.flow-narration { color: var(--muted); margin: 4px 0 12px; }
-.flow-body { display: grid; grid-template-columns: 22px 1fr; gap: 14px; }
+.flows-toolbar { display: flex; justify-content: flex-end; gap: var(--space-2); margin: 0 0 var(--space-4); }
+.flows-btn {
+  font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--ink-2); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; cursor: pointer;
+}
+.flows-btn:hover { border-color: var(--accent); color: var(--ink); }
+.flows-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The board: one lane per flow "kind" (the ways the system gets kicked off). */
+.flow-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+.flow-lane {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.flow-lane-head {
+  padding: var(--space-3) var(--space-4);
+  border-top: 3px solid var(--lane-color, var(--accent));
+  border-bottom: 1px solid var(--border-soft);
+}
+.flow-lane-kind {
+  font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.08em;
+  text-transform: uppercase; font-weight: 600; color: var(--lane-color, var(--accent-deep));
+}
+.flow-lane-count { color: var(--muted); font-weight: 400; }
+.flow-lane-meaning { color: var(--ink-2); font-size: 0.86rem; margin-top: 2px; line-height: 1.45; }
+
+.flow-card { border-top: 1px solid var(--border-soft); }
+.flow-card:first-of-type { border-top: none; }
+.flow-summary {
+  width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+  font: inherit; color: inherit;
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+}
+.flow-summary:hover { background: var(--bg); }
+.flow-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.flow-caret { color: var(--muted); flex: 0 0 auto; margin-top: 3px; transition: transform 150ms ease; }
+.flow-card.is-open .flow-caret { transform: rotate(90deg); color: var(--lane-color, var(--accent-deep)); }
+.flow-summary-main { flex: 1 1 auto; min-width: 0; }
+.flow-name { font-size: 1rem; font-weight: 600; font-family: var(--font-serif); color: var(--ink); }
+.flow-oneline { color: var(--muted); font-size: 0.83rem; margin-top: 3px; line-height: 1.4; overflow-wrap: anywhere; }
+.flow-oneline .flow-arrow { color: var(--lane-color, var(--accent)); padding: 0 5px; font-weight: 600; }
+.flow-stepn { flex: 0 0 auto; font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); margin-top: 4px; white-space: nowrap; }
+
+.flow-detail { display: none; padding: 0 var(--space-4) var(--space-4); }
+.flow-card.is-open .flow-detail { display: block; }
+.flow-narration { color: var(--ink-2); font-size: 0.9rem; line-height: 1.55; margin: 0 0 var(--space-3); overflow-wrap: anywhere; }
+.flow-ends { font-size: 0.86rem; color: var(--ink); margin-top: var(--space-2); overflow-wrap: anywhere; }
+
+/* minmax(0, …) + overflow-wrap let long monospace citations wrap inside a
+   narrow lane instead of overflowing the card. */
+.flow-body { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 14px; }
 .flow-spine { display: block; }
-.flow-steps { display: flex; flex-direction: column; }
-.flow-step { min-height: 56px; padding-bottom: 8px; }
-.flow-step-label { font-weight: 600; font-size: 0.95rem; color: var(--ink); }
-.flow-step-cite { font-size: 0.8rem; color: var(--muted); }
-.flow-step-cite code { font-family: var(--font-mono); }
-.flow-step-note { font-size: 0.85rem; color: var(--ink-2); }
+.flow-steps { display: flex; flex-direction: column; min-width: 0; }
+.flow-step { min-height: 56px; padding-bottom: 8px; min-width: 0; }
+.flow-step-label { font-weight: 600; font-size: 0.95rem; color: var(--ink); overflow-wrap: anywhere; }
+.flow-step-cite { font-size: 0.8rem; color: var(--muted); overflow-wrap: anywhere; }
+.flow-step-cite code { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.flow-step-note { font-size: 0.85rem; color: var(--ink-2); overflow-wrap: anywhere; }
 """
 
 
@@ -1669,8 +1787,9 @@ SECTION_INTROS: dict[str, str] = {
                  "A codebase usually has one primary language plus several supporting ones "
                  "(configuration files, documentation, build scripts).",
     "modules":  "A module is a self-contained folder of related code that handles one job. "
-                "Splitting a codebase into modules lets different people work on different "
-                "parts at the same time without stepping on each other.",
+                "Modules relate to one another by <em>importing</em> each other — one module "
+                "calls into another to reuse what it already does, and that wiring is exactly "
+                "what the dependency matrix further down maps out.",
     "entries":  "An entry point is the file the program starts running from. Different "
                 "languages have different conventions — “main.py” for Python, "
                 "“index.js” for JavaScript, “main.go” for Go.",
@@ -1728,6 +1847,7 @@ GLOSSARY_LANGUAGES: dict[str, str] = {
     "JavaScript": "The programming language of the web — runs in every browser. Also runs servers (via Node.js). The most widely used language on the planet.",
     "Python": "A general-purpose programming language known for readable syntax. Popular for scripting, data analysis, AI/ML, web backends, and automation.",
     "Go": "A language made by Google, designed for backend services. Known for fast compilation, simple syntax, and built-in concurrency.",
+    "Elixir": "A functional language that runs on the Erlang/BEAM virtual machine, built for highly concurrent, fault-tolerant backends. Most often paired with the Phoenix web framework. Powers systems that need to stay up and handle many connections at once.",
     "Rust": "A systems programming language focused on safety and performance. Used for performance-critical infrastructure, browsers, and low-level tools.",
     "Java": "A general-purpose language widely used in enterprise software, Android apps, and big-data systems. Runs on the Java Virtual Machine (JVM).",
     "Kotlin": "A modern JVM language used heavily for Android development and increasingly for backend services. More concise than Java.",
@@ -1755,6 +1875,149 @@ GLOSSARY_LANGUAGES: dict[str, str] = {
     "Makefile": "A build script format. Defines named tasks (build, test, clean) that you run with `make <task>`. Old but still widely used.",
 }
 
+# -------- per-language profiles (Languages section drop-downs) ----------
+#
+# Each entry is (where_it_runs_chip, body_html). The body is author-controlled
+# copy (safe to inline un-escaped) and answers the three questions a
+# non-developer asks of a language: what is it, where does it run (backend /
+# frontend / config / …), and what role does it usually play in a codebase.
+# Languages without a profile simply render as a non-expandable row.
+
+LANG_PROFILES: dict[str, tuple[str, str]] = {
+    "Python": ("Backend · data · scripting",
+        "A general-purpose language known for clean, readable syntax. In most codebases it "
+        "lives on the <strong>backend</strong> — powering web APIs and services — or off to the "
+        "side running data analysis, AI/ML, automation, and build scripts. It almost never runs "
+        "in the browser."),
+    "JavaScript": ("Frontend · backend",
+        "The native language of the web browser, and — through Node.js — a popular backend "
+        "language too. In a typical codebase it drives <strong>interactive frontend behaviour</strong> "
+        "and/or <strong>server-side APIs</strong>. The most widely deployed language in the world."),
+    "TypeScript": ("Frontend · backend",
+        "JavaScript plus a type system that catches mistakes before the code runs. Used wherever "
+        "JavaScript is, but favoured for larger apps and teams because the types document intent "
+        "and prevent whole classes of bugs. Compiles down to plain JavaScript."),
+    "Elixir": ("Backend · concurrency",
+        "A functional language running on the battle-tested Erlang/BEAM virtual machine, built for "
+        "highly concurrent, fault-tolerant <strong>backends</strong>. Usually paired with the Phoenix "
+        "web framework for APIs and real-time features. Excels where a system must stay up and handle "
+        "many simultaneous connections."),
+    "Go": ("Backend · systems",
+        "A language from Google designed for backend services and infrastructure tools. Known for "
+        "fast compilation, simple syntax, and first-class concurrency. Compiles to a single "
+        "self-contained binary, which makes it easy to deploy."),
+    "Rust": ("Systems · backend",
+        "A systems language focused on performance and memory safety without a garbage collector. "
+        "Used for performance-critical infrastructure, developer tooling, and increasingly backends "
+        "where reliability is paramount."),
+    "Java": ("Backend · mobile",
+        "A general-purpose language running on the Java Virtual Machine. Dominant in large enterprise "
+        "<strong>backends</strong>, Android apps, and big-data systems. Verbose but stable and "
+        "universally supported."),
+    "Kotlin": ("Mobile · backend",
+        "A modern, more concise language on the Java Virtual Machine. The preferred language for "
+        "<strong>Android</strong> development and increasingly used for backend services."),
+    "Swift": ("Mobile · Apple",
+        "Apple's language for building iOS, macOS, watchOS, and other Apple-platform apps. Its "
+        "presence almost always means the project ships a native Apple app."),
+    "C": ("Systems",
+        "The original systems language — operating systems, embedded devices, and the low-level "
+        "libraries nearly everything else is built on. Fast and close to the hardware."),
+    "C++": ("Systems · performance",
+        "A lower-level language for performance-critical software: game engines, browsers, trading "
+        "systems, and high-performance tooling. Powerful and fast, with a steep learning curve."),
+    "C#": ("Backend · apps · games",
+        "Microsoft's language for the .NET platform — web servers (ASP.NET), desktop applications, "
+        "and game development (Unity)."),
+    "Ruby": ("Backend",
+        "A scripting language built around developer happiness, best known through the Ruby on Rails "
+        "web framework. Common in <strong>backends</strong> and developer tooling."),
+    "PHP": ("Backend · web",
+        "A long-standing web backend language that powers WordPress and a large share of the existing "
+        "web. Almost always runs server-side."),
+    "Scala": ("Backend · data",
+        "A language blending functional and object-oriented styles on the JVM. Popular in data "
+        "engineering (Spark) and systems that value strong typing."),
+    "HTML": ("Markup · frontend",
+        "The markup language that defines the <strong>structure</strong> of a web page — headings, "
+        "paragraphs, links, forms, images. It describes <em>what</em> is on the page; CSS controls "
+        "how it looks and JavaScript makes it interactive. Not a programming language in the usual "
+        "sense, so it carries no logic to trace."),
+    "CSS": ("Styling · frontend",
+        "The styling language of the web — colours, layout, spacing, fonts, animation. It decides "
+        "how the HTML structure actually looks and adapts across screen sizes. Pure presentation; "
+        "it contains no program logic."),
+    "SCSS": ("Styling · frontend",
+        "A superset of CSS that adds variables, nesting, and reusable mixins, then compiles to plain "
+        "CSS at build time. Teams use it to keep large stylesheets organised and consistent."),
+    "Less": ("Styling · frontend",
+        "A CSS preprocessor with variables and nesting, similar in spirit to SCSS. Compiles to plain "
+        "CSS."),
+    "Vue": ("Frontend",
+        "A JavaScript framework for building user interfaces — a lighter, approachable alternative to "
+        "React. Its files describe <strong>frontend</strong> components."),
+    "Svelte": ("Frontend",
+        "A JavaScript UI framework that compiles components to lean vanilla JavaScript at build time, "
+        "shipping very little framework code to the browser."),
+    "Markdown": ("Docs",
+        "A lightweight plain-text format for writing formatted documents — READMEs, docs, notes — "
+        "that converts cleanly to HTML. Its presence usually signals <strong>documentation</strong> "
+        "rather than application code."),
+    "MDX": ("Docs · frontend",
+        "Markdown with embedded interactive components. Used by documentation sites that need live, "
+        "interactive examples alongside the prose."),
+    "JSON": ("Data · config",
+        "A simple, language-neutral format for structured data. In a codebase it shows up as "
+        "<strong>configuration</strong> files, package manifests, fixtures, and the payloads most "
+        "web APIs send and receive. Data, not code."),
+    "YAML": ("Config",
+        "A human-friendly configuration format. Heavily used for CI/CD pipelines, container "
+        "orchestration (Kubernetes), and tool settings. Lots of YAML usually means substantial "
+        "automation or deployment config."),
+    "TOML": ("Config",
+        "A configuration format chosen for being easy to read and unambiguous. Common in Rust "
+        "(`Cargo.toml`) and Python (`pyproject.toml`) projects to declare settings and dependencies."),
+    "SQL": ("Data · database",
+        "The language for querying and manipulating relational databases. Not general-purpose — it "
+        "expresses <em>what</em> data to read or change, which the database engine then carries out."),
+    "Dockerfile": ("Build · ops",
+        "A recipe for building a <strong>container image</strong> — a self-contained package of an "
+        "app plus the operating system and dependencies it needs to run identically anywhere. Its "
+        "presence means the project is meant to be containerised and deployed."),
+    "Makefile": ("Build",
+        "A build-automation format that defines named tasks (build, test, clean) you run with "
+        "`make`. Old but durable; often the front door to a project's common commands."),
+    "Shell": ("Scripting · ops",
+        "Command-line scripts (Bash, Zsh, etc.) used for automation, setup steps, and glue between "
+        "programs. Usually part of build pipelines and developer tooling rather than the product "
+        "itself."),
+}
+
+# Toggle behaviour for the language rows. Kept as a plain (non-f) string so its
+# braces survive; referenced as {LANG_TABLE_JS} from the render f-string. The
+# section degrades gracefully without JS (rows just don't expand on screen; the
+# print stylesheet shows every profile regardless).
+LANG_TABLE_JS = """
+<script>
+(function () {
+  var rows = document.querySelectorAll('#codemap-languages .lang-row[data-target]');
+  rows.forEach(function (row) {
+    function toggle() {
+      var detail = document.getElementById(row.getAttribute('data-target'));
+      if (!detail) return;
+      var open = detail.classList.toggle('is-open');
+      row.classList.toggle('is-open', open);
+      row.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    row.addEventListener('click', toggle);
+    row.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+  });
+})();
+</script>
+"""
+
 GLOSSARY_ECOSYSTEMS: dict[str, str] = {
     "npm":     "Node Package Manager — the standard registry of JavaScript and TypeScript packages. Dependencies are listed in `package.json`.",
     "pip":     "Python's standard package installer. Reads dependencies from `requirements.txt` or `pyproject.toml`.",
@@ -1766,6 +2029,7 @@ GLOSSARY_ECOSYSTEMS: dict[str, str] = {
     "composer": "PHP's dependency manager. Reads `composer.json`.",
     "maven":   "Java's traditional build and dependency tool. Reads `pom.xml` (an XML file).",
     "gradle":  "A modern build tool for Java, Kotlin, and Android. Reads `build.gradle` or `build.gradle.kts`.",
+    "hex":     "Elixir's package manager and registry. Dependencies are declared in the `deps` function of `mix.exs` and locked in `mix.lock`.",
 }
 
 GLOSSARY_TERMS: dict[str, str] = {
@@ -1781,7 +2045,130 @@ GLOSSARY_TERMS: dict[str, str] = {
     "ORM (Object-Relational Mapper)": "A library that lets you read and write database rows using normal code objects instead of writing SQL by hand. Popular ORMs: Prisma (TS), SQLAlchemy (Python), Mongoose (Mongo), ActiveRecord (Ruby).",
     "Data store": "A place where data persists between requests. Databases (Postgres, MySQL, Mongo), caches (Redis), and object storage (S3, MinIO) are all data stores.",
     "Topology": "The shape of a system — which pieces exist and how they connect. A topology diagram answers \"what's deployed and what talks to what.\"",
+    "Vendored": "Third-party code copied directly into this repository instead of installed from a package registry. Vendored folders ship with the project but aren't part of its own product code, so the report shows them faded. Teams vendor a library to pin an exact version, patch it locally, or keep building when the upstream package isn't available — but it becomes code you now carry and maintain.",
 }
+
+
+# -------- auto-detected tools / libraries / services --------------------
+#
+# Beginner readers hit a wall of brand names and acronyms (Sentry, Apollo,
+# GraphQL, OTP, BullMQ, …) that the language/ecosystem glossaries don't cover.
+# This curated dictionary defines them, and `glossary_tech_hits` includes an
+# entry ONLY when its term actually appears in the report's text — the AI
+# overview/flow prose AND structural data (dependency names, module paths,
+# README). Each value is (definition, alias_tuple, case_sensitive).
+#
+# case_sensitive=True is for short all-caps acronyms (OTP, BEAM, JWT, S3, REST)
+# that would otherwise match common lowercase words. Aliases are matched on
+# word/identifier boundaries, so "@sentry/node" and "Apollo Client" both hit.
+
+GLOSSARY_TECH: dict[str, tuple[str, tuple[str, ...], bool]] = {
+    "GraphQL": ("A query language for APIs: instead of many fixed endpoints, the client asks for exactly the data it wants in one request. Often contrasted with REST.", ("GraphQL",), False),
+    "REST": ("An architectural style for web APIs built around resources and standard HTTP verbs (GET, POST, …). The traditional alternative to GraphQL.", ("REST",), True),
+    "Apollo Client": ("A widely used client library for talking to a GraphQL API from a frontend (commonly React or React Native). Handles fetching, caching, and updating GraphQL data.", ("Apollo Client", "Apollo"), False),
+    "Sentry": ("An error-monitoring and crash-reporting service. Apps send their exceptions and performance data to Sentry so developers get alerted and can debug production issues.", ("Sentry",), False),
+    "Stripe": ("A payments platform that handles card processing, subscriptions, and billing so the app never stores card data itself. Events (like a successful payment) are delivered back via webhooks.", ("Stripe", "stripity_stripe"), False),
+    "BullMQ": ("A Node.js library for background job queues backed by Redis. Lets an app hand slow work (emails, media processing) to worker processes instead of blocking a web request.", ("BullMQ",), False),
+    "WebGL": ("A browser API for rendering hardware-accelerated 2D/3D graphics directly in a web page using the GPU. Underlies in-browser games, 3D scenes, and heavy data visualisation.", ("WebGL",), False),
+    "OTP (Open Telecom Platform)": ("The framework at the heart of Erlang and Elixir for building concurrent, fault-tolerant systems. An 'OTP application' is a supervised tree of lightweight processes that restart themselves on failure.", ("OTP",), True),
+    "BEAM": ("The virtual machine that runs Erlang and Elixir, designed for massive concurrency and 'let it crash' fault tolerance. Elixir code is compiled to run on the BEAM.", ("BEAM",), True),
+    "Phoenix": ("The standard web framework for Elixir — routing, controllers, real-time channels, and the LiveView UI layer. Roughly Elixir's equivalent of Rails or Django.", ("Phoenix",), False),
+    "Absinthe": ("The GraphQL toolkit for Elixir. Defines a GraphQL schema and resolvers on a Phoenix backend.", ("Absinthe",), False),
+    "Ecto": ("Elixir's database library — maps code to database tables, builds queries, and runs migrations (an ORM-style toolkit for Elixir).", ("Ecto",), False),
+    "Oban": ("A background-job framework for Elixir that stores its job queue in PostgreSQL, used to run scheduled and asynchronous work reliably.", ("Oban",), False),
+    "LiveView": ("A Phoenix feature for building interactive, real-time web UIs in Elixir with little or no custom JavaScript — the server pushes UI updates over a websocket.", ("LiveView",), False),
+    "Supervisor": ("In Erlang/Elixir, a process whose only job is to start, watch, and restart other processes when they crash — the backbone of OTP fault tolerance.", ("supervisor", "supervision tree"), False),
+    "React": ("A JavaScript library for building user interfaces out of reusable components. The most widely used frontend library.", ("React",), False),
+    "React Native": ("A framework for building native iOS and Android apps with React and JavaScript/TypeScript, sharing most code across both platforms.", ("React Native",), False),
+    "Expo": ("A toolchain and platform on top of React Native that simplifies building, running, and shipping mobile apps.", ("Expo",), False),
+    "NestJS": ("A structured, opinionated framework for building Node.js backend applications in TypeScript.", ("NestJS", "Nest.js"), False),
+    "FastAPI": ("A modern Python framework for building web APIs quickly, with automatic validation and interactive documentation.", ("FastAPI",), False),
+    "Django": ("A batteries-included Python web framework covering routing, templates, ORM, and admin out of the box.", ("Django",), False),
+    "Flask": ("A lightweight Python web microframework — minimal core, add what you need.", ("Flask",), False),
+    "Next.js": ("A popular React framework for server-rendered and statically-generated web apps.", ("Next.js",), False),
+    "Airtable": ("A cloud service that is part spreadsheet, part database, with an API. Apps often use it as an easy content or back-office store.", ("Airtable",), False),
+    "PostgreSQL": ("A powerful open-source relational (SQL) database — a very common primary data store for web backends.", ("PostgreSQL", "Postgres", "postgrex"), False),
+    "Redis": ("An in-memory data store used as a cache, message broker, and job-queue backend. Fast because it keeps data in RAM.", ("Redis",), False),
+    "MongoDB": ("A document database that stores flexible JSON-like records instead of fixed tables.", ("MongoDB", "Mongo"), False),
+    "Prisma": ("A TypeScript ORM that maps database tables to type-safe code objects; its schema lives in `schema.prisma`.", ("Prisma",), False),
+    "Webhook": ("A way for one service to notify another in real time: when an event happens (e.g. a payment), the source service makes an HTTP request to a URL your app exposes.", ("webhook", "webhooks"), False),
+    "gRPC": ("A high-performance framework for service-to-service calls using Protocol Buffers over HTTP/2 — an alternative to REST/JSON for internal APIs.", ("gRPC",), False),
+    "Docker": ("A tool that packages an application and its dependencies into a portable container that runs the same everywhere.", ("Docker",), False),
+    "Kubernetes": ("An orchestration system that runs and scales containerised apps across many machines. Often abbreviated K8s.", ("Kubernetes", "K8s"), False),
+    "Terraform": ("An infrastructure-as-code tool for provisioning cloud resources from declarative configuration files.", ("Terraform",), False),
+    "OAuth": ("An open standard for delegated authorization — letting an app act on your behalf (e.g. 'Sign in with Google') without sharing your password.", ("OAuth",), False),
+    "JWT (JSON Web Token)": ("A compact, signed token used to prove who a user is between requests — common in API authentication.", ("JWT",), True),
+    "Kafka": ("A distributed event-streaming platform for high-throughput message pipelines between services.", ("Kafka",), False),
+    "RabbitMQ": ("A message broker that routes messages between services, decoupling producers from consumers.", ("RabbitMQ",), False),
+    "S3": ("Amazon's object-storage service for files and blobs (images, uploads, backups). 'S3-compatible' stores like MinIO speak the same API.", ("S3",), True),
+    "Tailwind CSS": ("A utility-first CSS framework: you style elements with small predefined classes instead of writing custom CSS.", ("Tailwind",), False),
+    "esbuild": ("An extremely fast JavaScript/TypeScript bundler, often used inside build pipelines.", ("esbuild",), False),
+    "Webpack": ("A bundler that packages frontend JavaScript, CSS, and assets for delivery to the browser.", ("webpack",), False),
+    "Vite": ("A fast frontend build tool and dev server, common in modern JavaScript/TypeScript projects.", ("Vite",), False),
+}
+
+
+def _glossary_corpus(data: dict[str, Any], enrichment: dict[str, Any] | None) -> str:
+    """Concatenate the report's searchable text. Data-level sources are always
+    present; enrichment-level (AI prose) is added only when enrichment exists —
+    which keeps prose-only terms out of the degraded, no-enrichment render."""
+    parts: list[str] = []
+
+    rd = data.get("readme") or {}
+    parts.append(rd.get("first_paragraph", "") or "")
+    parts.extend(rd.get("headings", []) or [])
+    for eco in data.get("deps", []) or []:
+        for pkg in eco.get("packages", []) or []:
+            parts.append(pkg.get("name", "") or "")
+    for m in data.get("modules", []) or []:
+        parts.append(m.get("path", "") or "")
+        parts.append(m.get("description", "") or "")
+
+    if enrichment:
+        ov = enrichment.get("overview") or {}
+        for k in ("what_it_is", "what_it_does", "how_it_works"):
+            parts.append(ov.get(k, "") or "")
+        parts.extend(ov.get("primary_stack", []) or [])
+        parts.extend(ov.get("caveats", []) or [])
+        for f in enrichment.get("flows", []) or []:
+            for k in ("name", "trigger", "narration", "terminates"):
+                parts.append(f.get(k, "") or "")
+            for s in f.get("steps", []) or []:
+                for k in ("label", "symbol", "note", "file"):
+                    parts.append(s.get(k, "") or "")
+        for d in enrichment.get("module_descriptions", []) or []:
+            parts.append(d.get("description", "") or "")
+        cls = enrichment.get("classification") or {}
+        for v in cls.get("vendored", []) or []:
+            for k in ("kind", "source", "why"):
+                parts.append(v.get(k, "") or "")
+        for p in cls.get("products", []) or []:
+            parts.append(p.get("why", "") or "")
+
+    return "\n".join(str(x) for x in parts if x)
+
+
+def glossary_tech_hits(data: dict[str, Any], enrichment: dict[str, Any] | None) -> list[tuple[str, str]]:
+    """Return (name, definition) for every GLOSSARY_TECH term whose alias is
+    actually mentioned in the report, sorted alphabetically. Matching is on
+    identifier boundaries (so `@sentry/node` and `Apollo Client` both hit)."""
+    corpus = _glossary_corpus(data, enrichment)
+    if not corpus:
+        return []
+    corpus_lower = corpus.lower()
+    hits: list[tuple[str, str]] = []
+    for name, (definition, aliases, case_sensitive) in GLOSSARY_TECH.items():
+        for alias in aliases:
+            if case_sensitive:
+                pattern = rf'(?<![A-Za-z0-9]){re.escape(alias)}(?![A-Za-z0-9])'
+                matched = re.search(pattern, corpus) is not None
+            else:
+                pattern = rf'(?<![A-Za-z0-9]){re.escape(alias.lower())}(?![A-Za-z0-9])'
+                matched = re.search(pattern, corpus_lower) is not None
+            if matched:
+                hits.append((name, definition))
+                break
+    return sorted(hits)
 
 
 # -------- helpers -------------------------------------------------------
@@ -1846,7 +2233,7 @@ def render_cover(data: dict[str, Any]) -> str:
   </div>
 </section>
 <aside class="report-explainer">
-  <strong>New to reading codebase maps?</strong> {REPORT_EXPLAINER}
+  {REPORT_EXPLAINER}
 </aside>
 """
 
@@ -1861,26 +2248,56 @@ def render_languages(data: dict[str, Any]) -> str:
         f'title="{escape(l["name"])} {pct(l["loc"], total_loc):.1f}%"></span>'
         for l in langs
     )
-    rows = "".join(
-        f"""
-        <tr>
-          <td><span class="lang-swatch" style="background: {escape(l['color'])};"></span>{escape(l['name'])}</td>
-          <td class="mono">{fmt_num(l['files'])}</td>
-          <td class="mono">{fmt_num(l['loc'])}</td>
-          <td class="mono">{pct(l['loc'], total_loc):.1f}%</td>
-        </tr>
-        """
-        for l in langs
+    row_parts: list[str] = []
+    any_expandable = False
+    for i, l in enumerate(langs):
+        name = l["name"]
+        swatch = f'<span class="lang-swatch" style="background: {escape(l["color"])};"></span>'
+        stats = (
+            f'<td class="mono">{fmt_num(l["files"])}</td>'
+            f'<td class="mono">{fmt_num(l["loc"])}</td>'
+            f'<td class="mono">{pct(l["loc"], total_loc):.1f}%</td>'
+        )
+        profile = LANG_PROFILES.get(name)
+        if profile:
+            any_expandable = True
+            where, body = profile
+            rid = f"lang-detail-{i}"
+            row_parts.append(
+                f'<tr class="lang-row" data-target="{rid}" tabindex="0" role="button" '
+                f'aria-expanded="false" aria-controls="{rid}">'
+                f'<td><span class="lang-caret" aria-hidden="true">▸</span>{swatch}{escape(name)}</td>'
+                f'{stats}</tr>'
+            )
+            row_parts.append(
+                f'<tr class="lang-detail-row" id="{rid}">'
+                f'<td colspan="4" class="lang-detail">'
+                f'<span class="lang-where">{escape(where)}</span><p>{body}</p>'
+                f'</td></tr>'
+            )
+        else:
+            row_parts.append(
+                f'<tr class="lang-row is-static">'
+                f'<td><span class="lang-caret-spacer" aria-hidden="true"></span>{swatch}{escape(name)}</td>'
+                f'{stats}</tr>'
+            )
+    rows = "".join(row_parts)
+    hint = (
+        '<p class="module-note">Click any language marked with a ▸ to see what it is, '
+        'where it usually runs, and the role it tends to play in a codebase.</p>'
+        if any_expandable else ""
     )
     return f"""
-<section>
+<section id="codemap-languages">
   <h2>Languages</h2>
   {section_intro("languages")}
+  {hint}
   <div class="lang-bar">{bar}</div>
   <table class="lang-table">
     <thead><tr><th>Language</th><th>Files</th><th>Lines</th><th>Share</th></tr></thead>
     <tbody>{rows}</tbody>
   </table>
+  {LANG_TABLE_JS}
 </section>
 """
 
@@ -1974,10 +2391,35 @@ def render_modules(data: dict[str, Any], enrichment: dict[str, Any] | None = Non
         ordered = mods
 
     cards = "".join(card(m) for m in ordered)
+
+    # Plain-English explanation of what "top-level" means here. Always shown.
+    toplevel_note = (
+        '<p class="module-note">The folders below are this codebase’s '
+        '<strong>top-level modules</strong> — the primary areas that do the heavy '
+        'lifting, sitting near the top of the directory tree rather than buried as '
+        'small helpers deep inside it. They’re the right altitude for a first read: '
+        'enough to see the system’s shape without getting lost in every nested file.</p>'
+    )
+
+    # Why some cards are faded — only meaningful once the LLM has flagged
+    # vendored modules, so it stays absent in the no-enrichment (degraded) render.
+    vendored_note = ""
+    if enrichment and any(is_vendored(m) for m in mods):
+        vendored_note = (
+            '<p class="module-note">Some cards are <strong>faded and tagged '
+            '<em>vendored</em></strong>: that code lives in this repository but '
+            'wasn’t written by this project — it’s a third-party library or framework '
+            'copied in (“vendored”) rather than installed from a package registry. '
+            'They’re dimmed because they’re context to be aware of, not part of the '
+            'product’s own code. See <em>Vendored</em> in the glossary.</p>'
+        )
+
     return f"""
 <section>
   <h2>Top-level modules</h2>
   {section_intro("modules")}
+  {toplevel_note}
+  {vendored_note}
   <div class="card-grid">{cards}</div>
 </section>
 """
@@ -2483,8 +2925,17 @@ def render_module_graph_section(data: dict[str, Any]) -> str:
     )
     label_px = longest_label * char_px
     diag_px = label_px * 0.7071        # 45deg projection of a label
-    label_w = int(label_px) + 14       # left gutter: full horizontal Y label + pad
-    label_h_top = int(diag_px) + 22    # top gutter: rotated X label rise + axis title
+    # Dedicated outer strip for the axis titles, OUTSIDE the module-label
+    # gutters. Without it the rotated "IMPORTING" title and the long module
+    # row-labels share the same space and overprint each other. Because the
+    # labels are anchored to the grid edge (right edge of the left gutter,
+    # bottom of the top gutter), widening each gutter by axis_pad shifts the
+    # labels along with the grid and frees a clean strip at the far edge for
+    # the title to sit in on its own.
+    axis_pad = 30
+    axis_title_fs = label_font_size + 4   # noticeably larger than the module labels
+    label_w = int(label_px) + 14 + axis_pad      # left gutter: Y labels + title strip
+    label_h_top = int(diag_px) + 22 + axis_pad   # top gutter: rotated X labels + title strip
     right_pad = int(diag_px) + 8       # rotated X labels extend up-and-right
 
     svg_w = label_w + band + grid_size + right_pad
@@ -2652,17 +3103,23 @@ def render_module_graph_section(data: dict[str, Any]) -> str:
             f'{escape(shown)}{title}</text>'
         )
 
-    # Axis titles.
+    # Axis titles — placed in the dedicated outer strip (see axis_pad above) so
+    # they never collide with the module row/column labels, and sized larger
+    # than the labels for a clear "this is the axis" hierarchy.
+    x_title_y = axis_pad / 2 + 5
+    y_title_x = axis_pad / 2
     parts.append(
         f'<text class="modgraph-axis-title" '
-        f'x="{grid_x0 + grid_size / 2:.1f}" y="14" text-anchor="middle">'
+        f'x="{grid_x0 + grid_size / 2:.1f}" y="{x_title_y:.1f}" text-anchor="middle" '
+        f'font-size="{axis_title_fs}" font-weight="600">'
         f'IMPORTS → (target module)</text>'
     )
     parts.append(
         f'<text class="modgraph-axis-title" '
-        f'x="14" y="{grid_y0 + grid_size / 2:.1f}" '
+        f'x="{y_title_x:.1f}" y="{grid_y0 + grid_size / 2:.1f}" '
         f'text-anchor="middle" '
-        f'transform="rotate(-90 14 {grid_y0 + grid_size / 2:.1f})">'
+        f'font-size="{axis_title_fs}" font-weight="600" '
+        f'transform="rotate(-90 {y_title_x:.1f} {grid_y0 + grid_size / 2:.1f})">'
         f'← IMPORTING module (source)</text>'
     )
 
@@ -2719,11 +3176,15 @@ def render_module_graph_section(data: dict[str, Any]) -> str:
 
     unparsed = graph.get("languages_unparsed") or []
     if unparsed:
+        parsed = graph.get("languages_parsed") or []
+        supported = ", ".join(parsed) if parsed else "Python, JavaScript, TypeScript, Go, Elixir"
         notes_html += (
-            f'<p class="diagram-note">Import detection currently supports '
-            f'<strong>Python, JavaScript, TypeScript, and Go</strong>. '
-            f'These languages appear here but were not parsed: '
-            f'<em>{escape(", ".join(unparsed))}</em>.</p>'
+            f'<p class="diagram-note">This matrix maps <strong>code imports</strong>, so it '
+            f'only parses languages that have them — here, <strong>{escape(supported)}</strong>. '
+            f'These were also found but sit outside the import map: '
+            f'<em>{escape(", ".join(unparsed))}</em>. Those are configuration, data, markup, '
+            f'documentation, and styling formats; they don’t express module-to-module code '
+            f'dependencies, so feeding them into this diagram would add noise rather than signal.</p>'
         )
 
     # ------ Hover-interaction JS (graceful degradation if disabled) ------
@@ -5086,10 +5547,11 @@ def render_readme(data: dict[str, Any], enrichment: dict[str, Any] | None = None
 """
 
 
-def render_glossary(data: dict[str, Any]) -> str:
+def render_glossary(data: dict[str, Any], enrichment: dict[str, Any] | None = None) -> str:
     """Render a glossary section that only includes terms relevant to
-    this scan (languages detected, ecosystems present, plus the always-on
-    structural terms)."""
+    this scan (languages detected, ecosystems present, the always-on
+    structural terms, and any tools/libraries/services actually mentioned
+    in the report's text)."""
     detected_langs = {l["name"] for l in data.get("languages", [])}
     detected_ecos = {d["ecosystem"] for d in data.get("deps", [])}
 
@@ -5103,8 +5565,10 @@ def render_glossary(data: dict[str, Any]) -> str:
     )
     # Structural terms always appear — they're referenced in every report.
     term_entries = list(GLOSSARY_TERMS.items())
+    # Tools/libraries/services are auto-detected from the report's prose + data.
+    tech_entries = glossary_tech_hits(data, enrichment)
 
-    if not (lang_entries or eco_entries or term_entries):
+    if not (lang_entries or eco_entries or term_entries or tech_entries):
         return ""
 
     def _group(label: str, entries: list[tuple[str, str]]) -> str:
@@ -5126,6 +5590,7 @@ def render_glossary(data: dict[str, Any]) -> str:
   <h2>Glossary</h2>
   <p class="section-intro">Plain-English definitions for the technical terms used above. Only includes entries relevant to what was found in this codebase.</p>
   {_group("Concepts", term_entries)}
+  {_group("Tools, libraries & services", tech_entries)}
   {_group("Programming languages", lang_entries)}
   {_group("Package ecosystems", eco_entries)}
 </section>
@@ -5141,18 +5606,33 @@ def render_footer(data: dict[str, Any]) -> str:
 
 
 # -------- Key flows (LLM evaluation) -----------------------------------
-# Flow-kind chips reuse the editorial palette without new accent colors.
-FLOW_KIND_LABELS = {
-    "request": "REQUEST", "background": "BACKGROUND", "scheduled": "SCHEDULED",
-    "state-machine": "STATE MACHINE", "pipeline": "PIPELINE", "bootstrap": "BOOTSTRAP",
+#
+# The flows aren't a connected graph — each is an independent way the system
+# gets kicked off. So the section is laid out as a "board" of lanes, one per
+# flow KIND (bootstrap / request / scheduled / …), each holding its flows as
+# collapsible cards. Per kind: (display label, plain-English meaning, accent).
+FLOW_KIND_META: dict[str, tuple[str, str, str]] = {
+    "bootstrap":     ("Bootstrap",     "Runs once, when the system starts up.",               "#bb9af7"),
+    "request":       ("Request",       "Driven by a user action or an incoming API call.",    "#7aa2f7"),
+    "scheduled":     ("Scheduled",     "Kicked off automatically on a timer or schedule.",    "#cc785c"),
+    "background":    ("Background",    "Async work run off the main request path.",           "#5fa463"),
+    "state-machine": ("State machine", "Moves an entity through a series of defined states.", "#e0af68"),
+    "pipeline":      ("Pipeline",      "A multi-stage data transformation, stage to stage.",  "#56b6c2"),
 }
+DEFAULT_FLOW_KIND: tuple[str, str, str] = ("Flow", "An end-to-end path through the system.", "#9aa0a6")
+# Lane display order; kinds not listed fall to the end in discovery order.
+FLOW_KIND_ORDER = ["bootstrap", "request", "scheduled", "background", "state-machine", "pipeline"]
 
 # Row pitch (px) for a flow step; the SVG spine's nodes are spaced to match
 # so the numbered nodes line up with the HTML step rows beside them.
 FLOW_ROW_PX = 56
 
 
-def _render_flow_card(flow: dict[str, Any]) -> str:
+def _render_flow_trace(flow: dict[str, Any]) -> str:
+    """The expanded detail: narration + the numbered spine and cited steps.
+    This is the detailed trace the section has always had; it now lives inside
+    a collapsible panel. The spine inherits its colour from the lane via
+    --lane-color so each kind's flows are visually consistent."""
     steps = flow.get("steps", [])
     n = len(steps)
     spine_h = max(FLOW_ROW_PX * n, FLOW_ROW_PX)
@@ -5161,7 +5641,7 @@ def _render_flow_card(flow: dict[str, Any]) -> str:
         cy = i * FLOW_ROW_PX + FLOW_ROW_PX / 2
         nodes.append(
             f'<circle cx="11" cy="{cy:.0f}" r="9" fill="var(--bg)" '
-            f'stroke="var(--accent)" stroke-width="2"/>'
+            f'stroke="var(--lane-color, var(--accent))" stroke-width="2"/>'
             f'<text x="11" y="{cy + 3:.0f}" text-anchor="middle" '
             f'font-size="10" font-family="var(--font-mono)" fill="var(--ink)">{i + 1}</text>'
         )
@@ -5185,35 +5665,116 @@ def _render_flow_card(flow: dict[str, Any]) -> str:
             f'{note_html}'
             f'</div>'
         )
-    kind = FLOW_KIND_LABELS.get(flow.get("kind", ""), escape(flow.get("kind", "").upper()))
-    return f"""
-    <div class="flow-card">
-      <div class="flow-head">
-        <span class="flow-kind">{kind}</span>
-        <span class="flow-name">{escape(flow.get('name', ''))}</span>
-      </div>
-      <div class="flow-trigger"><strong>Trigger:</strong> {escape(flow.get('trigger', ''))}</div>
-      <div class="flow-narration">{escape(flow.get('narration', ''))}</div>
-      <div class="flow-body">
-        {spine}
-        <div class="flow-steps">{''.join(rows)}</div>
-      </div>
-      <div class="flow-terminates"><strong>Ends:</strong> {escape(flow.get('terminates', ''))}</div>
-    </div>
-    """
+    narration = escape(flow.get("narration", ""))
+    narration_html = f'<p class="flow-narration">{narration}</p>' if narration else ""
+    ends = escape(flow.get("terminates", ""))
+    ends_html = f'<div class="flow-ends"><strong>Ends:</strong> {ends}</div>' if ends else ""
+    return (
+        f'{narration_html}'
+        f'<div class="flow-body">{spine}<div class="flow-steps">{"".join(rows)}</div></div>'
+        f'{ends_html}'
+    )
+
+
+def _render_flow_card(flow: dict[str, Any], idx: int) -> str:
+    """One collapsible flow: an always-visible summary button (name + a
+    'trigger → ends' preview + step count) that expands to the full trace."""
+    name = escape(flow.get("name", "") or "Flow")
+    trigger = escape(flow.get("trigger", ""))
+    ends = escape(flow.get("terminates", ""))
+    nsteps = len(flow.get("steps", []))
+    rid = f"flow-detail-{idx}"
+    oneline = ""
+    if trigger or ends:
+        arrow = '<span class="flow-arrow">→</span>' if (trigger and ends) else ""
+        oneline = f'<div class="flow-oneline">{trigger}{arrow}{ends}</div>'
+    return (
+        f'<div class="flow-card">'
+        f'<button class="flow-summary" type="button" aria-expanded="false" aria-controls="{rid}">'
+        f'<span class="flow-caret" aria-hidden="true">▸</span>'
+        f'<span class="flow-summary-main"><span class="flow-name">{name}</span>{oneline}</span>'
+        f'<span class="flow-stepn">{nsteps} step{"" if nsteps == 1 else "s"}</span>'
+        f'</button>'
+        f'<div class="flow-detail" id="{rid}">{_render_flow_trace(flow)}</div>'
+        f'</div>'
+    )
+
+
+# Expand/collapse behaviour + expand-all/collapse-all. Plain (non-f) string so
+# its braces survive; referenced as {FLOWS_JS}. Degrades gracefully: with no JS
+# the cards just don't toggle on screen, and the print stylesheet expands them.
+FLOWS_JS = """
+<script>
+(function () {
+  var section = document.getElementById('codemap-key-flows');
+  if (!section) return;
+  function setOpen(card, open) {
+    card.classList.toggle('is-open', open);
+    var btn = card.querySelector('.flow-summary');
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  section.querySelectorAll('.flow-summary').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var card = btn.closest('.flow-card');
+      setOpen(card, !card.classList.contains('is-open'));
+    });
+  });
+  section.querySelectorAll('.flows-btn[data-flows-action]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var open = b.getAttribute('data-flows-action') === 'expand';
+      section.querySelectorAll('.flow-card').forEach(function (c) { setOpen(c, open); });
+    });
+  });
+})();
+</script>
+"""
 
 
 def render_key_flows(data: dict[str, Any], enrichment: dict[str, Any] | None = None) -> str:
-    """Render LLM-derived end-to-end flows. Empty without flows."""
+    """Render LLM-derived end-to-end flows as an interactive board, grouped by
+    kind into colour-coded lanes. Empty without flows."""
     flows = (enrichment or {}).get("flows") or []
     if not flows:
         return ""
-    cards = "".join(_render_flow_card(f) for f in flows)
+
+    # Group by kind, preserving original order within each group.
+    by_kind: dict[str, list[dict[str, Any]]] = {}
+    for f in flows:
+        by_kind.setdefault(f.get("kind", ""), []).append(f)
+    ordered_kinds = [k for k in FLOW_KIND_ORDER if k in by_kind]
+    ordered_kinds += [k for k in by_kind if k not in FLOW_KIND_ORDER]
+
+    idx = 0
+    lanes = []
+    for kind in ordered_kinds:
+        label, meaning, color = FLOW_KIND_META.get(kind, DEFAULT_FLOW_KIND)
+        group = by_kind[kind]
+        cards = []
+        for f in group:
+            cards.append(_render_flow_card(f, idx))
+            idx += 1
+        lanes.append(
+            f'<div class="flow-lane" style="--lane-color: {color}">'
+            f'<div class="flow-lane-head">'
+            f'<div class="flow-lane-kind">{escape(label)} '
+            f'<span class="flow-lane-count">· {len(group)}</span></div>'
+            f'<div class="flow-lane-meaning">{escape(meaning)}</div>'
+            f'</div>'
+            f'{"".join(cards)}'
+            f'</div>'
+        )
+    board = "".join(lanes)
     return f"""
-<section class="key-flows">
+<section class="key-flows" id="codemap-key-flows">
   <h2>Key flows</h2>
   {section_intro("flows")}
-  <div class="flow-list">{cards}</div>
+  <p class="module-note">Each card is one way the system springs into action, grouped by what sets it off — startup, a request, a schedule, or background work. Click any flow to expand its full step-by-step trace.</p>
+  <div class="flows-toolbar">
+    <button class="flows-btn" type="button" data-flows-action="expand">Expand all</button>
+    <button class="flows-btn" type="button" data-flows-action="collapse">Collapse all</button>
+  </div>
+  <div class="flow-board">{board}</div>
+  {FLOWS_JS}
 </section>
 """
 
@@ -5245,7 +5806,7 @@ def render_document(data: dict[str, Any], enrichment: dict[str, Any] | None = No
         + render_entry_points(data)
         + render_deps(data)
         + render_tree(data)
-        + render_glossary(data)
+        + render_glossary(data, enrichment)
         + render_footer(data)
     )
     return f"""<!doctype html>
