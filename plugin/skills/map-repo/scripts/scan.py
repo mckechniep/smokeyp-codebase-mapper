@@ -22,7 +22,7 @@ from typing import Any
 
 import evidence
 
-TOOL_VERSION = "0.4.0"
+TOOL_VERSION = "0.5.0"
 
 # Language detection by extension. Color values are the GitHub linguist
 # palette so downstream charts feel familiar.
