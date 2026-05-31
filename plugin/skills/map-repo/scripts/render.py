@@ -331,19 +331,22 @@ pre code { background: transparent; padding: 0; }
   font-family: var(--font-mono);
   font-size: 0.83rem;
 }
-/* Name flexes (and wraps if very long); version is pinned right and never
-   wraps. min-width:0 lets the name shrink instead of overrunning the column. */
+/* Name takes the line; a long "version" (e.g. a tarball path or git URL, not a
+   real semver) wraps to its OWN line via flex-wrap instead of crushing the name
+   down to one-character-per-line. Both sides set min-width:0 + overflow-wrap so
+   neither can overrun the column. */
 .deps-list .dep {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
+  gap: 0 10px;
   min-width: 0;
   border-bottom: 1px solid var(--border-soft);
   padding-bottom: 3px;
 }
-.deps-list .dep .dep-name { min-width: 0; overflow-wrap: anywhere; color: var(--ink); }
-.deps-list .dep .ver { color: var(--muted); flex: 0 0 auto; white-space: nowrap; }
+.deps-list .dep .dep-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; color: var(--ink); }
+.deps-list .dep .ver { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; color: var(--muted); }
 
 /* ---- Entry points ---- */
 .entries {
