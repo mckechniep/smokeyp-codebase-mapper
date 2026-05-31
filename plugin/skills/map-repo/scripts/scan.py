@@ -128,6 +128,7 @@ DEP_MANIFESTS: tuple[tuple[str, str], ...] = (
     ("pom.xml", "maven"),
     ("build.gradle", "gradle"),
     ("build.gradle.kts", "gradle"),
+    ("mix.exs", "hex"),
 )
 
 # Max bytes we'll read from any single file for LOC counting.
@@ -691,23 +692,50 @@ def first_paragraph(text: str) -> str:
 
 
 def find_dependencies(root: Path, max_per_ecosystem: int | None) -> list[dict[str, Any]]:
-    """Scan well-known manifest files for direct external dependencies."""
-    deps: list[dict[str, Any]] = []
-    for filename, ecosystem in DEP_MANIFESTS:
-        mp = root / filename
-        if not mp.is_file():
+    """Discover manifest files anywhere under root and aggregate per ecosystem.
+
+    Monorepos keep manifests in subdirectories (apps/api/package.json, a backend
+    mix.exs, services/*/pyproject.toml, …), so we walk the whole tree via
+    iter_files (which honours SKIP_DIRS, so node_modules etc. are excluded)
+    rather than only checking the repo root. All manifests of one ecosystem
+    collapse into a single entry with merged, deduped packages."""
+    manifest_map = dict(DEP_MANIFESTS)
+    # ecosystem -> {"basenames": [...], "rel_files": [...], "packages": {name: version}}
+    buckets: dict[str, dict[str, Any]] = {}
+    for f in iter_files(root):
+        ecosystem = manifest_map.get(f.name)
+        if ecosystem is None:
             continue
-        packages = parse_manifest(mp, ecosystem)
+        b = buckets.setdefault(
+            ecosystem, {"basenames": [], "rel_files": [], "packages": {}})
+        b["basenames"].append(f.name)
+        b["rel_files"].append(str(f.relative_to(root)))
+        for pkg in parse_manifest(f, ecosystem):
+            # Dedupe by name; keep the first non-"*" version we encounter.
+            existing = b["packages"].get(pkg["name"])
+            if existing is None or existing == "*":
+                b["packages"][pkg["name"]] = pkg["version"]
+
+    deps: list[dict[str, Any]] = []
+    for ecosystem, b in buckets.items():
+        packages = [{"name": n, "version": v}
+                    for n, v in sorted(b["packages"].items())]
+        if not packages:
+            continue
         if max_per_ecosystem is not None:
             packages = packages[:max_per_ecosystem]
-        if packages:
-            deps.append({
-                "ecosystem": ecosystem,
-                "file": filename,
-                "count": len(packages),
-                "packages": packages,
-            })
-    return deps
+        rel_files = b["rel_files"]
+        if len(rel_files) == 1:
+            file_label = rel_files[0]
+        else:
+            file_label = f"{b['basenames'][0]} ×{len(rel_files)}"
+        deps.append({
+            "ecosystem": ecosystem,
+            "file": file_label,
+            "count": len(packages),
+            "packages": packages,
+        })
+    return sorted(deps, key=lambda e: e["ecosystem"])
 
 
 def parse_manifest(path: Path, ecosystem: str) -> list[dict[str, str]]:
@@ -796,6 +824,27 @@ def parse_manifest(path: Path, ecosystem: str) -> list[dict[str, str]]:
         if name == "Gemfile":
             return [{"name": m.group(1), "version": m.group(2) or "*"}
                     for m in re.finditer(r"gem\s+['\"]([^'\"]+)['\"](?:\s*,\s*['\"]([^'\"]+)['\"])?", text)]
+        if name == "mix.exs":
+            # Pull {:name, ...} tuples from the deps function block. The version
+            # is the first string literal in the tuple (e.g. "~> 1.7"); path:/
+            # github:/git: deps carry a path/URL string instead, so those fall
+            # back to "*".
+            m = re.search(r'\bdef(?:p)?\s+deps\b.*?\bdo\b(.*?)\bend\b',
+                          text, flags=re.DOTALL)
+            block = m.group(1) if m else text
+            out = []
+            for tm in re.finditer(r'\{\s*:([A-Za-z_]\w*)\s*,(.*?)\}',
+                                  block, flags=re.DOTALL):
+                rest = tm.group(2)
+                vm = re.search(r'"([^"]+)"', rest)
+                if vm and not re.search(
+                        r'\b(path|github|git|branch|tag|ref|organization|hex)\s*:\s*$',
+                        rest[:vm.start()].rstrip()):
+                    version = vm.group(1)
+                else:
+                    version = "*"
+                out.append({"name": tm.group(1), "version": version})
+            return out
         if name == "pom.xml":
             return [{"name": f"{g.group(1)}:{g.group(2)}", "version": g.group(3) or "*"}
                     for g in re.finditer(r"<groupId>([^<]+)</groupId>\s*<artifactId>([^<]+)</artifactId>(?:\s*<version>([^<]+)</version>)?", text)]
