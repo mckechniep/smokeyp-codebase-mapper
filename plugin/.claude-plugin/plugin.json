@@ -1,6 +1,6 @@
 {
   "name": "smokeyp-codebase-mapper",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Scan any repository and produce a polished HTML/PDF architecture report. Four print-first static diagrams: a Bertin module-dependency matrix, a C4 service-topology graph, a critical-paths swimlane, and a Sankey data-lineage view — each with data-derived architect observations and supporting small-multiples. Monorepo-aware module detection, broad HTTP framework coverage (NestJS, Express, FastAPI, Flask, Django, Rails, Spring Boot, Laravel, Go, Next.js), import parsing across Python/JS/TS/Go/Elixir (incl. workspace packages), ORM-driven data store mapping (Prisma, SQLAlchemy, Mongoose, Django ORM, ActiveRecord, JPA), and beginner-friendly explainers throughout. An on-by-default LLM evaluation pass adds a code-derived overview, product-vs-vendored classification, and cited execution-flow diagrams (use --no-llm to skip). Self-contained, no JavaScript runtime. Styled with the SmokeyP editorial design system.",
   "author": {
     "name": "Peter McKechnie",

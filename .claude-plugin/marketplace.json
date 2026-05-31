@@ -14,7 +14,7 @@
       "name": "smokeyp-codebase-mapper",
       "source": "./plugin",
       "description": "Multi-language import parsing, directory tree, language breakdown, dependency listing, and entry-point detection. Outputs styled HTML/PDF.",
-      "version": "0.5.0"
+      "version": "0.5.1"
     }
   ]
 }
