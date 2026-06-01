@@ -220,9 +220,10 @@ Claude will load the `design-system` skill, edit `:root` in `render.py`, and re-
 - **v0.5.0** *(shipped)* — interactive, beginner-friendly report: click-to-expand language profiles (what each language is, where it runs, its typical role), a Key-flows board of collapsible lanes grouped by trigger kind, an auto-populated glossary of the tools/libraries/services named in the report (Sentry, Apollo, GraphQL, OTP, …), an explanation of faded "vendored" modules, and a dependency-matrix axis-label fix. Plus monorepo-wide and Elixir (`mix.exs`) dependency detection, so the dependency list populates across subdirectories and Elixir stacks.
 - **v0.5.1** *(shipped)* — legibility fixes: External-dependencies entries no longer overlap (name/version columns, with long/scoped names wrapping) and a `*`-version legend; Key-flows step numbers now align with their text at any step height.
 - **v0.5.2** *(shipped)* — dependency rows whose "version" is a long non-semver value (a local tarball path or git URL) now wrap that value onto its own line, instead of collapsing the package name into vertical one-character-per-line text.
-- **v0.6.0** — TypeScript path-alias support, Express `app.use('/api', router)` mount following, third-party service detection (external API calls grouped as "outbound services" node)
-- **v0.7.0** — optional per-service file-level matrix appendix (a static drill-down figure for a chosen module, keeping the print-first, no-JS constraint)
-- **v0.8.0** — diff mode (`map-repo --vs main`) to highlight architectural drift between branches
+- **v0.6.0** *(shipped)* — optional semantic code retrieval for the LLM evaluation pass: when `grepai` + a local Ollama embedding model are present, the evaluator indexes the repo and uses vector search to ground flows/overview/classification in the most relevant code (auto-detected; `--no-semantic` to skip). The deterministic scan and renderer are untouched, so reports stay reproducible.
+- **v0.7.0** — TypeScript path-alias support, Express `app.use('/api', router)` mount following, third-party service detection (external API calls grouped as "outbound services" node)
+- **v0.8.0** — optional per-service file-level matrix appendix (a static drill-down figure for a chosen module, keeping the print-first, no-JS constraint)
+- **v0.9.0** — diff mode (`map-repo --vs main`) to highlight architectural drift between branches
 - **v1.0.0** — optional tree-sitter AST backend for sharper edge accuracy on languages where it matters
 
 ## Contributing
