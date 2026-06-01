@@ -22,8 +22,13 @@
 #   * Indexing uses an isolated FOREGROUND watcher (our own child process), so it
 #     never stops or interferes with a `grepai watch --background` daemon the user
 #     may already be running for their own work.
-#   * `grepai init` appends `.grepai/` to the repo's .gitignore; `cleanup` removes
-#     the `.grepai/` index directory afterwards.
+#   * Build succeeds only when the watcher reaches steady state (index fully
+#     written). On timeout it reports failure and removes the index it created —
+#     a partially written index.gob would poison later searches with
+#     "unexpected EOF". Size the timeout to the repo (large repos need more).
+#   * `grepai init` appends `.grepai/` to the repo's .gitignore. `cleanup` removes
+#     the `.grepai/` index directory only if build created it (marker file
+#     `.grepai/.codemap-created`); a user's own pre-existing index is never deleted.
 #   * Indexing respects the repo's .gitignore. Vendored code not covered by
 #     .gitignore will be indexed too (cost); that is acceptable for retrieval.
 
@@ -47,6 +52,14 @@ cmd_available() {
 }
 
 # Build (or refresh) the index for <repo>. Prints "indexed:<chunks>" on success.
+#
+# Completion is detected from the WATCHER'S OWN OUTPUT, not from polled chunk
+# counts. `grepai status` can report nonzero chunks while the initial scan is
+# still writing (mid-scan checkpoints), and SIGTERM during a write makes
+# grepai's shutdown force-abort ("shutdown timeout"), leaving a truncated
+# index.gob that fails every later read with "unexpected EOF". The watcher is
+# only stopped once it logs its steady-state marker — stopping it then is
+# graceful and safe.
 cmd_build() {
   local repo="${1:-}" tmo="${2:-300}"
   [ -n "$repo" ] && [ -d "$repo" ] || { err "build: no such repo: '$repo'"; return 1; }
@@ -54,36 +67,78 @@ cmd_build() {
 
   (
     cd "$repo" || exit 1
+
+    # Track whether WE created the index dir: only then may build (on
+    # timeout) or cleanup remove it. A pre-existing .grepai is the user's
+    # own index and is never deleted.
+    local created_marker=".grepai/.codemap-created"
     if [ ! -d .grepai ]; then
       "$GREPAI" init --yes --provider ollama >/dev/null 2>&1 \
         || { err "grepai init failed in $repo"; exit 1; }
+      # The marker is the linchpin of the cleanup contract ("only delete what
+      # we created") — if it cannot be written, do not proceed.
+      touch "$created_marker" \
+        || { err "cannot write $created_marker"; rm -rf .grepai; exit 1; }
     fi
 
-    # Isolated foreground watcher as our own child; poll the index until the
-    # chunk count is nonzero and stable, then stop it. Early-exits as soon as
-    # the initial index settles instead of waiting the full timeout.
-    "$GREPAI" watch --no-ui >/dev/null 2>&1 &
-    local wpid=$! prev=-1 stable=0 chunks=0 deadline=$(( SECONDS + tmo ))
+    local watch_log
+    watch_log=$(mktemp) || exit 1
+
+    # Isolated foreground watcher as our own child process; its stdout is the
+    # lifecycle log we wait on.
+    "$GREPAI" watch --no-ui >"$watch_log" 2>&1 &
+    local wpid=$! build_ok=no
+
+    # Single cleanup path for EVERY exit (success, timeout, watcher crash,
+    # external signal): reap the watcher, drop the temp log, and — unless the
+    # build completed — remove an index WE created. A partially written
+    # index.gob poisons every later search with "unexpected EOF".
+    _build_cleanup() {
+      [ -n "$wpid" ] && { kill "$wpid" 2>/dev/null; wait "$wpid" 2>/dev/null; }
+      [ "$build_ok" = yes ] || { [ -f "$created_marker" ] && rm -rf .grepai; }
+      rm -f "$watch_log"
+      return 0
+    }
+    trap _build_cleanup EXIT
+    # Make external interruption deterministic: exit (firing the EXIT trap)
+    # instead of resuming the poll loop mid-signal.
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+
+    local deadline=$(( SECONDS + tmo )) ready=no
     while [ "$SECONDS" -lt "$deadline" ]; do
-      sleep 3
-      chunks=$("$GREPAI" status --no-ui 2>/dev/null \
-                 | sed -n 's/.*Total chunks:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)
-      chunks=${chunks:-0}
-      if [ "$chunks" -gt 0 ] && [ "$chunks" = "$prev" ]; then
-        stable=$((stable + 1))
-        [ "$stable" -ge 2 ] && break
-      else
-        stable=0
+      sleep 1
+      if grep -qE 'Watching for changes|\[RUNNING\].*steady' "$watch_log" 2>/dev/null; then
+        ready=yes
+        break
       fi
-      prev=$chunks
+      # Watcher died on its own (config error, Ollama down, ...): fail now.
+      kill -0 "$wpid" 2>/dev/null || break
     done
+
+    if [ "$ready" != yes ]; then
+      # Timed out (or the watcher died) before the index was fully written.
+      # The EXIT trap reaps the watcher and removes the index if we created it.
+      err "index watcher exited or did not complete within ${tmo}s (large repo? pass a bigger timeout); falling back to non-semantic mode"
+      exit 1
+    fi
+
+    # Steady state: the index is fully written; stopping the watcher here is
+    # a graceful shutdown. Reap it now and clear wpid so the EXIT trap cannot
+    # wait on a recycled pid.
     kill "$wpid" 2>/dev/null
     wait "$wpid" 2>/dev/null
+    wpid=""
 
-    if [ "${chunks:-0}" -gt 0 ]; then
+    local chunks
+    chunks=$(sed -n 's/.*Initial scan complete:.*[^0-9]\([0-9][0-9]*\) chunks created.*/\1/p' "$watch_log" | tail -1)
+    chunks=${chunks:-0}
+
+    if [ "$chunks" -gt 0 ]; then
+      build_ok=yes
       echo "indexed:$chunks"
     else
-      err "no chunks indexed within ${tmo}s"
+      err "watcher reached steady state but indexed 0 chunks"
       exit 1
     fi
   )
@@ -97,11 +152,14 @@ cmd_search() {
   ( cd "$repo" && "$GREPAI" search "$query" -j -n "$n" 2>/dev/null )
 }
 
-# Stop any watcher we may have left and remove the index directory.
+# Remove the index directory — but ONLY if our build created it. A .grepai
+# the user made for their own grepai usage is never touched. We also never
+# call `grepai watch --stop` here: that is daemon IPC for a *background*
+# watcher (i.e. the user's own daemon), not for the foreground child that
+# cmd_build manages and reaps itself.
 cmd_cleanup() {
   local repo="${1:-}"
-  command -v "$GREPAI" >/dev/null 2>&1 && "$GREPAI" watch --stop >/dev/null 2>&1
-  if [ -n "$repo" ] && [ -d "$repo/.grepai" ]; then
+  if [ -n "$repo" ] && [ -f "$repo/.grepai/.codemap-created" ]; then
     rm -rf "$repo/.grepai"
   fi
   echo "cleaned"

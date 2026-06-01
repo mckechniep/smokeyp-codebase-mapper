@@ -54,14 +54,16 @@ Read `<out-dir>/codemap.evidence.json`. It contains the module list and truncate
 
 When semantic mode is enabled (the default when available — see argument parsing), use **vector code search** to find the *right* code to ground each claim instead of guessing from the bounded evidence pack. This matters most for flow citations and for large repos the evidence pack only samples.
 
-First check availability and build the index (one-shot; uses `grepai` + a local Ollama embedding model). Skip this whole subsection if `--no-semantic` was passed:
+First check availability and build the index (one-shot; uses `grepai` + a local Ollama embedding model). Skip this whole subsection if `--no-semantic` was passed.
+
+Size the indexing timeout to the repo: read `project.total_files` from `<out-dir>/codemap.json` (Step 1 already produced it) and pick the timeout — `300` for fewer than 2,000 files, `900` up to 20,000 files, `1800` beyond that.
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/skills/map-repo/scripts/semantic_index.sh" available \
-  && bash "${CLAUDE_PLUGIN_ROOT}/skills/map-repo/scripts/semantic_index.sh" build "<resolved-path>" 300
+  && bash "${CLAUDE_PLUGIN_ROOT}/skills/map-repo/scripts/semantic_index.sh" build "<resolved-path>" <timeout>
 ```
 
-If `available` fails (grepai / Ollama / the embedding model is missing), fall back to the evidence pack plus targeted `Read`/`Grep` — semantic mode is purely additive. If the user explicitly passed `--semantic` and it is unavailable, warn them and continue without it.
+If `available` fails (grepai / Ollama / the embedding model is missing), fall back to the evidence pack plus targeted `Read`/`Grep` — semantic mode is purely additive. If `build` exits non-zero or does not print an `indexed:<n>` line (most commonly: the index did not finish within the timeout on a very large repo), do the same — proceed without semantic retrieval. The script cleans up after itself on failure, so do not retry, do not run `search`, and do not report it as corruption; mention in your final summary that semantic retrieval was skipped and why. If the user explicitly passed `--semantic` and either step fails, warn them and continue without it.
 
 Once the index is built, retrieve grounding code with targeted natural-language queries. The JSON output is `{file_path, start_line, end_line, content, score}` — there is **no** `symbol` field, so read the returned `content` to name the symbol for a citation:
 
@@ -140,7 +142,7 @@ Pull the summary numbers from the `project` object in `codemap.json` — do not 
 - **Very large repos** (>50k files) — prefer `--depth shallow`. If the user passed `full` on a large repo, complete the scan but warn that the HTML may be large.
 - **Permission errors during scan** — `scan.py` skips unreadable files silently. If the JSON output is empty due to no readable files, report that to the user.
 - **Re-running** — overwrites the previous `codemap.json`, `codemap.html`, and `codemap.pdf` in `<out-dir>` without prompting. This is intentional; the user invoked the command, they want fresh output.
-- **Semantic mode** — needs `grepai` plus a local Ollama embedding model (`nomic-embed-text`); it is auto-skipped when absent, with no failure. Indexing a large repo takes a minute or more and writes a transient `.grepai/` index under the scanned repo (removed by `semantic_index.sh cleanup`); `grepai init` may also append `.grepai/` to the repo's `.gitignore`. The embeddings run locally, so no network is used. Force it off with `--no-semantic`.
+- **Semantic mode** — needs `grepai` plus a local Ollama embedding model (`nomic-embed-text`); it is auto-skipped when absent, with no failure. Indexing writes a transient `.grepai/` index under the scanned repo; on very large repos it can take many minutes, which is why the build timeout is scaled to `total_files`. If the build still times out, it fails cleanly (removing the partial index it created) and the report proceeds non-semantic. `semantic_index.sh cleanup` removes the index only if the build created it — a `.grepai/` the user made for their own grepai usage is never deleted. `grepai init` may append `.grepai/` to the repo's `.gitignore`. The embeddings run locally, so no network is used. Force semantic mode off with `--no-semantic`.
 
 ## What this skill does NOT do
 
