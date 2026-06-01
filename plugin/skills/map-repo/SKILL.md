@@ -1,7 +1,7 @@
 ---
 name: map-repo
 description: Slash command. Use this skill ONLY when the user explicitly invokes the /smokeyp-codebase-mapper:map-repo slash command. Do NOT trigger on conversational requests, natural-language phrases, or implicit intent — even if the user says "map this repo", "generate an architecture report", "document the codebase", "audit my project", or any other paraphrase. Activation is by slash command only. When invoked, scans a codebase and produces a polished, beginner-friendly HTML/PDF architecture report with directory tree, language breakdown, module summaries, dependency listing, entry-point detection, and a glossary of technical terms.
-argument-hint: "[path?] [--format html|pdf|both] [--depth shallow|medium|full] [--out PATH]"
+argument-hint: "[path?] [--format html|pdf|both] [--depth shallow|medium|full] [--out PATH] [--no-semantic]"
 allowed-tools: Read, Glob, Grep, Bash, Write
 version: 0.1.0
 ---
@@ -22,6 +22,7 @@ Parse arguments in this order:
    - `full`: complete tree, every module, every dependency. Use for archival or when investigating a specific corner that medium truncated.
 4. **`--out`** — output directory. Defaults to `<path>/.codemap/`.
 5. **`--no-llm`** (alias `--fast`) — skip the LLM evaluation step (Step 1.5) and produce the deterministic-only report. Defaults to running the evaluation.
+6. **`--semantic`** / **`--no-semantic`** — turn semantic code retrieval in Step 1.5 on or off. Default: **auto** — on when `grepai` and a local Ollama embedding model are available, off otherwise. `--semantic` forces it on (warn if unavailable, then continue without it); `--no-semantic` forces it off. Ignored when `--no-llm` is set.
 
 Resolve the target path to an absolute path. If it does not exist or is not a directory, stop and report the error to the user.
 
@@ -48,6 +49,39 @@ If `python3` is not available, fall back to `python`. If neither is available, s
 ### Step 1.5 — LLM evaluation (skip if `--no-llm`)
 
 Read `<out-dir>/codemap.evidence.json`. It contains the module list and truncated contents of high-signal files (entry points, manifests, READMEs, route/schema files). You may additionally `Read`/`Grep` up to ~20 more files in the target repo to confirm flows and citations — **do not read the whole repo**.
+
+#### Semantic retrieval (optional, recommended)
+
+When semantic mode is enabled (the default when available — see argument parsing), use **vector code search** to find the *right* code to ground each claim instead of guessing from the bounded evidence pack. This matters most for flow citations and for large repos the evidence pack only samples.
+
+First check availability and build the index (one-shot; uses `grepai` + a local Ollama embedding model). Skip this whole subsection if `--no-semantic` was passed:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/map-repo/scripts/semantic_index.sh" available \
+  && bash "${CLAUDE_PLUGIN_ROOT}/skills/map-repo/scripts/semantic_index.sh" build "<resolved-path>" 300
+```
+
+If `available` fails (grepai / Ollama / the embedding model is missing), fall back to the evidence pack plus targeted `Read`/`Grep` — semantic mode is purely additive. If the user explicitly passed `--semantic` and it is unavailable, warn them and continue without it.
+
+Once the index is built, retrieve grounding code with targeted natural-language queries. The JSON output is `{file_path, start_line, end_line, content, score}` — there is **no** `symbol` field, so read the returned `content` to name the symbol for a citation:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/map-repo/scripts/semantic_index.sh" search "<resolved-path>" "<query>" 5
+```
+
+Run one query per question you need to answer, for example:
+- **Flows**: `"application bootstrap / entrypoint"`, `"HTTP route handlers"`, `"scheduled / cron job"`, `"background worker or job queue"`, `"payment or billing webhook"`, `"user authentication / login"`.
+- **Overview**: `"core domain / business logic"`, `"primary data models"`.
+- **Data stores**: `"database queries or ORM model definitions"`.
+- **Classification**: a query naming a suspected vendored library, to confirm it is third-party.
+
+Cite the `file_path` + `start_line` each hit returns. Prefer grepai hits over guesses — they land flow citations on real code (and pass `validate_enrichment.py`).
+
+When enrichment is finished, free the index:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/map-repo/scripts/semantic_index.sh" cleanup "<resolved-path>"
+```
 
 Write a `codemap.enrichment.json` to `<out-dir>/` with this shape (the authoritative schema is enforced by `validate_enrichment.py`):
 
@@ -106,9 +140,10 @@ Pull the summary numbers from the `project` object in `codemap.json` — do not 
 - **Very large repos** (>50k files) — prefer `--depth shallow`. If the user passed `full` on a large repo, complete the scan but warn that the HTML may be large.
 - **Permission errors during scan** — `scan.py` skips unreadable files silently. If the JSON output is empty due to no readable files, report that to the user.
 - **Re-running** — overwrites the previous `codemap.json`, `codemap.html`, and `codemap.pdf` in `<out-dir>` without prompting. This is intentional; the user invoked the command, they want fresh output.
+- **Semantic mode** — needs `grepai` plus a local Ollama embedding model (`nomic-embed-text`); it is auto-skipped when absent, with no failure. Indexing a large repo takes a minute or more and writes a transient `.grepai/` index under the scanned repo (removed by `semantic_index.sh cleanup`); `grepai init` may also append `.grepai/` to the repo's `.gitignore`. The embeddings run locally, so no network is used. Force it off with `--no-semantic`.
 
 ## What this skill does NOT do
 
 - It does **not** push anything to GitHub or external services.
-- It does **not** modify source files in the target repo. The only writes happen inside `<out-dir>`.
+- It does **not** modify source files in the target repo. The only writes happen inside `<out-dir>` — except optional semantic mode, which writes a transient `.grepai/` index (removed on cleanup) and may add a `.grepai/` line to the repo's `.gitignore`.
 - It does **not** require network access. The HTML is self-contained (inline CSS, no CDN fonts).
