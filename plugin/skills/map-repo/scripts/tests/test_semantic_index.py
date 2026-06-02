@@ -252,6 +252,39 @@ class BuildSuccessTest(SemanticIndexTestCase):
         self.assertIn("file_path", search.stdout)
 
 
+class HasIndexTest(SemanticIndexTestCase):
+    """has-index: detect a pre-existing (warm) grepai index without building.
+
+    The default skill flow only USES a warm index (e.g. maintained by the
+    user's own `grepai watch` daemon); it never builds one. Building is
+    explicit opt-in via --semantic.
+    """
+
+    def test_no_index_returns_failure(self):
+        proc = self.run_script("has-index", self.repo)
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertNotIn("index-present", proc.stdout)
+
+    def test_warm_index_returns_success(self):
+        index_dir = self.repo / ".grepai"
+        index_dir.mkdir()
+        (index_dir / "index.gob").write_text("warm index data")
+        proc = self.run_script("has-index", self.repo)
+        self.assertEqual(proc.returncode, 0, msg=proc.stderr)
+        self.assertIn("index-present", proc.stdout)
+
+    def test_empty_grepai_dir_is_not_an_index(self):
+        # .grepai exists but holds no index.gob (failed init leftovers,
+        # config-only dir): not usable, must not count as warm.
+        (self.repo / ".grepai").mkdir()
+        proc = self.run_script("has-index", self.repo)
+        self.assertNotEqual(proc.returncode, 0)
+
+    def test_missing_repo_arg_returns_failure(self):
+        proc = self.run_script("has-index")
+        self.assertNotEqual(proc.returncode, 0)
+
+
 class CleanupTest(SemanticIndexTestCase):
     def test_cleanup_never_calls_watch_stop(self):
         # `grepai watch --stop` stops the user's BACKGROUND daemon (their own

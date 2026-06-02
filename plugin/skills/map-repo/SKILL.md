@@ -22,7 +22,7 @@ Parse arguments in this order:
    - `full`: complete tree, every module, every dependency. Use for archival or when investigating a specific corner that medium truncated.
 4. **`--out`** — output directory. Defaults to `<path>/.codemap/`.
 5. **`--no-llm`** (alias `--fast`) — skip the LLM evaluation step (Step 1.5) and produce the deterministic-only report. Defaults to running the evaluation.
-6. **`--semantic`** / **`--no-semantic`** — turn semantic code retrieval in Step 1.5 on or off. Default: **auto** — on when `grepai` and a local Ollama embedding model are available, off otherwise. `--semantic` forces it on (warn if unavailable, then continue without it); `--no-semantic` forces it off. Ignored when `--no-llm` is set.
+6. **`--semantic`** / **`--no-semantic`** — semantic code retrieval in Step 1.5. Default: **use an existing index only** — if the target repo already has a warm grepai index (e.g. maintained by the user's own `grepai watch` daemon), ground citations with it; otherwise skip semantic retrieval. **The default flow never builds an index** (indexing large repos takes minutes of local GPU time, and direct file reads finish first). `--semantic` opts in to building one; `--no-semantic` disables semantic retrieval even when a warm index exists. Ignored when `--no-llm` is set.
 
 Resolve the target path to an absolute path. If it does not exist or is not a directory, stop and report the error to the user.
 
@@ -50,20 +50,26 @@ If `python3` is not available, fall back to `python`. If neither is available, s
 
 Read `<out-dir>/codemap.evidence.json`. It contains the module list and truncated contents of high-signal files (entry points, manifests, READMEs, route/schema files). You may additionally `Read`/`Grep` up to ~20 more files in the target repo to confirm flows and citations — **do not read the whole repo**.
 
-#### Semantic retrieval (optional, recommended)
+#### Semantic retrieval (warm index by default; building is opt-in)
 
-When semantic mode is enabled (the default when available — see argument parsing), use **vector code search** to find the *right* code to ground each claim instead of guessing from the bounded evidence pack. This matters most for flow citations and for large repos the evidence pack only samples.
+Semantic (vector) code search can ground claims in the most relevant code. **Building an index is expensive** (minutes of local GPU embedding on large repos) and in practice direct file reads finish first — so the default flow never builds one. It only *uses* an index that already exists. Skip this whole subsection if `--no-semantic` was passed.
 
-First check availability and build the index (one-shot; uses `grepai` + a local Ollama embedding model). Skip this whole subsection if `--no-semantic` was passed.
+**Default flow (no `--semantic` flag)** — check for a warm index:
 
-Size the indexing timeout to the repo: read `project.total_files` from `<out-dir>/codemap.json` (Step 1 already produced it) and pick the timeout — `300` for fewer than 2,000 files, `900` up to 20,000 files, `1800` beyond that.
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/skills/map-repo/scripts/semantic_index.sh" has-index "<resolved-path>"
+```
+
+If it prints `index-present`, use `search` (below) to ground citations — the index is free to query. If it exits non-zero, proceed WITHOUT semantic retrieval: do not build an index, do not run `available`, and do not mention semantic mode as missing or failed (its absence is the normal case).
+
+**Opt-in flow (`--semantic` passed)** — build the index first. Size the timeout to the repo: read `project.total_files` from `<out-dir>/codemap.json` (Step 1 already produced it) and pick `300` for fewer than 2,000 files, `900` up to 20,000 files, `1800` beyond that. Tell the user indexing may take several minutes before you start.
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/skills/map-repo/scripts/semantic_index.sh" available \
   && bash "${CLAUDE_PLUGIN_ROOT}/skills/map-repo/scripts/semantic_index.sh" build "<resolved-path>" <timeout>
 ```
 
-If `available` fails (grepai / Ollama / the embedding model is missing), fall back to the evidence pack plus targeted `Read`/`Grep` — semantic mode is purely additive. If `build` exits non-zero or does not print an `indexed:<n>` line (most commonly: the index did not finish within the timeout on a very large repo), do the same — proceed without semantic retrieval. The script cleans up after itself on failure, so do not retry, do not run `search`, and do not report it as corruption; mention in your final summary that semantic retrieval was skipped and why. If the user explicitly passed `--semantic` and either step fails, warn them and continue without it.
+If `available` fails (grepai / Ollama / the embedding model is missing) or `build` exits non-zero / does not print an `indexed:<n>` line (most commonly: the index did not finish within the timeout), warn the user and continue without semantic retrieval. The script cleans up after itself on failure, so do not retry, do not run `search`, and do not report it as corruption. Do the enrichment's citation grounding AFTER the build finishes — building and then not querying the index wastes the entire cost of building it.
 
 Once the index is built, retrieve grounding code with targeted natural-language queries. The JSON output is `{file_path, start_line, end_line, content, score}` — there is **no** `symbol` field, so read the returned `content` to name the symbol for a citation:
 
@@ -79,7 +85,7 @@ Run one query per question you need to answer, for example:
 
 Cite the `file_path` + `start_line` each hit returns. Prefer grepai hits over guesses — they land flow citations on real code (and pass `validate_enrichment.py`).
 
-When enrichment is finished, free the index:
+When enrichment is finished, run cleanup. This only removes an index the `build` step created (marker file `.grepai/.codemap-created`); a user's own warm index is never touched, so it is always safe to run:
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/skills/map-repo/scripts/semantic_index.sh" cleanup "<resolved-path>"
@@ -142,10 +148,10 @@ Pull the summary numbers from the `project` object in `codemap.json` — do not 
 - **Very large repos** (>50k files) — prefer `--depth shallow`. If the user passed `full` on a large repo, complete the scan but warn that the HTML may be large.
 - **Permission errors during scan** — `scan.py` skips unreadable files silently. If the JSON output is empty due to no readable files, report that to the user.
 - **Re-running** — overwrites the previous `codemap.json`, `codemap.html`, and `codemap.pdf` in `<out-dir>` without prompting. This is intentional; the user invoked the command, they want fresh output.
-- **Semantic mode** — needs `grepai` plus a local Ollama embedding model (`nomic-embed-text`); it is auto-skipped when absent, with no failure. Indexing writes a transient `.grepai/` index under the scanned repo; on very large repos it can take many minutes, which is why the build timeout is scaled to `total_files`. If the build still times out, it fails cleanly (removing the partial index it created) and the report proceeds non-semantic. `semantic_index.sh cleanup` removes the index only if the build created it — a `.grepai/` the user made for their own grepai usage is never deleted. `grepai init` may append `.grepai/` to the repo's `.gitignore`. The embeddings run locally, so no network is used. Force semantic mode off with `--no-semantic`.
+- **Semantic mode** — by default only an EXISTING grepai index is used (`semantic_index.sh has-index`); the skill never builds one unless `--semantic` is passed. Building needs `grepai` plus a local Ollama embedding model (`nomic-embed-text`), can take many minutes on large repos (timeout scaled to `total_files`), writes a transient `.grepai/` index under the scanned repo, and may append `.grepai/` to the repo's `.gitignore` (via `grepai init`); on timeout it fails cleanly, removing the partial index. Cleanup removes only an index the build created — a user's own `.grepai/` is never deleted. Embeddings run locally; no network is used. `--no-semantic` disables semantic retrieval entirely, even with a warm index present.
 
 ## What this skill does NOT do
 
 - It does **not** push anything to GitHub or external services.
-- It does **not** modify source files in the target repo. The only writes happen inside `<out-dir>` — except optional semantic mode, which writes a transient `.grepai/` index (removed on cleanup) and may add a `.grepai/` line to the repo's `.gitignore`.
+- It does **not** modify source files in the target repo. By default the only writes happen inside `<out-dir>`. The one exception is the explicit `--semantic` flag, which writes a transient `.grepai/` index (removed on cleanup) and may add a `.grepai/` line to the repo's `.gitignore`.
 - It does **not** require network access. The HTML is self-contained (inline CSS, no CDN fonts).

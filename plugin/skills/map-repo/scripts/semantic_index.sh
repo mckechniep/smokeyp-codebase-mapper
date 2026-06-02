@@ -13,6 +13,7 @@
 # deterministic-only / evidence-pack flow — semantic mode is purely additive.
 #
 # Usage:
+#   semantic_index.sh has-index <repo>                  # is a warm index already there?
 #   semantic_index.sh available
 #   semantic_index.sh build   <repo> [timeout_secs]   # default 300
 #   semantic_index.sh search  <repo> <query> [n]       # default 5; prints grepai JSON
@@ -38,6 +39,21 @@ GREPAI="${GREPAI_BIN:-grepai}"
 EMBED_MODEL="${GREPAI_MODEL:-nomic-embed-text}"
 
 err() { echo "[semantic_index] $*" >&2; }
+
+# Exit 0 + "index-present" when <repo> already has a usable grepai index —
+# e.g. one maintained by the user's own `grepai watch` daemon. The default
+# skill flow only USES a warm index; it never builds one (building is the
+# explicit --semantic opt-in, because indexing large repos takes minutes and
+# direct file reads finish first).
+cmd_has_index() {
+  local repo="${1:-}"
+  if [ -n "$repo" ] && [ -f "$repo/.grepai/index.gob" ]; then
+    echo "index-present"
+    return 0
+  fi
+  err "no usable index at '${repo:-<missing repo arg>}/.grepai'"
+  return 1
+}
 
 # Exit 0 only when grepai + ollama + the embedding model are all present.
 cmd_available() {
@@ -169,12 +185,13 @@ main() {
   local sub="${1:-}"
   shift || true
   case "$sub" in
+    has-index) cmd_has_index "$@" ;;
     available) cmd_available "$@" ;;
     build)     cmd_build "$@" ;;
     search)    cmd_search "$@" ;;
     cleanup)   cmd_cleanup "$@" ;;
     *)
-      err "usage: $0 {available | build <repo> [timeout] | search <repo> <query> [n] | cleanup <repo>}"
+      err "usage: $0 {has-index <repo> | available | build <repo> [timeout] | search <repo> <query> [n] | cleanup <repo>}"
       return 2
       ;;
   esac
