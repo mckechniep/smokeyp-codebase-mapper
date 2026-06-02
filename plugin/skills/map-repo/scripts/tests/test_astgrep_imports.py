@@ -97,7 +97,9 @@ class PythonConversionTest(unittest.TestCase):
     def test_python_targets_match_regex_contract(self):
         f = self.root / "services" / "api" / "main.py"
         # main.py has: `import core` and `from core import models`
-        # -> first segments, same as scan._python_import_targets
+        # -> first segments, same as scan._python_import_targets.
+        # Duplicates are intentional: one entry per import statement,
+        # matching the regex extractor's contract (edge weights count them).
         self.assertCountEqual(self.ag.python_targets(f), ["core", "core"])
 
     def test_python_targets_for_unseen_file_is_empty(self):
@@ -177,6 +179,28 @@ class ElixirConversionTest(unittest.TestCase):
     def test_elixir_defmodules(self):
         f = self.root / "apps" / "exapp" / "lib" / "repo.ex"
         self.assertEqual(self.ag.elixir_defmodules(f), ["Exapp.Repo"])
+
+
+class StripQuotesTest(unittest.TestCase):
+    """_strip_quotes is pure string logic — no ast-grep binary needed."""
+
+    def test_double_and_single_quotes(self):
+        self.assertEqual(astgrep_imports.AstGrepImports._strip_quotes('"react"'), "react")
+        self.assertEqual(astgrep_imports.AstGrepImports._strip_quotes("'react'"), "react")
+
+    def test_whitespace_padding(self):
+        self.assertEqual(astgrep_imports.AstGrepImports._strip_quotes('  "./local"  '), "./local")
+
+    def test_no_quotes_passthrough(self):
+        self.assertEqual(astgrep_imports.AstGrepImports._strip_quotes("bare"), "bare")
+
+    def test_mismatched_quotes_passthrough(self):
+        self.assertEqual(astgrep_imports.AstGrepImports._strip_quotes('"foo\''), '"foo\'')
+
+    def test_degenerate_inputs(self):
+        self.assertEqual(astgrep_imports.AstGrepImports._strip_quotes(""), "")
+        self.assertEqual(astgrep_imports.AstGrepImports._strip_quotes('"'), '"')
+        self.assertEqual(astgrep_imports.AstGrepImports._strip_quotes('""'), "")
 
 
 if __name__ == "__main__":

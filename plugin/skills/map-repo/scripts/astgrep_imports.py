@@ -55,6 +55,12 @@ _RULES += [
 ]
 RULES_YAML = "\n---\n".join(_RULES)
 
+# Rule IDs whose captures are JS/TS import specifiers (all dialects x all forms).
+_JSTS_RULE_IDS = frozenset(
+    f"{d}-{kind}" for d in _TS_DIALECTS
+    for kind in ("import", "export-from", "require", "dynamic-import")
+)
+
 # A match: (rule_id, primary capture text or full match text).
 Hit = tuple[str, str]
 
@@ -107,13 +113,9 @@ class AstGrepImports:
         """(resolved relative/absolute path imports, bare specifiers)."""
         paths: list[Path] = []
         bare: list[str] = []
-        jsts_rules = tuple(
-            f"{d}-{kind}" for d in _TS_DIALECTS
-            for kind in ("import", "export-from", "require", "dynamic-import")
-        )
         parent = file_path.parent
         for rule_id, cap in self._file_hits(file_path):
-            if rule_id not in jsts_rules:
+            if rule_id not in _JSTS_RULE_IDS:
                 continue
             spec = self._strip_quotes(cap)
             if not spec:
@@ -137,7 +139,11 @@ class AstGrepImports:
         for rule_id, cap in self._file_hits(file_path):
             if rule_id != "go-import":
                 continue
-            # import_spec text: `"fmt"` or `alias "github.com/x/y"`
+            # import_spec text is `"fmt"` or `alias "github.com/x/y"`.
+            # split('"')[1] = content between the first pair of quotes; for any
+            # real import_spec there is always at least one quote pair, and the
+            # malformed single-quote cases ('"x' -> 'x', 'x"' -> '') degrade to
+            # values the prefix check below safely rejects.
             quoted = cap.strip()
             if '"' in quoted:
                 quoted = quoted.split('"')[1]
