@@ -44,5 +44,48 @@ class CollectionTest(unittest.TestCase):
         self.assertFalse(self.ag.has_file(f))
 
 
+class NeverRaiseContractTest(unittest.TestCase):
+    """collect() must return None on ANY failure — it must never raise.
+
+    These tests mock subprocess.run so they need no real ast-grep binary.
+    They use bin_path=sys.executable (a real file) so _find_binary succeeds
+    and collect() reaches the subprocess layer.
+    """
+
+    class _FakeProc:
+        def __init__(self, returncode=0, stdout=""):
+            self.returncode = returncode
+            self.stdout = stdout
+
+    def _collect_with(self, fake_proc=None, side_effect=None):
+        from unittest import mock
+        with mock.patch.object(astgrep_imports.subprocess, "run",
+                               return_value=fake_proc, side_effect=side_effect):
+            return astgrep_imports.collect(
+                FIXTURE.resolve(), bin_path=sys.executable)
+
+    def test_non_list_json_returns_none(self):
+        # ast-grep printing valid JSON that is not an array (e.g. null)
+        self.assertIsNone(self._collect_with(self._FakeProc(stdout="null")))
+        self.assertIsNone(self._collect_with(self._FakeProc(stdout="{}")))
+        self.assertIsNone(self._collect_with(self._FakeProc(stdout='"oops"')))
+
+    def test_malformed_json_returns_none(self):
+        self.assertIsNone(self._collect_with(self._FakeProc(stdout="not json {")))
+
+    def test_nonzero_exit_returns_none(self):
+        self.assertIsNone(self._collect_with(self._FakeProc(returncode=1, stdout="[]")))
+
+    def test_timeout_returns_none(self):
+        import subprocess as sp
+        self.assertIsNone(self._collect_with(
+            side_effect=sp.TimeoutExpired(cmd="ast-grep", timeout=120)))
+
+    def test_empty_match_list_returns_bridge_not_none(self):
+        # Valid empty result: ast-grep ran fine, found nothing.
+        result = self._collect_with(self._FakeProc(stdout="[]"))
+        self.assertIsNotNone(result)
+
+
 if __name__ == "__main__":
     unittest.main()

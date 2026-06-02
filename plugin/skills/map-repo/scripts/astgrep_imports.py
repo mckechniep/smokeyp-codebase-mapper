@@ -17,6 +17,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 # Same override mechanism as GREPAI_BIN in semantic_index.sh: tests (and
@@ -94,9 +95,18 @@ def collect(root: Path, bin_path: str | None = None) -> AstGrepImports | None:
             capture_output=True, text=True, cwd=str(root), timeout=120,
         )
         if proc.returncode != 0:
+            print("[astgrep_imports] ast-grep exited "
+                  f"{proc.returncode}; falling back to regex extraction", file=sys.stderr)
             return None
         matches = json.loads(proc.stdout)
-    except (OSError, subprocess.SubprocessError, json.JSONDecodeError, ValueError):
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError, ValueError) as exc:
+        print(f"[astgrep_imports] ast-grep failed ({type(exc).__name__}); "
+              "falling back to regex extraction", file=sys.stderr)
+        return None
+
+    if not isinstance(matches, list):
+        print("[astgrep_imports] ast-grep output was not a JSON array; "
+              "falling back to regex extraction", file=sys.stderr)
         return None
 
     hits: dict[Path, list[Hit]] = {}
