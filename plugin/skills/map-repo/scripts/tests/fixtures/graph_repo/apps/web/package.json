@@ -1,0 +1,1 @@
+{ "name": "@graph/web", "version": "1.0.0", "dependencies": { "@graph/shared": "*" } }
