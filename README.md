@@ -222,10 +222,11 @@ Claude will load the `design-system` skill, edit `:root` in `render.py`, and re-
 - **v0.5.2** *(shipped)* — dependency rows whose "version" is a long non-semver value (a local tarball path or git URL) now wrap that value onto its own line, instead of collapsing the package name into vertical one-character-per-line text.
 - **v0.6.0** *(shipped)* — optional semantic code retrieval for the LLM evaluation pass: when `grepai` + a local Ollama embedding model are present, the evaluator indexes the repo and uses vector search to ground flows/overview/classification in the most relevant code (auto-detected; `--no-semantic` to skip). The deterministic scan and renderer are untouched, so reports stay reproducible.
 - **v0.6.1** *(shipped)* — reliable semantic indexing on large repos: the index build now waits for grepai's own completion signal instead of inferring from chunk counts, the timeout scales with the repo's file count, a build that can't finish fails honestly (and removes its partial index) instead of reporting a corrupted one as built, and a `.grepai/` index the user created themselves is never deleted.
-- **v0.7.0** — TypeScript path-alias support, Express `app.use('/api', router)` mount following, third-party service detection (external API calls grouped as "outbound services" node)
-- **v0.8.0** — optional per-service file-level matrix appendix (a static drill-down figure for a chosen module, keeping the print-first, no-JS constraint)
-- **v0.9.0** — diff mode (`map-repo --vs main`) to highlight architectural drift between branches
-- **v1.0.0** — optional tree-sitter AST backend for sharper edge accuracy on languages where it matters
+- **v0.7.0** *(shipped)* — AST-accurate import extraction + semantic indexing rethink. When the `ast-grep` binary is present, the module dependency graph is built from tree-sitter parses (one batched scan, ~0.1s even on large monorepos) instead of regexes — catching `import type`, re-exports, dynamic imports, and multi-line forms the regexes miss; auto-detected with full regex fallback. Semantic (grepai) indexing no longer builds by default — it only uses an index that already exists (e.g. your own `grepai watch` daemon); building is opt-in via `--semantic`.
+- **v0.8.0** — TypeScript path-alias support, Express `app.use('/api', router)` mount following, third-party service detection (external API calls grouped as "outbound services" node)
+- **v0.9.0** — optional per-service file-level matrix appendix (a static drill-down figure for a chosen module, keeping the print-first, no-JS constraint)
+- **v0.10.0** — diff mode (`map-repo --vs main`) to highlight architectural drift between branches
+- **v1.0.0** — call-graph extraction on the tree-sitter backend: function-level caller→callee edges feeding Key Flows and critical paths with real data instead of heuristics
 
 ## Contributing
 
