@@ -149,7 +149,16 @@ class AstGrepImports:
 
     # --- Elixir: contracts of scan._elixir_reference_targets / _elixir_defmodules
     def elixir_reference_targets(self, file_path: Path) -> list[str]:
-        """Module names referenced via alias/import/use/require, multi-alias expanded."""
+        """Module names referenced via alias/import/use/require, multi-alias expanded.
+
+        Intentional divergence from scan._elixir_reference_targets: the regex
+        extractor also emits the bare base name (e.g. `Exapp`) for a multi-alias
+        line (`alias Exapp.{Repo, Worker}`) as an artifact of its dual-regex
+        implementation. That bare-base reference is a false positive (the line
+        does not reference the parent module itself), so this method does not
+        replicate it. Graph edges from this path are a subset-or-equal of the
+        regex path's edges, never a superset of wrong ones.
+        """
         out: list[str] = []
         for rule_id, cap in self._file_hits(file_path):
             if rule_id != "elixir-ref":

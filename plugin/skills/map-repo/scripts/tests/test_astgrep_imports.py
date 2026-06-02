@@ -170,6 +170,9 @@ class ElixirConversionTest(unittest.TestCase):
         self.assertIn("Exapp.Worker", refs)
         self.assertIn("Exapp.Helpers", refs)
         self.assertIn("GenServer", refs)
+        # Intentional divergence from the regex extractor: no bare-base
+        # artifact for multi-alias lines (see elixir_reference_targets docstring).
+        self.assertNotIn("Exapp", refs)
 
     def test_elixir_defmodules(self):
         f = self.root / "apps" / "exapp" / "lib" / "repo.ex"

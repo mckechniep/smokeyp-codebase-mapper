@@ -33,6 +33,10 @@ class ElixirImportTest(unittest.TestCase):
         t = scan._elixir_reference_targets(text)
         self.assertIn("Brevity.Trips", t)
         self.assertIn("Brevity.Accounts", t)
+        # Known artifact: ELIXIR_REF_RE also matches the multi-alias line and
+        # emits the bare base name. The ast-grep extraction path intentionally
+        # does NOT replicate this (see astgrep_imports.elixir_reference_targets).
+        self.assertIn("Brevity", t)
 
 
 class WorkspacePkgTest(unittest.TestCase):
