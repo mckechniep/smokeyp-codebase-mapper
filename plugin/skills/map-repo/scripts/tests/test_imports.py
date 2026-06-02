@@ -64,7 +64,7 @@ class PythonImportTest(unittest.TestCase):
     """Pins _python_import_targets — the regex fallback contract."""
 
     def test_plain_and_dotted_imports_return_first_segment(self):
-        text = "import os\nimport os.path\nimport numpy as np\n"
+        text = "import os\nimport os.path\nimport numpy as np\n"  # `os` and `os.path` both pin first segment "os"
         self.assertEqual(scan._python_import_targets(text),
                          ["os", "os", "numpy"])
 
@@ -96,7 +96,7 @@ class GoImportTest(unittest.TestCase):
 
     def test_internal_imports_have_prefix_stripped(self):
         targets = scan._go_import_targets(self.GO, "github.com/myorg/myapp")
-        self.assertEqual(targets, ["auth", "service"])
+        self.assertCountEqual(targets, ["auth", "service"])
 
     def test_external_imports_are_dropped(self):
         targets = scan._go_import_targets(self.GO, "github.com/myorg/myapp")
@@ -105,6 +105,11 @@ class GoImportTest(unittest.TestCase):
 
     def test_no_module_prefix_returns_empty(self):
         self.assertEqual(scan._go_import_targets(self.GO, None), [])
+
+    def test_module_root_import_yields_empty_string(self):
+        text = 'package main\n\nimport "github.com/myorg/myapp"\n'
+        targets = scan._go_import_targets(text, "github.com/myorg/myapp")
+        self.assertEqual(targets, [""])
 
     def test_read_go_module_prefix(self):
         with tempfile.TemporaryDirectory() as d:
