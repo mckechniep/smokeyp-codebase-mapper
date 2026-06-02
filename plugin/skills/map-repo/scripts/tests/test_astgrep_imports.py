@@ -87,5 +87,94 @@ class NeverRaiseContractTest(unittest.TestCase):
         self.assertIsNotNone(result)
 
 
+@unittest.skipUnless(HAVE_ASTGREP, "ast-grep not installed")
+class PythonConversionTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.root = FIXTURE.resolve()
+        cls.ag = astgrep_imports.collect(cls.root)
+
+    def test_python_targets_match_regex_contract(self):
+        f = self.root / "services" / "api" / "main.py"
+        # main.py has: `import core` and `from core import models`
+        # -> first segments, same as scan._python_import_targets
+        self.assertCountEqual(self.ag.python_targets(f), ["core", "core"])
+
+    def test_python_targets_for_unseen_file_is_empty(self):
+        self.assertEqual(self.ag.python_targets(self.root / "nope.py"), [])
+
+
+@unittest.skipUnless(HAVE_ASTGREP, "ast-grep not installed")
+class JstsConversionTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.root = FIXTURE.resolve()
+        cls.ag = astgrep_imports.collect(cls.root)
+
+    def test_jsts_targets_split_paths_and_bare(self):
+        f = self.root / "apps" / "web" / "index.ts"
+        paths, bare = self.ag.jsts_targets(f)
+        # "./local" resolves relative to the file's parent
+        self.assertIn((f.parent / "local").resolve(), [p.resolve() for p in paths])
+        # "@graph/shared" is a bare workspace specifier
+        self.assertIn("@graph/shared", bare)
+
+    def test_quotes_are_stripped(self):
+        f = self.root / "apps" / "web" / "index.ts"
+        paths, bare = self.ag.jsts_targets(f)
+        for spec in bare:
+            self.assertFalse(spec.startswith("'") or spec.startswith('"'), spec)
+
+
+@unittest.skipUnless(HAVE_ASTGREP, "ast-grep not installed")
+class GoConversionTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.root = FIXTURE.resolve()
+        cls.ag = astgrep_imports.collect(cls.root)
+
+    def test_go_internal_targets_strip_prefix(self):
+        f = self.root / "services" / "gosvc" / "main.go"
+        targets = self.ag.go_internal_targets(f, "github.com/graph/gosvc")
+        self.assertEqual(targets, ["auth"])
+
+    def test_go_external_imports_dropped(self):
+        f = self.root / "services" / "gosvc" / "main.go"
+        targets = self.ag.go_internal_targets(f, "github.com/graph/gosvc")
+        self.assertNotIn("fmt", targets)
+
+    def test_go_no_prefix_returns_empty(self):
+        f = self.root / "services" / "gosvc" / "main.go"
+        self.assertEqual(self.ag.go_internal_targets(f, None), [])
+
+    def test_go_module_root_import_yields_empty_string(self):
+        # Pin parity with scan._go_import_targets: an import of the module
+        # root itself yields "" (see test_imports.py GoImportTest).
+        # The fixture's main.go has no such import, so this asserts absence:
+        f = self.root / "services" / "gosvc" / "main.go"
+        targets = self.ag.go_internal_targets(f, "github.com/graph/gosvc")
+        self.assertNotIn("", targets)
+
+
+@unittest.skipUnless(HAVE_ASTGREP, "ast-grep not installed")
+class ElixirConversionTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.root = FIXTURE.resolve()
+        cls.ag = astgrep_imports.collect(cls.root)
+
+    def test_elixir_refs_include_multi_alias_expansion(self):
+        f = self.root / "apps" / "exapp" / "lib" / "exapp.ex"
+        refs = self.ag.elixir_reference_targets(f)
+        self.assertIn("Exapp.Repo", refs)
+        self.assertIn("Exapp.Worker", refs)
+        self.assertIn("Exapp.Helpers", refs)
+        self.assertIn("GenServer", refs)
+
+    def test_elixir_defmodules(self):
+        f = self.root / "apps" / "exapp" / "lib" / "repo.ex"
+        self.assertEqual(self.ag.elixir_defmodules(f), ["Exapp.Repo"])
+
+
 if __name__ == "__main__":
     unittest.main()

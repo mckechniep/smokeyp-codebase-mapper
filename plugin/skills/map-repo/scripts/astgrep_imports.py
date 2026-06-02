@@ -78,6 +78,100 @@ class AstGrepImports:
         except (OSError, RuntimeError):
             return []
 
+    @staticmethod
+    def _strip_quotes(s: str) -> str:
+        s = s.strip()
+        if len(s) >= 2 and s[0] in "'\"" and s[-1] == s[0]:
+            return s[1:-1]
+        return s
+
+    # --- Python: contract of scan._python_import_targets -----------------
+    def python_targets(self, file_path: Path) -> list[str]:
+        """First-segment package names; relative imports skipped."""
+        out: list[str] = []
+        for rule_id, cap in self._file_hits(file_path):
+            if rule_id not in ("py-import", "py-from-import"):
+                continue
+            mod = cap.strip()
+            if not mod or mod.startswith("."):
+                continue  # relative import
+            # `import numpy as np` may capture "numpy as np" -> take module part
+            mod = mod.split()[0]
+            first = mod.split(".")[0]
+            if first:
+                out.append(first)
+        return out
+
+    # --- JS/TS: contract of scan._jsts_import_targets --------------------
+    def jsts_targets(self, file_path: Path) -> tuple[list[Path], list[str]]:
+        """(resolved relative/absolute path imports, bare specifiers)."""
+        paths: list[Path] = []
+        bare: list[str] = []
+        jsts_rules = tuple(
+            f"{d}-{kind}" for d in _TS_DIALECTS
+            for kind in ("import", "export-from", "require", "dynamic-import")
+        )
+        parent = file_path.parent
+        for rule_id, cap in self._file_hits(file_path):
+            if rule_id not in jsts_rules:
+                continue
+            spec = self._strip_quotes(cap)
+            if not spec:
+                continue
+            if spec.startswith(".") or spec.startswith("/"):
+                try:
+                    paths.append((parent / spec).resolve())
+                except (OSError, RuntimeError):
+                    continue
+            else:
+                bare.append(spec)
+        return paths, bare
+
+    # --- Go: contract of scan._go_import_targets -------------------------
+    def go_internal_targets(self, file_path: Path, module_prefix: str | None) -> list[str]:
+        """Internal package paths with the go.mod module prefix stripped."""
+        if not module_prefix:
+            return []
+        out: list[str] = []
+        prefix = module_prefix.rstrip("/") + "/"
+        for rule_id, cap in self._file_hits(file_path):
+            if rule_id != "go-import":
+                continue
+            # import_spec text: `"fmt"` or `alias "github.com/x/y"`
+            quoted = cap.strip()
+            if '"' in quoted:
+                quoted = quoted.split('"')[1]
+            if quoted == module_prefix:
+                out.append("")
+            elif quoted.startswith(prefix):
+                out.append(quoted[len(prefix):])
+        return out
+
+    # --- Elixir: contracts of scan._elixir_reference_targets / _elixir_defmodules
+    def elixir_reference_targets(self, file_path: Path) -> list[str]:
+        """Module names referenced via alias/import/use/require, multi-alias expanded."""
+        out: list[str] = []
+        for rule_id, cap in self._file_hits(file_path):
+            if rule_id != "elixir-ref":
+                continue
+            ref = cap.strip()
+            if "{" in ref and ref.endswith("}"):
+                base, _, group = ref.partition(".{")
+                for part in group.rstrip("}").split(","):
+                    part = part.strip()
+                    if part:
+                        out.append(f"{base}.{part}")
+            elif ref:
+                out.append(ref.rstrip("."))
+        return out
+
+    def elixir_defmodules(self, file_path: Path) -> list[str]:
+        """Module names declared via defmodule in this file."""
+        return [
+            cap.strip() for rule_id, cap in self._file_hits(file_path)
+            if rule_id == "elixir-defmodule" and cap.strip()
+        ]
+
 
 def _find_binary(bin_path: str | None) -> str | None:
     candidate = bin_path or os.environ.get(AST_GREP_BIN_ENV) or "ast-grep"
