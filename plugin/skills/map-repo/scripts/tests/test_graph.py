@@ -47,5 +47,55 @@ class GraphRepoRegexModeTest(unittest.TestCase):
             self.assertNotEqual(e["source"], e["target"])
 
 
+import os
+import shutil
+
+HAVE_ASTGREP = shutil.which("ast-grep") is not None
+
+
+@unittest.skipUnless(HAVE_ASTGREP, "ast-grep not installed")
+class GraphRepoAstGrepModeTest(unittest.TestCase):
+    """The same fixture must produce the same edges via ast-grep extraction.
+
+    Why edges match despite the documented Elixir divergence (see
+    astgrep_imports.elixir_reference_targets): the regex path's extra bare-base
+    reference (`Exapp`) resolves to the module that declares `defmodule Exapp`
+    — which is the same module doing the referencing, so _bump_edge skips it
+    as a self-loop. Net edges are identical on this fixture.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.graph = build_graph()  # ast-grep auto-detected -> used
+
+    def test_same_edges_as_regex_mode(self):
+        edges = edge_set(self.graph)
+        self.assertIn(("apps/web", "packages/shared"), edges)
+        self.assertIn(("services/api", "services/core"), edges)
+
+    def test_extraction_mode_is_reported(self):
+        self.assertEqual(self.graph.get("extraction"), "ast-grep")
+
+
+class GraphRepoForcedFallbackTest(unittest.TestCase):
+    """With ast-grep unavailable, regex fallback produces the same edges."""
+
+    @classmethod
+    def setUpClass(cls):
+        os.environ["AST_GREP_BIN"] = "/nonexistent/ast-grep"
+        try:
+            cls.graph = build_graph()
+        finally:
+            del os.environ["AST_GREP_BIN"]
+
+    def test_same_edges_with_fallback(self):
+        edges = edge_set(self.graph)
+        self.assertIn(("apps/web", "packages/shared"), edges)
+        self.assertIn(("services/api", "services/core"), edges)
+
+    def test_extraction_mode_is_regex(self):
+        self.assertEqual(self.graph.get("extraction"), "regex")
+
+
 if __name__ == "__main__":
     unittest.main()

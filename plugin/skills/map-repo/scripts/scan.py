@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import evidence
+import astgrep_imports
 
 TOOL_VERSION = "0.6.1"
 
@@ -1131,9 +1132,15 @@ def build_module_graph(
         return {
             "nodes": [], "edges": [], "services": [],
             "languages_parsed": [], "languages_unparsed": [],
+            "extraction": "regex",
         }
 
     index = _build_module_index(modules, root)
+
+    # Optional AST-accurate extraction: one batched ast-grep call for the
+    # whole repo. None when the binary is absent or anything fails — every
+    # use below falls back to the regex extractor per file.
+    ag = astgrep_imports.collect(root)
 
     nodes: list[dict[str, Any]] = []
     for m in modules:
@@ -1190,10 +1197,13 @@ def build_module_graph(
     for m in modules:
         for f in iter_files((root / m["path"]).resolve()):
             if f.suffix.lower() in (".ex", ".exs"):
-                etext = safe_read(f, limit=256 * 1024)
-                if etext:
-                    for name in _elixir_defmodules(etext):
-                        elixir_module_index.setdefault(name, f)
+                if ag is not None and ag.has_file(f):
+                    names = ag.elixir_defmodules(f)
+                else:
+                    etext = safe_read(f, limit=256 * 1024)
+                    names = _elixir_defmodules(etext) if etext else []
+                for name in names:
+                    elixir_module_index.setdefault(name, f)
 
     for m in modules:
         source_id = m["path"]
@@ -1216,14 +1226,19 @@ def build_module_graph(
             if not text:
                 continue
             languages_parsed.add(lname)
+            use_ag = ag is not None and ag.has_file(f)
 
             if lname == "Python":
-                for first in _python_import_targets(text):
+                targets = ag.python_targets(f) if use_ag else _python_import_targets(text)
+                for first in targets:
                     target_id = py_names.get(first)
                     if target_id:
                         _bump_edge(edges, source_id, target_id)
             elif lname in ("JavaScript", "TypeScript"):
-                js_paths, js_bare = _jsts_import_targets(f, text)
+                if use_ag:
+                    js_paths, js_bare = ag.jsts_targets(f)
+                else:
+                    js_paths, js_bare = _jsts_import_targets(f, text)
                 for abs_target in js_paths:
                     target_id = _module_for(abs_target, index)
                     if target_id:
@@ -1234,13 +1249,21 @@ def build_module_graph(
                     if target_id:
                         _bump_edge(edges, source_id, target_id)
             elif lname == "Go":
-                for internal in _go_import_targets(text, go_prefix):
+                if use_ag:
+                    internals = ag.go_internal_targets(f, go_prefix)
+                else:
+                    internals = _go_import_targets(text, go_prefix)
+                for internal in internals:
                     candidate = (root / internal).resolve() if internal else root
                     target_id = _module_for(candidate, index)
                     if target_id:
                         _bump_edge(edges, source_id, target_id)
             elif lname == "Elixir":
-                for ref in _elixir_reference_targets(text):
+                if use_ag:
+                    refs = ag.elixir_reference_targets(f)
+                else:
+                    refs = _elixir_reference_targets(text)
+                for ref in refs:
                     deffile = elixir_module_index.get(ref)
                     if deffile:
                         target_id = _module_for(deffile, index)
@@ -1270,6 +1293,7 @@ def build_module_graph(
         "services": service_summary,
         "languages_parsed": sorted(languages_parsed),
         "languages_unparsed": sorted(languages_unparsed - languages_parsed),
+        "extraction": "ast-grep" if ag is not None else "regex",
     }
 
 
