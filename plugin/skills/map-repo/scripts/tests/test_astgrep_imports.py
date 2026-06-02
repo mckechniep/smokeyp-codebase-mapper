@@ -150,12 +150,11 @@ class GoConversionTest(unittest.TestCase):
         self.assertEqual(self.ag.go_internal_targets(f, None), [])
 
     def test_go_module_root_import_yields_empty_string(self):
-        # Pin parity with scan._go_import_targets: an import of the module
-        # root itself yields "" (see test_imports.py GoImportTest).
-        # The fixture's main.go has no such import, so this asserts absence:
-        f = self.root / "services" / "gosvc" / "main.go"
+        # selfref.go imports the module root itself -> parity with
+        # scan._go_import_targets: yields "" (resolved to the repo root).
+        f = self.root / "services" / "gosvc" / "selfref" / "selfref.go"
         targets = self.ag.go_internal_targets(f, "github.com/graph/gosvc")
-        self.assertNotIn("", targets)
+        self.assertEqual(targets, [""])
 
 
 @unittest.skipUnless(HAVE_ASTGREP, "ast-grep not installed")

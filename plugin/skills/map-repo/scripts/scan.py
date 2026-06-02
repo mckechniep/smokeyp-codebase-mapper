@@ -21,7 +21,13 @@ from pathlib import Path
 from typing import Any
 
 import evidence
-import astgrep_imports
+# Optional sibling module: when missing (e.g. scan.py deployed standalone),
+# extraction falls back to the built-in regexes exactly as when the ast-grep
+# binary is absent.
+try:
+    import astgrep_imports
+except ImportError:
+    astgrep_imports = None  # type: ignore[assignment]
 
 TOOL_VERSION = "0.6.1"
 
@@ -1140,7 +1146,7 @@ def build_module_graph(
     # Optional AST-accurate extraction: one batched ast-grep call for the
     # whole repo. None when the binary is absent or anything fails — every
     # use below falls back to the regex extractor per file.
-    ag = astgrep_imports.collect(root)
+    ag = astgrep_imports.collect(root) if astgrep_imports is not None else None
 
     nodes: list[dict[str, Any]] = []
     for m in modules:

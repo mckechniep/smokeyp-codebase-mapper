@@ -101,5 +101,16 @@ class GraphRepoAstGrepModeTest(unittest.TestCase):
             self.assertNotEqual(e["source"], e["target"])
 
 
+class StandaloneDeploymentTest(unittest.TestCase):
+    """scan.py must degrade to regex extraction if astgrep_imports is missing."""
+
+    def test_graph_builds_when_astgrep_module_unavailable(self):
+        import unittest.mock as mock
+        with mock.patch.object(scan, "astgrep_imports", None):
+            graph = build_graph()
+        self.assertEqual(graph.get("extraction"), "regex")
+        self.assertIn(("apps/web", "packages/shared"), edge_set(graph))
+
+
 if __name__ == "__main__":
     unittest.main()
