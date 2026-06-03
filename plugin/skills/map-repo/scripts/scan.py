@@ -107,8 +107,14 @@ SOURCE_ROOTS: tuple[str, ...] = (
 # catches what these heuristics miss).
 
 VENDORED_DIR_SUFFIXES: tuple[str, ...] = ("-master", "-develop", "-main")
+# Conventional vendor dirs (vendor/, node_modules/) are already excluded upstream
+# by SKIP_DIRS before _vendored_guess is ever called, so this set only needs the
+# path segments SKIP_DIRS doesn't catch.
+# NOTE: "external" was deliberately excluded — DDD / layered architectures commonly
+# use external/ as an architectural layer (external-facing APIs, integrations), not
+# as vendored code. False-positive risk is too high.
 VENDORED_PATH_SEGMENTS: frozenset[str] = frozenset({
-    "vendor", "vendors", "third_party", "third-party", "extern", "external",
+    "third_party", "third-party", "extern",
 })
 
 

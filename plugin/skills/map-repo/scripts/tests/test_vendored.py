@@ -27,9 +27,9 @@ class VendoredHeuristicTest(unittest.TestCase):
         self.assertTrue(scan._vendored_guess(
             MINI / "g.frame-develop", "g.frame-develop", "mini_repo"))
 
-    def test_vendor_path_segment_is_vendored(self):
+    def test_extern_path_segment_is_vendored(self):
         self.assertTrue(scan._vendored_guess(
-            MINI / "vendor" / "lib", "vendor/lib", "mini_repo"))
+            MINI / "extern" / "lib", "extern/lib", "mini_repo"))
 
     def test_third_party_segment_is_vendored(self):
         self.assertTrue(scan._vendored_guess(
@@ -48,6 +48,18 @@ class VendoredHeuristicTest(unittest.TestCase):
         # "main" as a directory NAME is fine; only the "-main" SUFFIX flags.
         self.assertFalse(scan._vendored_guess(
             MINI / "src" / "main", "src/main", "mini_repo"))
+
+    def test_foreign_repository_url_is_vendored(self):
+        # ext-pkg/package.json has a repository URL belonging to other-org,
+        # not this repo — check 3 should flag it as vendored.
+        self.assertTrue(scan._vendored_guess(
+            MINI / "ext-pkg", "ext-pkg", "mini_repo"))
+
+    def test_own_repository_url_is_not_vendored(self):
+        # own-pkg/package.json has a repository URL containing "mini_repo" —
+        # the root_name appears in the URL so it should NOT be flagged.
+        self.assertFalse(scan._vendored_guess(
+            MINI / "own-pkg", "own-pkg", "mini_repo"))
 
 
 class VendoredFlagPropagationTest(unittest.TestCase):
@@ -78,6 +90,16 @@ class VendoredFlagPropagationTest(unittest.TestCase):
         flags = {n["id"]: n["vendored_guess"] for n in graph["nodes"]}
         vendored_nodes = [nid for nid, f in flags.items() if f]
         self.assertTrue(any("vendor-lib-master" in nid for nid in vendored_nodes))
+
+    def test_flat_leaf_container_self_emitted(self):
+        # A flat-leaf module (no recognised source-root children) must be
+        # emitted as a module whose path contains its own directory name.
+        # Regression guard for the flat-leaf branch in detect_services_and_modules.
+        paths = [m["path"] for m in self.modules]
+        self.assertTrue(
+            any("vendor-lib-master" in p for p in paths),
+            f"flat-leaf vendor-lib-master not emitted as module; got: {paths}",
+        )
 
 
 if __name__ == "__main__":
