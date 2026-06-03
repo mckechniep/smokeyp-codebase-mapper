@@ -221,6 +221,44 @@ class EdgesTest(unittest.TestCase):
         weights = [e["weight"] for e in imports]
         self.assertIn(59, weights)
 
+    def test_cross_band_import_anchors_at_band_facing_edges(self):
+        """A frontend->backend import edge anchors source-bottom -> target-top."""
+        data = synthetic_data()
+        # web/api-client (frontend) imports api/auth (backend): a cross-band edge.
+        data["module_graph"]["edges"].append(
+            {"source": "web/api-client", "target": "api/auth", "weight": 2})
+        sel = render._sysmap_select(data, None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(data, layout)
+        cross = [e for e in edges
+                 if e["kind"] == "import" and not e["same_band"]]
+        self.assertEqual(len(cross), 1)
+        e = cross[0]
+        s = layout["placed"]["web/api-client"]
+        t = layout["placed"]["api/auth"]
+        # frontend sits above backend, so source anchors at its BOTTOM,
+        # target at its TOP.
+        self.assertAlmostEqual(e["y1"], s["y"] + s["h"])
+        self.assertAlmostEqual(e["y2"], t["y"])
+        self.assertAlmostEqual(e["x1"], s["x"] + s["w"] / 2)
+        self.assertAlmostEqual(e["x2"], t["x"] + t["w"] / 2)
+
+    def test_same_band_import_anchors_at_node_bottoms(self):
+        """Same-band import edges anchor at both nodes' bottoms (arc-below)."""
+        same = [e for e in self.edges if e["kind"] == "import" and e["same_band"]]
+        self.assertTrue(same)
+        for e in same:
+            # both endpoints are bottoms; can't know which node without ids,
+            # but every same-band import y must equal some placed node's bottom.
+            bottoms = {round(p["y"] + p["h"], 3) for p in self.layout["placed"].values()}
+            self.assertIn(round(e["y1"], 3), bottoms)
+            self.assertIn(round(e["y2"], 3), bottoms)
+
+    def test_store_edge_carries_kind_color(self):
+        stores = [e for e in self.edges if e["kind"] == "store"]
+        self.assertEqual(len(stores), 1)
+        self.assertEqual(stores[0]["color"], render.STORE_KIND_COLORS["postgres"])
+
 
 class LayoutStressTest(unittest.TestCase):
     def _many_service_data(self, n_services=15):

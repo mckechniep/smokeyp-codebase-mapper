@@ -2772,7 +2772,9 @@ def _sysmap_edges(
     Three kinds:
       "import" — module → module (module_graph.edges), both endpoints placed
       "http"   — frontend service cluster → backend entry module
-                 (http_topology.edges joined to endpoints by path)
+                 (http_topology.edges joined to endpoints by path); the
+                 source is always a frontend cluster. Backend→backend HTTP
+                 is shown in the topology section, not here.
       "store"  — service cluster → store cylinder (data_lineage.edges)
 
     Every edge: {kind, x1, y1, x2, y2, weight, same_band, [color]}.
@@ -2821,18 +2823,28 @@ def _sysmap_edges(
             ep_module_by_path[(ep.get("service"), ep["path"])] = ep["module"]
 
     http_weight: dict[tuple[str, str], int] = {}
+    http_cluster: dict[str, dict[str, Any]] = {}
     for e in topo.get("edges") or []:
+        # Keying by (service, path) deliberately collapses methods: GET/POST
+        # on the same path map to the same entry module. The diagram only
+        # needs the entry module, not the HTTP method.
         target_module = ep_module_by_path.get(
             (e.get("target_service"), e.get("path")))
         if not target_module or target_module not in placed:
             continue
-        if e.get("source_service") not in cluster_by_service:
+        # HTTP edges originate from frontend clusters only (frontend→backend
+        # entry module). Backend→backend service calls are shown in the C4
+        # topology section, so they are out of scope here — and anchoring a
+        # backend source's bottom to a target's top would render backward.
+        src_cluster = cluster_by_service.get(e.get("source_service"))
+        if src_cluster is None or src_cluster["band"] != "frontend":
             continue
         key = (e["source_service"], target_module)
         http_weight[key] = http_weight.get(key, 0) + (e.get("weight") or 1)
+        http_cluster[e["source_service"]] = src_cluster
 
     for (src_service, target_module), weight in sorted(http_weight.items()):
-        c = cluster_by_service[src_service]
+        c = http_cluster[src_service]
         t = placed[target_module]
         out.append({
             "kind": "http", "same_band": False,
