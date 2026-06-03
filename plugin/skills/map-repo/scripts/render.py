@@ -497,6 +497,120 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   margin: 0 calc(var(--space-5) * -1);
   padding: 0 var(--space-5);
 }
+
+/* ---- System map (layered-bands hero) ---- */
+.sysmap-frame {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  margin-bottom: var(--space-4);
+  margin-left: -56px;
+  margin-right: -56px;
+}
+@media (max-width: 880px) {
+  .sysmap-frame { margin-left: 0; margin-right: 0; }
+}
+.sysmap-wrap { overflow-x: auto; }
+.sysmap-headline {
+  font-size: 1.05rem;
+  color: var(--ink-2);
+  margin: 0 0 var(--space-4);
+}
+.sysmap-excluded { color: var(--muted); }
+.sysmap-band-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  fill: var(--muted);
+}
+.sysmap-cluster-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+.sysmap-cluster-kind { font-weight: 400; opacity: 0.7; font-size: 10px; }
+.sysmap-node-rect {
+  fill: var(--surface);
+  stroke: oklch(70% 0.01 250);
+  stroke-width: 1.25;
+}
+.sysmap-node.is-entry .sysmap-node-rect {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+.sysmap-node-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  fill: var(--ink);
+}
+.sysmap-entry-badge { font-size: 12px; fill: var(--accent); }
+.sysmap-endpoint-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--muted);
+}
+.sysmap-store-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  fill: var(--ink-2);
+}
+.sysmap-edge-import { stroke: oklch(60% 0.01 250 / 0.55); }
+.sysmap-edge-http { stroke: oklch(58% 0.14 250 / 0.8); stroke-dasharray: 5 4; }
+.sysmap-legend {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+.sysmap-leg-item { display: inline-flex; align-items: center; gap: 6px; }
+.sysmap-leg-http, .sysmap-leg-import, .sysmap-leg-store {
+  display: inline-block; width: 26px; height: 0;
+}
+.sysmap-leg-http { border-top: 2px dashed oklch(58% 0.14 250 / 0.8); }
+.sysmap-leg-import { border-top: 2px solid oklch(60% 0.01 250 / 0.55); }
+.sysmap-leg-store { border-top: 2px solid #336791; }
+.sysmap-note { font-size: 0.85rem; color: var(--muted); margin-top: var(--space-3); }
+
+/* Bento beneath the map — same grid/tile pattern as .modgraph-bento. */
+.sysmap-bento {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.sysmap-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+}
+.sysmap-tile .tile-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: var(--space-2);
+}
+.sysmap-tile .tile-headline {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  color: var(--ink);
+  margin: 0 0 var(--space-3);
+  line-height: 1.35;
+}
+.sysmap-tile .tile-body { flex: 1; }
+.sysmap-rows { display: flex; flex-direction: column; gap: 6px; font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink-2); }
+.sysmap-row { display: flex; justify-content: space-between; gap: 12px; }
+.sysmap-row .v { color: var(--ink); font-weight: 600; white-space: nowrap; }
 .modgraph-matrix {
   display: block;
   margin: 0 auto;
@@ -1524,6 +1638,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 @page { size: Letter portrait; margin: 0.6in; }
 @page hero { size: Letter landscape; margin: 0.4in; }
 
+#codemap-sysmap-section,
 #codemap-modgraph-section,
 #codemap-topov2-section,
 #codemap-cpaths-section,
@@ -1544,6 +1659,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   .card, .deps-eco, .entries li { page-break-inside: avoid; break-inside: avoid; }
 
   /* Each hero section starts a fresh landscape page. */
+  #codemap-sysmap-section,
   #codemap-modgraph-section,
   #codemap-topov2-section,
   #codemap-cpaths-section,
@@ -1553,6 +1669,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   }
 
   /* Avoid awkward splits between heading and body */
+  #codemap-sysmap-section h2,
   #codemap-modgraph-section h2,
   #codemap-topov2-section h2,
   #codemap-cpaths-section h2,
@@ -1560,6 +1677,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 
   /* On landscape hero pages the page itself is wide enough — we don't
      need the negative-margin "escape" used on screen. */
+  .sysmap-frame,
   .modgraph-frame,
   .topov2-frame,
   .cpaths-frame,
@@ -1833,6 +1951,14 @@ SECTION_INTROS: dict[str, str] = {
     "flows":    "These are the main paths a request or job takes through the code, traced "
                 "from a real trigger to where it ends. Each step cites the actual file and "
                 "function it runs, so you can follow the path in the source yourself.",
+    "sysmap":   "One map of the whole system: the product's own modules (vendored "
+                "and third-party code is excluded) arranged in tiers — user-facing "
+                "code on top, server code in the middle, data stores at the bottom. "
+                "<strong>Dashed lines</strong> are HTTP calls from the frontend to a "
+                "backend module, <strong>solid lines</strong> are code imports, and "
+                "<strong>coloured lines into cylinders</strong> show which service "
+                "writes to which store. Modules marked with <strong>▸</strong> are "
+                "entry points — the doors through which requests arrive.",
     "languages": "Programming languages are the rules and vocabulary used to write code. "
                  "A codebase usually has one primary language plus several supporting ones "
                  "(configuration files, documentation, build scripts).",
@@ -2872,6 +2998,230 @@ def _sysmap_edges(
         })
 
     return out
+
+
+def _sysmap_emit_svg(
+    layout: dict[str, Any],
+    edges: list[dict[str, Any]],
+    sel: dict[str, Any],
+    enrichment: dict[str, Any] | None = None,
+) -> str:
+    """Emit the system-map SVG. Drawing order: band labels, cluster
+    outlines, edges (under nodes), nodes, stores."""
+    height = layout["height"]
+    parts: list[str] = [
+        f'<svg class="sysmap-svg" viewBox="0 0 {SYSMAP_W} {height:.0f}" '
+        f'width="100%" role="img" '
+        f'aria-label="System map: product modules in tiers with their connections">'
+    ]
+
+    band_titles = {"frontend": "FRONTEND", "backend": "BACKEND", "data": "DATA"}
+    # Module descriptions from enrichment become <title> tooltips.
+    desc_by_id: dict[str, str] = {}
+    for d in (enrichment or {}).get("module_descriptions") or []:
+        if d.get("module_id") and d.get("description"):
+            desc_by_id[d["module_id"]] = d["description"]
+
+    # ---- band gutter labels (rotated, left edge)
+    for band_key, box in layout["bands"].items():
+        cy = box["y"] + box["h"] / 2
+        parts.append(
+            f'<text x="{SYSMAP_MARGIN_X + 8}" y="{cy:.1f}" class="sysmap-band-label" '
+            f'transform="rotate(-90 {SYSMAP_MARGIN_X + 8} {cy:.1f})" '
+            f'text-anchor="middle">{escape(band_titles.get(band_key, band_key.upper()))}</text>'
+        )
+
+    # ---- service cluster outlines + labels
+    for c in layout["clusters"]:
+        parts.append(
+            f'<rect x="{c["x"]:.1f}" y="{c["y"]:.1f}" '
+            f'width="{c["w"]:.1f}" height="{c["h"]:.1f}" rx="10" '
+            f'fill="{escape(c["color"])}" fill-opacity="0.05" '
+            f'stroke="{escape(c["color"])}" stroke-opacity="0.45" '
+            f'stroke-width="1.25" stroke-dasharray="none" />'
+        )
+        parts.append(
+            f'<text x="{c["x"] + 12:.1f}" y="{c["y"] + 16:.1f}" '
+            f'class="sysmap-cluster-label" fill="{escape(c["color"])}">'
+            f'{escape(_topov2_truncate(c["label"], 38))}'
+            f' <tspan class="sysmap-cluster-kind">· {escape(c["kind"].upper())}</tspan></text>'
+        )
+
+    # ---- edges (drawn under nodes)
+    for e in edges:
+        x1, y1, x2, y2 = e["x1"], e["y1"], e["x2"], e["y2"]
+        w = max(1.0, min(4.0, 1.0 + math.log2(max(1, e["weight"]))))
+        if e["kind"] == "import" and e["same_band"]:
+            # Arc dipping below both nodes.
+            dip = 26 + abs(x2 - x1) * 0.04
+            my = max(y1, y2) + dip
+            parts.append(
+                f'<path d="M{x1:.1f},{y1:.1f} Q{(x1 + x2) / 2:.1f},{my:.1f} '
+                f'{x2:.1f},{y2:.1f}" class="sysmap-edge-import" '
+                f'stroke-width="{w:.1f}" fill="none" />'
+            )
+        elif e["kind"] == "import":
+            parts.append(
+                f'<path d="M{x1:.1f},{y1:.1f} C{x1:.1f},{(y1 + y2) / 2:.1f} '
+                f'{x2:.1f},{(y1 + y2) / 2:.1f} {x2:.1f},{y2:.1f}" '
+                f'class="sysmap-edge-import" stroke-width="{w:.1f}" fill="none" />'
+            )
+        elif e["kind"] == "http":
+            parts.append(
+                f'<path d="M{x1:.1f},{y1:.1f} C{x1:.1f},{(y1 + y2) / 2:.1f} '
+                f'{x2:.1f},{(y1 + y2) / 2:.1f} {x2:.1f},{y2:.1f}" '
+                f'class="sysmap-edge-http" stroke-width="{w:.1f}" fill="none" '
+                f'marker-end="url(#sysmap-arrow)" />'
+            )
+        else:  # store
+            color = e.get("color", "#888888")
+            parts.append(
+                f'<path d="M{x1:.1f},{y1:.1f} C{x1:.1f},{(y1 + y2) / 2:.1f} '
+                f'{x2:.1f},{(y1 + y2) / 2:.1f} {x2:.1f},{y2:.1f}" '
+                f'stroke="{escape(color)}" stroke-opacity="0.75" '
+                f'stroke-width="{w:.1f}" fill="none" '
+                f'marker-end="url(#sysmap-arrow)" />'
+            )
+
+    # Arrowhead marker definition.
+    parts.append(
+        '<defs><marker id="sysmap-arrow" viewBox="0 0 8 8" refX="7" refY="4" '
+        'markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
+        '<path d="M0,0 L8,4 L0,8 z" fill="oklch(50% 0.01 250)" /></marker></defs>'
+    )
+
+    # ---- module nodes
+    entry_counts = sel["entry_counts"]
+    for nid, p in layout["placed"].items():
+        n = p["node"]
+        label = _truncate_label(n.get("name") or nid)
+        is_entry = nid in entry_counts
+        title = desc_by_id.get(nid) or nid
+        parts.append(f'<g class="sysmap-node{" is-entry" if is_entry else ""}">')
+        parts.append(f'<title>{escape(title)}</title>')
+        parts.append(
+            f'<rect x="{p["x"]:.1f}" y="{p["y"]:.1f}" width="{p["w"]:.1f}" '
+            f'height="{p["h"]:.1f}" rx="6" class="sysmap-node-rect" />'
+        )
+        tx = p["x"] + 10
+        if is_entry:
+            parts.append(
+                f'<text x="{tx:.1f}" y="{p["y"] + p["h"] / 2 + 4:.1f}" '
+                f'class="sysmap-entry-badge">▸</text>'
+            )
+            tx += 12
+        parts.append(
+            f'<text x="{tx:.1f}" y="{p["y"] + p["h"] / 2 + 4:.1f}" '
+            f'class="sysmap-node-label">{escape(label)}</text>'
+        )
+        if is_entry:
+            count = entry_counts[nid]
+            parts.append(
+                f'<text x="{p["x"] + p["w"] - 8:.1f}" y="{p["y"] + p["h"] / 2 + 4:.1f}" '
+                f'text-anchor="end" class="sysmap-endpoint-count">{count}</text>'
+            )
+        parts.append('</g>')
+
+    # ---- store cylinders + labels
+    for sid, sp in layout["stores"].items():
+        s = sp["store"]
+        kind = (s.get("kind") or "unknown")
+        color = STORE_KIND_COLORS.get(kind, "#888888")
+        parts.append(_lineage2_emit_cylinder(sp["x"], sp["y"], sp["w"], sp["h"] - 18, color))
+        parts.append(
+            f'<text x="{sp["x"] + sp["w"] / 2:.1f}" y="{sp["y"] + sp["h"] + 6:.1f}" '
+            f'text-anchor="middle" class="sysmap-store-label">'
+            f'{escape(s.get("name") or sid)}</text>'
+        )
+
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def _sysmap_headline(sel: dict[str, Any], edges: list[dict[str, Any]]) -> str:
+    """One-sentence editorial headline above the map."""
+    n_front = len(sel["bands"].get("frontend") or [])
+    n_back = len(sel["bands"].get("backend") or [])
+    n_stores = len(sel["stores"])
+    n_http = sum(1 for e in edges if e["kind"] == "http")
+    bits: list[str] = []
+    if n_front:
+        bits.append(f"<strong>{n_front}</strong> frontend module{'s' if n_front != 1 else ''}")
+    bits.append(f"<strong>{n_back}</strong> backend module{'s' if n_back != 1 else ''}")
+    if n_stores:
+        bits.append(f"<strong>{n_stores}</strong> data store{'s' if n_stores != 1 else ''}")
+    headline = "The product is " + ", ".join(bits)
+    if n_http:
+        headline += f", connected by <strong>{n_http}</strong> HTTP call path{'s' if n_http != 1 else ''}"
+    headline += "."
+    if sel["excluded_vendored"]:
+        headline += (f" <span class='sysmap-excluded'>{sel['excluded_vendored']} vendored "
+                     f"module{'s' if sel['excluded_vendored'] != 1 else ''} excluded.</span>")
+    return headline
+
+
+def _observations_for_sysmap(
+    sel: dict[str, Any], edges: list[dict[str, Any]], data: dict[str, Any]
+) -> list[str]:
+    return []  # Replaced with real observations in the next task.
+
+
+def render_sysmap_bento(
+    data: dict[str, Any], sel: dict[str, Any], edges: list[dict[str, Any]]
+) -> str:
+    return ""  # Replaced with real bento in the next task.
+
+
+def render_system_map(
+    data: dict[str, Any], enrichment: dict[str, Any] | None = None
+) -> str:
+    """The 'How the system fits together' hero — layered-bands map of
+    product modules. Renders deterministically; enrichment only refines
+    the vendored filter and adds node tooltips."""
+    sel = _sysmap_select(data, enrichment)
+    if sel is None:
+        return ""
+    if not sel["bands"].get("frontend") and not sel["bands"].get("backend"):
+        return ""
+    layout = _sysmap_layout(sel)
+    edges = _sysmap_edges(data, layout)
+    svg = _sysmap_emit_svg(layout, edges, sel, enrichment)
+    headline = _sysmap_headline(sel, edges)
+
+    truncation_note = ""
+    if sel["truncated"]:
+        truncation_note = (
+            f'<p class="sysmap-note">+{sel["truncated"]} smaller modules not shown '
+            f'(map shows the most-connected modules; the dependency matrix below '
+            f'shows everything).</p>'
+        )
+
+    legend = (
+        '<div class="sysmap-legend">'
+        '<span class="sysmap-leg-item"><span class="sysmap-leg-http"></span> HTTP call</span>'
+        '<span class="sysmap-leg-item"><span class="sysmap-leg-import"></span> code import</span>'
+        '<span class="sysmap-leg-item"><span class="sysmap-leg-store"></span> reads/writes data</span>'
+        '<span class="sysmap-leg-item">▸ entry point (number = endpoints)</span>'
+        '</div>'
+    )
+
+    observations_html = _render_observations(_observations_for_sysmap(sel, edges, data))
+    bento_html = render_sysmap_bento(data, sel, edges)
+
+    return f"""
+<section id="codemap-sysmap-section">
+  <h2>How the system fits together</h2>
+  {section_intro("sysmap")}
+  <div class="sysmap-frame">
+    <p class="sysmap-headline">{headline}</p>
+    <div class="sysmap-wrap">{svg}</div>
+    {legend}
+    {truncation_note}
+  </div>
+  {observations_html}
+  {bento_html}
+</section>
+"""
 
 
 # Kind-based service zone tints. Backend gets a warm orange, frontend a
@@ -6230,6 +6580,9 @@ def render_document(data: dict[str, Any], enrichment: dict[str, Any] | None = No
     body = (
         render_cover(data)
         + render_overview(data, enrichment)
+        # System map: the orienting big-picture hero. Sits first among the
+        # diagrams so the reader sees the whole system before drilling in.
+        + render_system_map(data, enrichment)
         + render_readme(data, enrichment)
         + render_languages(data)
         + render_modules(data, enrichment)

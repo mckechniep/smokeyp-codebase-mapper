@@ -316,6 +316,59 @@ class LayoutStressTest(unittest.TestCase):
             self.assertEqual(a["placed"][nid]["y"], b["placed"][nid]["y"])
 
 
+class RenderSectionTest(unittest.TestCase):
+    def test_section_renders_with_synthetic_data(self):
+        html = render.render_system_map(synthetic_data(), None)
+        self.assertIn("codemap-sysmap-section", html)
+        self.assertIn("How the system fits together", html)
+        self.assertIn("sysmap-frame", html)
+        self.assertIn("<svg", html)
+        # Product modules present, vendored module absent.
+        self.assertIn("auth", html)
+        self.assertNotIn("copied-lib-master", html)
+        # Store cylinder present.
+        self.assertIn("PostgreSQL", html)
+
+    def test_empty_data_renders_nothing(self):
+        self.assertEqual(render.render_system_map({}, None), "")
+        self.assertEqual(render.render_system_map({"module_graph": {"nodes": []}}, None), "")
+
+    def test_entry_badge_rendered(self):
+        html = render.render_system_map(synthetic_data(), None)
+        # api/auth is an entry module with 7 endpoints.
+        self.assertIn("7", html)
+        self.assertIn("sysmap-entry-badge", html)
+
+    def test_section_in_document_after_overview(self):
+        """render_document includes the map; it appears before the languages section."""
+        data = synthetic_data()
+        data["languages"] = [{"name": "TypeScript", "files": 10, "loc": 1000,
+                              "color": "#3178c6"}]
+        data["project"] = {"name": "synth", "total_files": 10, "total_loc": 1000,
+                           "primary_language": "TypeScript"}
+        html = render.render_document(data)
+        self.assertIn("codemap-sysmap-section", html)
+        self.assertLess(html.index("codemap-sysmap-section"),
+                        html.index("<h2>Languages</h2>"))
+
+    def test_enrichment_descriptions_become_tooltips(self):
+        enr = {"classification": {"products": [], "vendored": []},
+               "module_descriptions": [
+                   {"module_id": "api/auth", "description": "Login and tokens.",
+                    "is_product": True}]}
+        html = render.render_system_map(synthetic_data(), enr)
+        self.assertIn("Login and tokens.", html)
+
+    @unittest.skipUnless(FITTALK.is_file(), "fittalk test data not present")
+    def test_fittalk_full_section_renders(self):
+        data = json.loads(FITTALK.read_text())
+        html = render.render_system_map(data, None)
+        self.assertIn("codemap-sysmap-section", html)
+        self.assertIn("<svg", html)
+        # No NaN ever ends up in coordinates.
+        self.assertNotIn("nan", html.lower().replace("narration", ""))
+
+
 class FittalkSmokeTest(unittest.TestCase):
     """Integration smoke test against the real fittalk codemap."""
 
