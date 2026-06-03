@@ -98,6 +98,49 @@ SOURCE_ROOTS: tuple[str, ...] = (
     "internal", "pkg", "services", "modules",
 )
 
+# -------- vendored-code heuristics --------------------------------------
+#
+# Deterministic counterpart of the SKILL.md Step 1.5 prose rules: modules
+# that look like copied-in third-party code get vendored_guess=True. The
+# LLM enrichment can override in BOTH directions at render time
+# (classification.products rescues false positives; classification.vendored
+# catches what these heuristics miss).
+
+VENDORED_DIR_SUFFIXES: tuple[str, ...] = ("-master", "-develop", "-main")
+VENDORED_PATH_SEGMENTS: frozenset[str] = frozenset({
+    "vendor", "vendors", "third_party", "third-party", "extern", "external",
+})
+
+
+def _vendored_guess(module_dir: Path, rel_path: str, root_name: str) -> bool:
+    """Heuristic: does this module look like vendored third-party code?
+
+    Checks, cheapest first:
+      1. A conventional vendor directory segment anywhere in the path.
+      2. A git-archive clone suffix (-master/-develop/-main) on any segment.
+      3. A package.json whose repository URL doesn't reference this repo.
+    """
+    parts = [p.lower() for p in Path(rel_path).parts]
+    if any(p in VENDORED_PATH_SEGMENTS for p in parts):
+        return True
+    if any(p.endswith(VENDORED_DIR_SUFFIXES) for p in parts):
+        return True
+    pkg = module_dir / "package.json"
+    if pkg.is_file():
+        try:
+            meta = json.loads(pkg.read_text(encoding="utf-8", errors="replace"))
+        except (json.JSONDecodeError, OSError):
+            return False
+        if isinstance(meta, dict):
+            repo = meta.get("repository")
+            if isinstance(repo, dict):
+                repo = repo.get("url") or ""
+            if isinstance(repo, str) and repo.strip():
+                if root_name.lower() not in repo.lower():
+                    return True
+    return False
+
+
 # Files that signal a project entry point.
 ENTRY_PATTERNS: tuple[tuple[str, str], ...] = (
     ("main.py", "Python main"),
@@ -415,6 +458,7 @@ def _modules_within(container: Path, root: Path, service_id: str | None) -> list
             "loc": loc,
             "languages": sorted(langs),
             "description": guess_module_description(d),
+            "vendored_guess": _vendored_guess(d, str(d.relative_to(root)), root.name),
         })
 
     def descend(parent: Path, depth_remaining: int) -> None:
@@ -530,15 +574,40 @@ def detect_services_and_modules(
                 "color": primary_color or "#888888",
                 "description": guess_module_description(container),
             })
-            modules.extend(_modules_within(container, root, service_id))
+            sub = _modules_within(container, root, service_id)
+            if sub:
+                modules.extend(sub)
+            else:
+                # Service container with no internal structure (flat repo or
+                # leaf service): emit the container itself as its own module so
+                # it remains visible in the module layer and graph.
+                modules.append({
+                    "path": service_id,
+                    "name": container.name,
+                    "service": service_id,
+                    "file_count": fc,
+                    "loc": loc,
+                    "languages": sorted(langs),
+                    "description": guess_module_description(container),
+                    "vendored_guess": _vendored_guess(
+                        container, service_id, root.name
+                    ),
+                })
 
         # Loose top-level dirs (docs/, scripts/, analysis/, etc.) — also
         # appear as modules so they're not invisible, but they don't get
-        # a service.
+        # a service. Source-root-named loose dirs (apps/, packages/, src/,
+        # etc.) are recursed with _modules_within so their children become
+        # individual modules; other loose dirs are emitted as flat entries.
         for loose in loose_dirs:
             fc, loc, langs = _measure_dir(loose)
             if fc == 0:
                 continue
+            if loose.name in SOURCE_ROOTS:
+                sub = _modules_within(loose, root, None)
+                if sub:
+                    modules.extend(sub)
+                    continue
             modules.append({
                 "path": str(loose.relative_to(root)),
                 "name": loose.name,
@@ -547,6 +616,7 @@ def detect_services_and_modules(
                 "loc": loc,
                 "languages": sorted(langs),
                 "description": guess_module_description(loose),
+                "vendored_guess": _vendored_guess(loose, str(loose.relative_to(root)), root.name),
             })
     else:
         # Single-service repo. Root itself is the service.
@@ -1160,6 +1230,7 @@ def build_module_graph(
             "files": m["file_count"],
             "primary_language": lang_name,
             "color": lang_color or "#888888",
+            "vendored_guess": bool(m.get("vendored_guess")),
         })
 
     edges: dict[tuple[str, str], int] = {}
