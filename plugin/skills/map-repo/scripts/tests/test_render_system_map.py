@@ -164,6 +164,62 @@ class LayoutTest(unittest.TestCase):
             self.assertEqual(self.layout["placed"][nid]["y"], layout2["placed"][nid]["y"])
 
 
+class LayoutStressTest(unittest.TestCase):
+    def _many_service_data(self, n_services=15):
+        """One frontend svc + n_services single-module backend svcs + 1 store."""
+        services = [{"id": "web", "name": "web", "kind": "frontend", "loc": 1000,
+                     "file_count": 10, "color": "#292929", "primary_language": "TypeScript"}]
+        nodes = [{"id": "web/pages", "name": "pages", "service": "web", "loc": 600,
+                  "files": 6, "primary_language": "TypeScript", "color": "#3178c6",
+                  "vendored_guess": False}]
+        edges = []
+        for i in range(n_services):
+            sid = f"svc{i}"
+            services.append({"id": sid, "name": sid, "kind": "backend", "loc": 500,
+                             "file_count": 5, "color": "#3178c6", "primary_language": "TypeScript"})
+            nodes.append({"id": f"{sid}/core", "name": "core", "service": sid, "loc": 500,
+                          "files": 5, "primary_language": "TypeScript", "color": "#3178c6",
+                          "vendored_guess": False})
+        return {
+            "scan_depth": "full", "project": {"name": "many"},
+            "services": services, "modules": [],
+            "module_graph": {"nodes": nodes, "edges": edges},
+            "http_topology": {"entry_modules": [], "endpoints": [], "edges": []},
+            "data_lineage": {"stores": [], "models": [], "edges": []},
+        }
+
+    def test_many_services_fit_within_viewbox(self):
+        layout = render._sysmap_layout(render._sysmap_select(self._many_service_data(15), None))
+        for nid, p in layout["placed"].items():
+            self.assertLessEqual(p["x"] + p["w"], render.SYSMAP_W, f"{nid} overflows viewbox")
+            self.assertGreaterEqual(p["x"], 0, f"{nid} negative x")
+
+    def test_many_services_no_overlap(self):
+        layout = render._sysmap_layout(render._sysmap_select(self._many_service_data(15), None))
+        boxes = list(layout["placed"].values())
+        for i, a in enumerate(boxes):
+            for b in boxes[i + 1:]:
+                overlap = not (a["x"] + a["w"] <= b["x"] or b["x"] + b["w"] <= a["x"]
+                               or a["y"] + a["h"] <= b["y"] or b["y"] + b["h"] <= a["y"])
+                self.assertFalse(overlap, f"overlap at scale: {a} vs {b}")
+
+    def test_many_services_clusters_wrap_to_rows(self):
+        """15 backend clusters can't fit one row at min width -> multiple y levels."""
+        layout = render._sysmap_layout(render._sysmap_select(self._many_service_data(15), None))
+        backend_cluster_ys = sorted({round(c["y"], 1) for c in layout["clusters"]
+                                     if c["band"] == "backend"})
+        self.assertGreater(len(backend_cluster_ys), 1, "backend clusters did not wrap")
+
+    def test_many_services_deterministic(self):
+        a = render._sysmap_layout(render._sysmap_select(self._many_service_data(15), None))
+        b = render._sysmap_layout(render._sysmap_select(self._many_service_data(15), None))
+        self.assertEqual([c["service_id"] for c in a["clusters"]],
+                         [c["service_id"] for c in b["clusters"]])
+        for nid in a["placed"]:
+            self.assertEqual(a["placed"][nid]["x"], b["placed"][nid]["x"])
+            self.assertEqual(a["placed"][nid]["y"], b["placed"][nid]["y"])
+
+
 class FittalkSmokeTest(unittest.TestCase):
     """Integration smoke test against the real fittalk codemap."""
 

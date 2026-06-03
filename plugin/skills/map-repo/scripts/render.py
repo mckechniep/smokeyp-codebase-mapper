@@ -2503,11 +2503,16 @@ SYSMAP_ROW_GAP = 12             # vertical gap between node rows in a cluster
 SYSMAP_CLUSTER_PAD = 16         # padding inside a service-cluster outline
 SYSMAP_CLUSTER_GAP = 24         # gap between sibling clusters
 SYSMAP_CLUSTER_LABEL_H = 24     # space reserved for the cluster's service label
+SYSMAP_MIN_CLUSTER_W = 150      # below this a cluster can't hold a node readably
+SYSMAP_CLUSTER_ROW_GAP = 20     # vertical gap between wrapped rows of clusters
 SYSMAP_BAND_LABEL_W = 28        # vertical band-label gutter on the left
 SYSMAP_BAND_GAP = 76            # vertical space between bands (edges route here)
 SYSMAP_STORE_W = 88
 SYSMAP_STORE_H = 60
 SYSMAP_STORE_GAP = 40
+SYSMAP_STORE_INSET = 4          # store cylinder vertical inset within data band
+SYSMAP_DATA_BAND_PAD = 30       # label + padding below store cylinders
+SYSMAP_BOTTOM_PAD = 10          # padding below the last band
 SYSMAP_MAX_NODES = {"shallow": 20, "medium": 40, "full": 60}
 SYSMAP_MAX_IMPORT_EDGES = 40
 
@@ -2582,7 +2587,7 @@ def _sysmap_select(
         return (degree.get(n["id"], 0) + boost, n.get("loc", 0))
 
     product.sort(key=rank, reverse=True)
-    cap = SYSMAP_MAX_NODES.get(data.get("scan_depth", "medium")) or 40
+    cap = SYSMAP_MAX_NODES.get(data.get("scan_depth", "medium")) or SYSMAP_MAX_NODES["medium"]
     truncated = max(0, len(product) - cap)
     visible = product[:cap]
 
@@ -2636,57 +2641,96 @@ def _sysmap_layout(sel: dict[str, Any]) -> dict[str, Any]:
         service_ids = sorted(by_service, key=lambda sid: (-len(by_service[sid]), sid))
 
         k = len(service_ids)
-        cluster_w = (content_w - (k - 1) * SYSMAP_CLUSTER_GAP) / k
-        band_h = 0.0
-        cx = x_origin
-        band_clusters: list[dict[str, Any]] = []
+        # Clusters arrange in a GRID, not one row: many-service tiers would
+        # otherwise shrink each cluster below node width and overflow the
+        # viewBox. Wrap onto multiple rows at a minimum cluster width so the
+        # band grows vertically and the PDF stays clean (no horizontal scroll).
+        cols = int((content_w + SYSMAP_CLUSTER_GAP)
+                   // (SYSMAP_MIN_CLUSTER_W + SYSMAP_CLUSTER_GAP))
+        cols = max(1, min(cols, k))
+        cluster_w = (content_w - (cols - 1) * SYSMAP_CLUSTER_GAP) / cols
+        inner_w = cluster_w - 2 * SYSMAP_CLUSTER_PAD
+
+        # Pass 1: lay out each cluster's nodes relative to a (0, 0) origin and
+        # record its natural height. Node widths are kept locally (never
+        # mutated onto the shared node dict).
+        cluster_layouts: list[dict[str, Any]] = []
         for sid in service_ids:
             cnodes = by_service[sid]
             svc = services.get(sid) or {}
-            inner_w = cluster_w - 2 * SYSMAP_CLUSTER_PAD
 
-            # Wrap nodes into rows.
-            rows: list[list[dict[str, Any]]] = [[]]
+            # Wrap nodes into rows; carry each node's width alongside it.
+            rows: list[list[tuple[dict[str, Any], float]]] = [[]]
             row_w = 0.0
             for n in cnodes:
                 w = _sysmap_node_w(n.get("name") or n["id"],
                                    n["id"] in entry_counts,
                                    n.get("loc", 0))
-                n["_w"] = w
                 if row_w + w > inner_w and rows[-1]:
                     rows.append([])
                     row_w = 0.0
-                rows[-1].append(n)
+                rows[-1].append((n, w))
                 row_w += w + SYSMAP_NODE_GAP
 
-            # Place nodes row by row.
-            ny = band_top + SYSMAP_CLUSTER_LABEL_H + SYSMAP_CLUSTER_PAD
+            # Relative node placement: x/y measured from the cluster's own
+            # top-left corner. Absolute offsets are applied in pass 2.
+            rel: list[dict[str, Any]] = []
+            ny = SYSMAP_CLUSTER_LABEL_H + SYSMAP_CLUSTER_PAD
             for row in rows:
-                nx = cx + SYSMAP_CLUSTER_PAD
-                for n in row:
-                    placed[n["id"]] = {
-                        "x": nx, "y": ny, "w": n["_w"], "h": float(SYSMAP_NODE_H),
-                        "band": band_key, "node": n,
-                    }
-                    nx += n["_w"] + SYSMAP_NODE_GAP
+                nx = SYSMAP_CLUSTER_PAD
+                for n, w in row:
+                    rel.append({
+                        "id": n["id"], "dx": nx, "dy": ny, "w": w,
+                        "node": n,
+                    })
+                    nx += w + SYSMAP_NODE_GAP
                 ny += SYSMAP_NODE_H + SYSMAP_ROW_GAP
 
-            cluster_h = (ny - SYSMAP_ROW_GAP + SYSMAP_CLUSTER_PAD) - band_top
+            cluster_h = ny - SYSMAP_ROW_GAP + SYSMAP_CLUSTER_PAD
             kind = (svc.get("kind") or "unknown").lower()
-            band_clusters.append({
-                "service_id": sid,
-                "band": band_key,
-                "x": cx, "y": band_top, "w": cluster_w, "h": cluster_h,
-                "color": SERVICE_KIND_COLORS.get(kind, SERVICE_KIND_COLORS["unknown"]),
+            cluster_layouts.append({
+                "service_id": sid, "kind": kind,
                 "label": svc.get("name") or sid,
-                "kind": kind,
+                "color": SERVICE_KIND_COLORS.get(kind, SERVICE_KIND_COLORS["unknown"]),
+                "h": cluster_h, "rel": rel,
             })
-            band_h = max(band_h, cluster_h)
-            cx += cluster_w + SYSMAP_CLUSTER_GAP
 
-        # Equalize cluster heights within the band.
-        for c in band_clusters:
-            c["h"] = band_h
+        # Per-grid-row heights: each grid-row is as tall as its tallest cluster.
+        num_grid_rows = (k + cols - 1) // cols
+        grid_row_h = [0.0] * num_grid_rows
+        for i, cl in enumerate(cluster_layouts):
+            grid_row_h[i // cols] = max(grid_row_h[i // cols], cl["h"])
+        # Cumulative vertical offset of each grid-row (incl. inter-row gaps).
+        grid_row_top = [0.0] * num_grid_rows
+        for r in range(1, num_grid_rows):
+            grid_row_top[r] = (grid_row_top[r - 1] + grid_row_h[r - 1]
+                               + SYSMAP_CLUSTER_ROW_GAP)
+
+        # Pass 2: assign grid cells, apply absolute offsets, equalize each
+        # cluster's height to ITS grid-row's max, and place nodes.
+        band_clusters: list[dict[str, Any]] = []
+        for i, cl in enumerate(cluster_layouts):
+            row, col = i // cols, i % cols
+            cluster_x = x_origin + col * (cluster_w + SYSMAP_CLUSTER_GAP)
+            cluster_y = band_top + grid_row_top[row]
+            row_h = grid_row_h[row]
+            for rn in cl["rel"]:
+                placed[rn["id"]] = {
+                    "x": cluster_x + rn["dx"], "y": cluster_y + rn["dy"],
+                    "w": rn["w"], "h": float(SYSMAP_NODE_H),
+                    "band": band_key, "node": rn["node"],
+                }
+            band_clusters.append({
+                "service_id": cl["service_id"],
+                "band": band_key,
+                "x": cluster_x, "y": cluster_y, "w": cluster_w, "h": row_h,
+                "color": cl["color"],
+                "label": cl["label"],
+                "kind": cl["kind"],
+            })
+
+        band_h = (sum(grid_row_h)
+                  + (num_grid_rows - 1) * SYSMAP_CLUSTER_ROW_GAP)
         clusters.extend(band_clusters)
         band_boxes[band_key] = {"y": band_top, "h": band_h}
         y_cursor = band_top + band_h + SYSMAP_BAND_GAP
@@ -2700,12 +2744,13 @@ def _sysmap_layout(sel: dict[str, Any]) -> dict[str, Any]:
         sx = x_origin + max(0.0, (content_w - total_w) / 2)
         for s in stores:
             store_pos[s["id"]] = {
-                "x": sx, "y": band_top + 4, "w": float(SYSMAP_STORE_W),
+                "x": sx, "y": band_top + SYSMAP_STORE_INSET, "w": float(SYSMAP_STORE_W),
                 "h": float(SYSMAP_STORE_H), "store": s,
             }
             sx += SYSMAP_STORE_W + SYSMAP_STORE_GAP
-        band_boxes["data"] = {"y": band_top, "h": SYSMAP_STORE_H + 30.0}
-        y_cursor = band_top + SYSMAP_STORE_H + 30.0
+        data_band_h = SYSMAP_STORE_H + SYSMAP_DATA_BAND_PAD
+        band_boxes["data"] = {"y": band_top, "h": float(data_band_h)}
+        y_cursor = band_top + data_band_h
     elif band_boxes:
         # No stores: trim the trailing band gap.
         y_cursor -= SYSMAP_BAND_GAP
@@ -2715,7 +2760,7 @@ def _sysmap_layout(sel: dict[str, Any]) -> dict[str, Any]:
         "clusters": clusters,
         "stores": store_pos,
         "bands": band_boxes,
-        "height": y_cursor + 10.0,
+        "height": y_cursor + SYSMAP_BOTTOM_PAD,
     }
 
 
