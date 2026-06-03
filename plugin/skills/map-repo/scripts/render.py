@@ -3181,13 +3181,166 @@ def _sysmap_headline(sel: dict[str, Any], edges: list[dict[str, Any]]) -> str:
 def _observations_for_sysmap(
     sel: dict[str, Any], edges: list[dict[str, Any]], data: dict[str, Any]
 ) -> list[str]:
-    return []  # Replaced with real observations in the next task.
+    """Data-derived observations for the system map: hubs, tier imbalance,
+    orphans, vendored exclusions."""
+    obs: list[str] = []
+    all_nodes = [n for nodes in sel["bands"].values() for n in nodes]
+    if not all_nodes:
+        return obs
+
+    # 1. Biggest hub (highest degree among visible nodes).
+    graph_edges = (data.get("module_graph") or {}).get("edges") or []
+    visible_ids = {n["id"] for n in all_nodes}
+    degree: dict[str, int] = {}
+    for e in graph_edges:
+        if e.get("source") in visible_ids:
+            degree[e["source"]] = degree.get(e["source"], 0) + 1
+        if e.get("target") in visible_ids:
+            degree[e["target"]] = degree.get(e["target"], 0) + 1
+    if degree:
+        hub_id, hub_deg = max(degree.items(), key=lambda kv: kv[1])
+        hub_name = next((n.get("name") or hub_id for n in all_nodes if n["id"] == hub_id), hub_id)
+        if hub_deg >= 2:
+            obs.append(
+                f"<strong><code>{escape(hub_name)}</code></strong> is the most-connected "
+                f"module on the map ({hub_deg} import relationships) — changes there "
+                f"ripple furthest."
+            )
+
+    # 2. Tier imbalance by LOC.
+    front_loc = sum(n.get("loc", 0) for n in sel["bands"].get("frontend") or [])
+    back_loc = sum(n.get("loc", 0) for n in sel["bands"].get("backend") or [])
+    total = front_loc + back_loc
+    if total > 0 and back_loc / total >= 0.7:
+        obs.append(
+            f"<strong>{pct(back_loc, total):.0f}%</strong> of mapped code lives in the "
+            f"backend tier — this is a backend-heavy system; the frontend is comparatively thin."
+        )
+    elif total > 0 and front_loc / total >= 0.7:
+        obs.append(
+            f"<strong>{pct(front_loc, total):.0f}%</strong> of mapped code lives in the "
+            f"frontend tier — most of the logic runs in the client."
+        )
+
+    # 3. Orphan modules (no edges at all).
+    orphans = [n for n in all_nodes if degree.get(n["id"], 0) == 0]
+    if orphans:
+        names = ", ".join(f"<code>{escape(n.get('name') or n['id'])}</code>" for n in orphans[:4])
+        more = f" (+{len(orphans) - 4} more)" if len(orphans) > 4 else ""
+        obs.append(
+            f"{len(orphans)} module{'s' if len(orphans) != 1 else ''} on the map have "
+            f"<strong>no detected connections</strong>: {names}{more} — either truly "
+            f"standalone or wired together in a way the scanner can't see."
+        )
+
+    # 4. Vendored exclusions.
+    if sel["excluded_vendored"]:
+        obs.append(
+            f"<strong>{sel['excluded_vendored']}</strong> vendored module"
+            f"{'s were' if sel['excluded_vendored'] != 1 else ' was'} excluded from this "
+            f"map — third-party code copied into the repo, not part of the product itself."
+        )
+
+    # 5. Unreached entry modules (entry points with no HTTP edge landing on them).
+    http_targets = {(e.get("x2"), e.get("y2")) for e in edges if e["kind"] == "http"}
+    n_http = sum(1 for e in edges if e["kind"] == "http")
+    n_entries = sum(1 for n in all_nodes if n["id"] in sel["entry_counts"])
+    if n_entries and n_http == 0:
+        obs.append(
+            f"The map shows <strong>{n_entries}</strong> entry-point module"
+            f"{'s' if n_entries != 1 else ''} but <strong>no resolved HTTP call paths</strong> "
+            f"from the frontend — calls may go through a gateway or use URLs the scanner "
+            f"couldn't match to routes."
+        )
+    return obs[:5]
 
 
 def render_sysmap_bento(
     data: dict[str, Any], sel: dict[str, Any], edges: list[dict[str, Any]]
 ) -> str:
-    return ""  # Replaced with real bento in the next task.
+    """2x2 small-multiples beneath the system map.
+
+    The map shows the wiring; the bento adds the magnitudes it
+    compresses: tier composition, heaviest call paths, entry-point
+    density, and what the map deliberately leaves out.
+    """
+    front = sel["bands"].get("frontend") or []
+    back = sel["bands"].get("backend") or []
+    node_name = {n["id"]: (n.get("name") or n["id"])
+                 for nodes in sel["bands"].values() for n in nodes}
+
+    def row(label: str, value: str) -> str:
+        return (f'<div class="sysmap-row"><span>{label}</span>'
+                f'<span class="v">{value}</span></div>')
+
+    # ---------- Tile 1: tier composition ----------
+    front_loc = sum(n.get("loc", 0) for n in front)
+    back_loc = sum(n.get("loc", 0) for n in back)
+    tile1_body = '<div class="sysmap-rows">' + "".join([
+        row("Frontend modules", f"{len(front)} · {fmt_num(front_loc)} LOC"),
+        row("Backend modules", f"{len(back)} · {fmt_num(back_loc)} LOC"),
+        row("Data stores", str(len(sel["stores"]))),
+    ]) + '</div>'
+
+    # ---------- Tile 2: heaviest call paths ----------
+    https = sorted([e for e in edges if e["kind"] == "http"],
+                   key=lambda e: -e["weight"])[:6]
+    if https:
+        tile2_body = '<div class="sysmap-rows">' + "".join(
+            row(f'{escape(_topov2_truncate(e["source_service"], 14))} → '
+                f'{escape(_topov2_truncate(node_name.get(e["target_id"], e["target_id"]), 14))}',
+                f'{e["weight"]} calls')
+            for e in https
+        ) + '</div>'
+    else:
+        tile2_body = ('<p class="sysmap-note">No frontend→backend calls could be '
+                      'matched to a route.</p>')
+
+    # ---------- Tile 3: entry points per service ----------
+    entries_by_service: dict[str, int] = {}
+    for n in front + back:
+        if n["id"] in sel["entry_counts"]:
+            sid = n.get("service") or "?"
+            entries_by_service[sid] = entries_by_service.get(sid, 0) + 1
+    if entries_by_service:
+        tile3_body = '<div class="sysmap-rows">' + "".join(
+            row(escape(_topov2_truncate(sid, 22)),
+                f'{cnt} entry module{"s" if cnt != 1 else ""}')
+            for sid, cnt in sorted(entries_by_service.items(), key=lambda kv: -kv[1])
+        ) + '</div>'
+    else:
+        tile3_body = '<p class="sysmap-note">No HTTP entry points detected.</p>'
+
+    # ---------- Tile 4: what's not on the map ----------
+    tile4_body = '<div class="sysmap-rows">' + "".join([
+        row("Vendored modules excluded", str(sel["excluded_vendored"])),
+        row("Small modules truncated", str(sel["truncated"])),
+    ]) + '</div>'
+
+    return f"""
+<div class="sysmap-bento">
+  <div class="sysmap-tile">
+    <div class="tile-label">Composition</div>
+    <div class="tile-headline">Code and stores per tier</div>
+    <div class="tile-body">{tile1_body}</div>
+  </div>
+  <div class="sysmap-tile">
+    <div class="tile-label">Call paths</div>
+    <div class="tile-headline">Heaviest frontend → backend routes</div>
+    <div class="tile-body">{tile2_body}</div>
+  </div>
+  <div class="sysmap-tile">
+    <div class="tile-label">Entry points</div>
+    <div class="tile-headline">Where requests arrive, per service</div>
+    <div class="tile-body">{tile3_body}</div>
+  </div>
+  <div class="sysmap-tile">
+    <div class="tile-label">Excluded</div>
+    <div class="tile-headline">What this map deliberately leaves out</div>
+    <div class="tile-body">{tile4_body}</div>
+  </div>
+</div>
+"""
 
 
 def render_system_map(

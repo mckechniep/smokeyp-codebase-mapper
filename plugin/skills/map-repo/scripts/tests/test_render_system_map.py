@@ -453,5 +453,54 @@ class FittalkSmokeTest(unittest.TestCase):
         self.assertEqual(len(layout["stores"]), 4)
 
 
+class ObservationsAndBentoTest(unittest.TestCase):
+    def test_observations_present_in_section(self):
+        html = render.render_system_map(synthetic_data(), None)
+        self.assertIn("Observations", html)
+        self.assertIn("observations", html)  # the aside class
+
+    def test_hub_observation_names_the_hub(self):
+        obs = render._observations_for_sysmap(
+            render._sysmap_select(synthetic_data(), None),
+            [], synthetic_data())
+        joined = " ".join(obs)
+        # api/auth has the highest degree (2 in-edges) -> named as hub.
+        self.assertIn("auth", joined)
+
+    def test_tier_imbalance_observation(self):
+        sel = render._sysmap_select(synthetic_data(), None)
+        obs = render._observations_for_sysmap(sel, [], synthetic_data())
+        joined = " ".join(obs)
+        self.assertIn("backend", joined.lower())
+
+    def test_vendored_exclusion_observation(self):
+        sel = render._sysmap_select(synthetic_data(), None)
+        obs = render._observations_for_sysmap(sel, [], synthetic_data())
+        joined = " ".join(obs)
+        self.assertIn("vendored", joined.lower())
+
+    def test_bento_renders_tiles(self):
+        sel = render._sysmap_select(synthetic_data(), None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(synthetic_data(), layout)
+        html = render.render_sysmap_bento(synthetic_data(), sel, edges)
+        self.assertIn("sysmap-bento", html)
+        self.assertIn("sysmap-tile", html)
+        self.assertIn("tile-label", html)     # same tile anatomy as other bentos
+        # Tier composition tile names both tiers.
+        self.assertIn("Frontend", html)
+        self.assertIn("Backend", html)
+
+    def test_bento_names_real_call_paths(self):
+        """The call-paths tile shows 'web → auth', not 'call path 1'."""
+        data = synthetic_data()
+        sel = render._sysmap_select(data, None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(data, layout)
+        html = render.render_sysmap_bento(data, sel, edges)
+        self.assertIn("auth", html)
+        self.assertNotIn("call path 1", html)
+
+
 if __name__ == "__main__":
     unittest.main()
