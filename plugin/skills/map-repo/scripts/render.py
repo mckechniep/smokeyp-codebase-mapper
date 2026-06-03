@@ -2764,6 +2764,104 @@ def _sysmap_layout(sel: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _sysmap_edges(
+    data: dict[str, Any], layout: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Compute drawable edges between placed elements.
+
+    Three kinds:
+      "import" — module → module (module_graph.edges), both endpoints placed
+      "http"   — frontend service cluster → backend entry module
+                 (http_topology.edges joined to endpoints by path)
+      "store"  — service cluster → store cylinder (data_lineage.edges)
+
+    Every edge: {kind, x1, y1, x2, y2, weight, same_band, [color]}.
+    Import edges are capped at SYSMAP_MAX_IMPORT_EDGES by weight.
+    """
+    placed = layout["placed"]
+    cluster_by_service = {c["service_id"]: c for c in layout["clusters"]}
+    stores = layout["stores"]
+    out: list[dict[str, Any]] = []
+
+    # ---- import edges
+    graph_edges = (data.get("module_graph") or {}).get("edges") or []
+    drawable = [
+        e for e in graph_edges
+        if e.get("source") in placed and e.get("target") in placed
+        and e["source"] != e["target"]
+    ]
+    drawable.sort(key=lambda e: -(e.get("weight") or 1))
+    for e in drawable[:SYSMAP_MAX_IMPORT_EDGES]:
+        s, t = placed[e["source"]], placed[e["target"]]
+        same_band = s["band"] == t["band"]
+        if same_band:
+            # Anchor both ends at node bottoms; drawn as an arc below.
+            out.append({
+                "kind": "import", "same_band": True,
+                "x1": s["x"] + s["w"] / 2, "y1": s["y"] + s["h"],
+                "x2": t["x"] + t["w"] / 2, "y2": t["y"] + t["h"],
+                "weight": e.get("weight") or 1,
+            })
+        else:
+            src_above = s["y"] < t["y"]
+            out.append({
+                "kind": "import", "same_band": False,
+                "x1": s["x"] + s["w"] / 2,
+                "y1": s["y"] + (s["h"] if src_above else 0),
+                "x2": t["x"] + t["w"] / 2,
+                "y2": t["y"] + (0 if src_above else t["h"]),
+                "weight": e.get("weight") or 1,
+            })
+
+    # ---- HTTP edges: source service cluster → target entry module
+    topo = data.get("http_topology") or {}
+    ep_module_by_path: dict[tuple[str, str], str] = {}
+    for ep in topo.get("endpoints") or []:
+        if ep.get("module") and ep.get("path"):
+            ep_module_by_path[(ep.get("service"), ep["path"])] = ep["module"]
+
+    http_weight: dict[tuple[str, str], int] = {}
+    for e in topo.get("edges") or []:
+        target_module = ep_module_by_path.get(
+            (e.get("target_service"), e.get("path")))
+        if not target_module or target_module not in placed:
+            continue
+        if e.get("source_service") not in cluster_by_service:
+            continue
+        key = (e["source_service"], target_module)
+        http_weight[key] = http_weight.get(key, 0) + (e.get("weight") or 1)
+
+    for (src_service, target_module), weight in sorted(http_weight.items()):
+        c = cluster_by_service[src_service]
+        t = placed[target_module]
+        out.append({
+            "kind": "http", "same_band": False,
+            "x1": c["x"] + c["w"] / 2, "y1": c["y"] + c["h"],
+            "x2": t["x"] + t["w"] / 2, "y2": t["y"],
+            "weight": weight,
+            # Carried so the bento can name this path ("web → auth").
+            "source_service": src_service,
+            "target_id": target_module,
+        })
+
+    # ---- store edges: service cluster → store cylinder
+    for e in (data.get("data_lineage") or {}).get("edges") or []:
+        c = cluster_by_service.get(e.get("source_service"))
+        sp = stores.get(e.get("target_store"))
+        if not c or not sp:
+            continue
+        kind = (sp["store"].get("kind") or "unknown")
+        out.append({
+            "kind": "store", "same_band": False,
+            "x1": c["x"] + c["w"] / 2, "y1": c["y"] + c["h"],
+            "x2": sp["x"] + sp["w"] / 2, "y2": sp["y"],
+            "weight": e.get("weight") or 1,
+            "color": STORE_KIND_COLORS.get(kind, "#888888"),
+        })
+
+    return out
+
+
 # Kind-based service zone tints. Backend gets a warm orange, frontend a
 # cool blue, library purple, anything unclassified a neutral gray. These
 # match the spirit of the reference TOPOLOGY.html palette so the report

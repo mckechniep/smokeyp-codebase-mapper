@@ -164,6 +164,64 @@ class LayoutTest(unittest.TestCase):
             self.assertEqual(self.layout["placed"][nid]["y"], layout2["placed"][nid]["y"])
 
 
+class EdgesTest(unittest.TestCase):
+    def setUp(self):
+        self.data = synthetic_data()
+        self.sel = render._sysmap_select(self.data, None)
+        self.layout = render._sysmap_layout(self.sel)
+        self.edges = render._sysmap_edges(self.data, self.layout)
+
+    def kinds(self):
+        return [e["kind"] for e in self.edges]
+
+    def test_import_edge_between_visible_nodes(self):
+        imports = [e for e in self.edges if e["kind"] == "import"]
+        # web/pages -> web/api-client and api/billing -> api/auth are drawable;
+        # the edge from the vendored module is NOT (source not placed).
+        self.assertEqual(len(imports), 2)
+
+    def test_no_edge_touches_unplaced_node(self):
+        # The vendored module was excluded; no edge may reference it.
+        # (All returned edges carry coordinates, so this is implicitly true;
+        # pin it by checking edge count above and total here.)
+        self.assertEqual(len(self.edges), 4)  # 2 import + 1 http + 1 store
+
+    def test_http_edge_resolves_target_module(self):
+        https = [e for e in self.edges if e["kind"] == "http"]
+        self.assertEqual(len(https), 1)
+        # Target anchor must be the api/auth node's top edge.
+        auth = self.layout["placed"]["api/auth"]
+        self.assertAlmostEqual(https[0]["x2"], auth["x"] + auth["w"] / 2)
+        self.assertAlmostEqual(https[0]["y2"], auth["y"])
+
+    def test_store_edge_anchors_to_cylinder(self):
+        stores = [e for e in self.edges if e["kind"] == "store"]
+        self.assertEqual(len(stores), 1)
+        pg = self.layout["stores"]["postgres"]
+        self.assertAlmostEqual(stores[0]["x2"], pg["x"] + pg["w"] / 2)
+
+    def test_import_edge_cap(self):
+        """More than SYSMAP_MAX_IMPORT_EDGES drawable edges -> capped, highest weight kept."""
+        data = synthetic_data()
+        # Generate 50 extra synthetic backend nodes + edges, all drawable.
+        for i in range(50):
+            data["module_graph"]["nodes"].append(
+                {"id": f"api/m{i}", "name": f"m{i}", "service": "api", "loc": 10,
+                 "files": 1, "primary_language": "TypeScript", "color": "#3178c6",
+                 "vendored_guess": False})
+            data["module_graph"]["edges"].append(
+                {"source": f"api/m{i}", "target": "api/auth", "weight": i + 10})
+        data["scan_depth"] = "full"  # cap 60 nodes so all are placed
+        sel = render._sysmap_select(data, None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(data, layout)
+        imports = [e for e in edges if e["kind"] == "import"]
+        self.assertLessEqual(len(imports), render.SYSMAP_MAX_IMPORT_EDGES)
+        # Highest-weight edge must survive the cap.
+        weights = [e["weight"] for e in imports]
+        self.assertIn(59, weights)
+
+
 class LayoutStressTest(unittest.TestCase):
     def _many_service_data(self, n_services=15):
         """One frontend svc + n_services single-module backend svcs + 1 store."""
