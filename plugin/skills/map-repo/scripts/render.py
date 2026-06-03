@@ -2407,7 +2407,7 @@ def render_modules(data: dict[str, Any], enrichment: dict[str, Any] | None = Non
         for p in cls.get("products", []) or []:
             if p.get("module_id"):
                 product_ids.add(p["module_id"])
-        for d in enrichment.get("module_descriptions", []):
+        for d in enrichment.get("module_descriptions", []) or []:
             if d.get("module_id") and d.get("description"):
                 desc_by_id[d["module_id"]] = d["description"]
 
@@ -2458,10 +2458,10 @@ def render_modules(data: dict[str, Any], enrichment: dict[str, Any] | None = Non
         'enough to see the system’s shape without getting lost in every nested file.</p>'
     )
 
-    # Why some cards are faded — only meaningful once the LLM has flagged
-    # vendored modules, so it stays absent in the no-enrichment (degraded) render.
+    # Why some cards are faded — shown whenever any module is classified
+    # vendored, either by the heuristic flag (vendored_guess) or by enrichment.
     vendored_note = ""
-    if any(is_vendored(m) for m in mods):
+    if vendored:
         vendored_note = (
             '<p class="module-note">Some cards are <strong>faded and tagged '
             '<em>vendored</em></strong>: that code lives in this repository but '
