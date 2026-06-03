@@ -176,15 +176,48 @@ class EdgesTest(unittest.TestCase):
 
     def test_import_edge_between_visible_nodes(self):
         imports = [e for e in self.edges if e["kind"] == "import"]
-        # web/pages -> web/api-client and api/billing -> api/auth are drawable;
-        # the edge from the vendored module is NOT (source not placed).
-        self.assertEqual(len(imports), 2)
+        # The fixture's two drawable import edges (web/pages -> web/api-client
+        # and api/billing -> api/auth) are BOTH within-service, and the third
+        # is from a vendored (unplaced) module. After the within-service
+        # filter, no import edge survives.
+        self.assertEqual(len(imports), 0)
 
     def test_no_edge_touches_unplaced_node(self):
         # The vendored module was excluded; no edge may reference it.
-        # (All returned edges carry coordinates, so this is implicitly true;
-        # pin it by checking edge count above and total here.)
-        self.assertEqual(len(self.edges), 4)  # 2 import + 1 http + 1 store
+        # Both fixture imports are within-service (dropped), so only the
+        # http and store edges remain.
+        self.assertEqual(len(self.edges), 2)  # 0 import + 1 http + 1 store
+
+    def test_no_within_service_import_edges(self):
+        """Within-service imports are omitted (matrix shows them); no same-cluster import edge."""
+        data = synthetic_data()
+        sel = render._sysmap_select(data, None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(data, layout)
+        svc = {nid: p["node"].get("service") for nid, p in layout["placed"].items()}
+        # The synthetic fixture's two import edges are BOTH within-service
+        # (web/pages->web/api-client and api/billing->api/auth), so after the
+        # filter there should be zero import edges from it.
+        imports = [e for e in edges if e["kind"] == "import"]
+        self.assertEqual(imports, [], "within-service imports must be dropped from the map")
+
+    def test_cross_service_same_band_import_survives(self):
+        """A cross-service import in the same band is kept."""
+        data = synthetic_data()
+        # add a second backend service whose module imports api/auth
+        data["services"].append({"id": "billing-svc", "name": "billing-svc",
+            "kind": "backend", "loc": 800, "file_count": 8, "color": "#3178c6",
+            "primary_language": "TypeScript"})
+        data["module_graph"]["nodes"].append({"id": "billing-svc/pay", "name": "pay",
+            "service": "billing-svc", "loc": 800, "files": 8,
+            "primary_language": "TypeScript", "color": "#3178c6", "vendored_guess": False})
+        data["module_graph"]["edges"].append(
+            {"source": "billing-svc/pay", "target": "api/auth", "weight": 4})
+        sel = render._sysmap_select(data, None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(data, layout)
+        cross = [e for e in edges if e["kind"] == "import"]
+        self.assertTrue(any(True for e in cross), "cross-service import should survive")
 
     def test_http_edge_resolves_target_module(self):
         https = [e for e in self.edges if e["kind"] == "http"]
@@ -204,13 +237,19 @@ class EdgesTest(unittest.TestCase):
         """More than SYSMAP_MAX_IMPORT_EDGES drawable edges -> capped, highest weight kept."""
         data = synthetic_data()
         # Generate 50 extra synthetic backend nodes + edges, all drawable.
+        # Each source lives in its OWN service so the edges are CROSS-service
+        # and survive the within-service filter; that's what exercises the cap.
         for i in range(50):
+            sid = f"svc{i}"
+            data["services"].append(
+                {"id": sid, "name": sid, "kind": "backend", "loc": 500,
+                 "file_count": 5, "color": "#3178c6", "primary_language": "TypeScript"})
             data["module_graph"]["nodes"].append(
-                {"id": f"api/m{i}", "name": f"m{i}", "service": "api", "loc": 10,
+                {"id": f"{sid}/m{i}", "name": f"m{i}", "service": sid, "loc": 10,
                  "files": 1, "primary_language": "TypeScript", "color": "#3178c6",
                  "vendored_guess": False})
             data["module_graph"]["edges"].append(
-                {"source": f"api/m{i}", "target": "api/auth", "weight": i + 10})
+                {"source": f"{sid}/m{i}", "target": "api/auth", "weight": i + 10})
         data["scan_depth"] = "full"  # cap 60 nodes so all are placed
         sel = render._sysmap_select(data, None)
         layout = render._sysmap_layout(sel)
@@ -244,13 +283,29 @@ class EdgesTest(unittest.TestCase):
         self.assertAlmostEqual(e["x2"], t["x"] + t["w"] / 2)
 
     def test_same_band_import_anchors_at_node_bottoms(self):
-        """Same-band import edges anchor at both nodes' bottoms (arc-below)."""
-        same = [e for e in self.edges if e["kind"] == "import" and e["same_band"]]
+        """Same-band import edges anchor at both nodes' bottoms (arc-below).
+
+        Within-service same-band imports are dropped, so this needs a
+        CROSS-service same-band import to exercise the arc-below geometry.
+        """
+        data = synthetic_data()
+        data["services"].append({"id": "billing-svc", "name": "billing-svc",
+            "kind": "backend", "loc": 800, "file_count": 8, "color": "#3178c6",
+            "primary_language": "TypeScript"})
+        data["module_graph"]["nodes"].append({"id": "billing-svc/pay", "name": "pay",
+            "service": "billing-svc", "loc": 800, "files": 8,
+            "primary_language": "TypeScript", "color": "#3178c6", "vendored_guess": False})
+        data["module_graph"]["edges"].append(
+            {"source": "billing-svc/pay", "target": "api/auth", "weight": 4})
+        sel = render._sysmap_select(data, None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(data, layout)
+        same = [e for e in edges if e["kind"] == "import" and e["same_band"]]
         self.assertTrue(same)
         for e in same:
             # both endpoints are bottoms; can't know which node without ids,
             # but every same-band import y must equal some placed node's bottom.
-            bottoms = {round(p["y"] + p["h"], 3) for p in self.layout["placed"].values()}
+            bottoms = {round(p["y"] + p["h"], 3) for p in layout["placed"].values()}
             self.assertIn(round(e["y1"], 3), bottoms)
             self.assertIn(round(e["y2"], 3), bottoms)
 
@@ -350,6 +405,17 @@ class RenderSectionTest(unittest.TestCase):
         self.assertIn("codemap-sysmap-section", html)
         self.assertLess(html.index("codemap-sysmap-section"),
                         html.index("<h2>Languages</h2>"))
+
+    def test_repo_strings_are_escaped(self):
+        """Repo-derived names with HTML metacharacters must be escaped in the SVG."""
+        data = synthetic_data()
+        data["module_graph"]["nodes"][2]["name"] = 'a<script>&"x'  # api/auth's name
+        data["services"][1]["name"] = 'svc<b>&'                    # api service name
+        data["data_lineage"]["stores"][0]["name"] = 'pg<i>&"'      # store name
+        html = render.render_system_map(data, None)
+        self.assertNotIn("<script>", html)
+        self.assertNotIn("<b>", html)
+        self.assertIn("&lt;script&gt;", html)
 
     def test_enrichment_descriptions_become_tooltips(self):
         enr = {"classification": {"products": [], "vendored": []},

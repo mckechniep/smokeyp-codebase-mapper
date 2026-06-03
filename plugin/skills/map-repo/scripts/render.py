@@ -1702,6 +1702,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
      what they're looking at. Hiding it lets the h2 + frame share a
      single landscape page instead of stranding the heading on a
      near-empty intro-only page above the SVG. */
+  #codemap-sysmap-section > .section-intro,
   #codemap-modgraph-section > .section-intro,
   #codemap-topov2-section > .section-intro,
   #codemap-cpaths-section > .section-intro,
@@ -1711,6 +1712,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 
   /* Tighten the print h2 so it doesn't claim a 3rd of the page above
      the diagram. The serif still reads as a section heading. */
+  #codemap-sysmap-section > h2,
   #codemap-modgraph-section > h2,
   #codemap-topov2-section > h2,
   #codemap-cpaths-section > h2,
@@ -1726,6 +1728,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
      padding + headline, so the SVG itself caps at 6.0in (~576px).
      viewBox preserves aspect ratio while scaling — text stays
      crisp because PDF is vector. */
+  .sysmap-svg,
   .topov2-svg,
   .lineage2-svg {
     display: block;
@@ -1958,7 +1961,9 @@ SECTION_INTROS: dict[str, str] = {
                 "backend module, <strong>solid lines</strong> are code imports, and "
                 "<strong>coloured lines into cylinders</strong> show which service "
                 "writes to which store. Modules marked with <strong>▸</strong> are "
-                "entry points — the doors through which requests arrive.",
+                "entry points — the doors through which requests arrive. Imports "
+                "between modules of the same service are omitted here to keep the map "
+                "readable — the dependency matrix further down shows them in full.",
     "languages": "Programming languages are the rules and vocabulary used to write code. "
                  "A codebase usually has one primary language plus several supporting ones "
                  "(configuration files, documentation, build scripts).",
@@ -2912,11 +2917,20 @@ def _sysmap_edges(
     out: list[dict[str, Any]] = []
 
     # ---- import edges
+    # Within-service imports are intentionally NOT drawn: a vertically-stacked
+    # pair in the same cluster column has no horizontal separation, so its
+    # "arc below" collapses into a near-vertical line that spears through every
+    # node stacked between the two. The dependency matrix further down shows
+    # within-service imports in full; the system map's job is cross-service and
+    # cross-tier wiring, so we keep only edges whose endpoints live in
+    # different services.
     graph_edges = (data.get("module_graph") or {}).get("edges") or []
     drawable = [
         e for e in graph_edges
         if e.get("source") in placed and e.get("target") in placed
         and e["source"] != e["target"]
+        and placed[e["source"]]["node"].get("service")
+        != placed[e["target"]]["node"].get("service")
     ]
     drawable.sort(key=lambda e: -(e.get("weight") or 1))
     for e in drawable[:SYSMAP_MAX_IMPORT_EDGES]:
@@ -3127,12 +3141,16 @@ def _sysmap_emit_svg(
         s = sp["store"]
         kind = (s.get("kind") or "unknown")
         color = STORE_KIND_COLORS.get(kind, "#888888")
+        full_name = s.get("name") or sid
+        parts.append('<g class="sysmap-store">')
+        parts.append(f'<title>{escape(full_name)}</title>')
         parts.append(_lineage2_emit_cylinder(sp["x"], sp["y"], sp["w"], sp["h"] - 18, color))
         parts.append(
             f'<text x="{sp["x"] + sp["w"] / 2:.1f}" y="{sp["y"] + sp["h"] + 6:.1f}" '
             f'text-anchor="middle" class="sysmap-store-label">'
-            f'{escape(s.get("name") or sid)}</text>'
+            f'{escape(_topov2_truncate(full_name, 14))}</text>'
         )
+        parts.append('</g>')
 
     parts.append("</svg>")
     return "".join(parts)
