@@ -176,33 +176,18 @@ class EdgesTest(unittest.TestCase):
 
     def test_import_edge_between_visible_nodes(self):
         imports = [e for e in self.edges if e["kind"] == "import"]
-        # The fixture's two drawable import edges (web/pages -> web/api-client
-        # and api/billing -> api/auth) are BOTH within-service, and the third
-        # is from a vendored (unplaced) module. After the within-service
-        # filter, no import edge survives.
-        self.assertEqual(len(imports), 0)
+        # The fixture's two within-service import edges (web/pages ->
+        # web/api-client and api/billing -> api/auth) are now DRAWN again;
+        # the third edge is from a vendored (unplaced) module and is dropped.
+        self.assertEqual(len(imports), 2)
 
     def test_no_edge_touches_unplaced_node(self):
         # The vendored module was excluded; no edge may reference it.
-        # Both fixture imports are within-service (dropped), so only the
-        # http and store edges remain.
-        self.assertEqual(len(self.edges), 2)  # 0 import + 1 http + 1 store
-
-    def test_no_within_service_import_edges(self):
-        """Within-service imports are omitted (matrix shows them); no same-cluster import edge."""
-        data = synthetic_data()
-        sel = render._sysmap_select(data, None)
-        layout = render._sysmap_layout(sel)
-        edges = render._sysmap_edges(data, layout)
-        svc = {nid: p["node"].get("service") for nid, p in layout["placed"].items()}
-        # The synthetic fixture's two import edges are BOTH within-service
-        # (web/pages->web/api-client and api/billing->api/auth), so after the
-        # filter there should be zero import edges from it.
-        imports = [e for e in edges if e["kind"] == "import"]
-        self.assertEqual(imports, [], "within-service imports must be dropped from the map")
+        # Both fixture imports are drawn again, plus the http and store edges.
+        self.assertEqual(len(self.edges), 4)  # 2 import + 1 http + 1 store
 
     def test_cross_service_same_band_import_survives(self):
-        """A cross-service import in the same band is kept."""
+        """A cross-service import in the same band is kept (dip or bracket)."""
         data = synthetic_data()
         # add a second backend service whose module imports api/auth
         data["services"].append({"id": "billing-svc", "name": "billing-svc",
@@ -216,8 +201,14 @@ class EdgesTest(unittest.TestCase):
         sel = render._sysmap_select(data, None)
         layout = render._sysmap_layout(sel)
         edges = render._sysmap_edges(data, layout)
-        cross = [e for e in edges if e["kind"] == "import"]
-        self.assertTrue(any(True for e in cross), "cross-service import should survive")
+        s = layout["placed"]["billing-svc/pay"]
+        t = layout["placed"]["api/auth"]
+        same_band = s["band"] == t["band"]
+        self.assertTrue(same_band, "billing-svc/pay and api/auth should share the backend band")
+        # An import edge for the cross-service pair must exist (geometry may be
+        # the dip arc or the gutter bracket, depending on layout).
+        imports = [e for e in edges if e["kind"] == "import"]
+        self.assertTrue(imports, "cross-service same-band import should survive")
 
     def test_http_edge_resolves_target_module(self):
         https = [e for e in self.edges if e["kind"] == "http"]
@@ -236,9 +227,9 @@ class EdgesTest(unittest.TestCase):
     def test_import_edge_cap(self):
         """More than SYSMAP_MAX_IMPORT_EDGES drawable edges -> capped, highest weight kept."""
         data = synthetic_data()
-        # Generate 50 extra synthetic backend nodes + edges, all drawable.
-        # Each source lives in its OWN service so the edges are CROSS-service
-        # and survive the within-service filter; that's what exercises the cap.
+        # Generate 50 extra synthetic backend nodes + edges, all drawable
+        # (within-service imports are drawn now, so every one of these counts
+        # toward the cap regardless of service). That's what exercises the cap.
         for i in range(50):
             sid = f"svc{i}"
             data["services"].append(
@@ -282,32 +273,105 @@ class EdgesTest(unittest.TestCase):
         self.assertAlmostEqual(e["x1"], s["x"] + s["w"] / 2)
         self.assertAlmostEqual(e["x2"], t["x"] + t["w"] / 2)
 
-    def test_same_band_import_anchors_at_node_bottoms(self):
-        """Same-band import edges anchor at both nodes' bottoms (arc-below).
+    def test_same_row_import_uses_dip_arc(self):
+        """Same-band imports between nodes on the SAME row keep the dip-below
+        arc: a 1-point control (the dip apex) and anchors at both node bottoms.
 
-        Within-service same-band imports are dropped, so this needs a
-        CROSS-service same-band import to exercise the arc-below geometry.
+        synthetic_data's two within-service imports (web/pages -> web/api-client
+        and api/billing -> api/auth) are same-row pairs, so both are dip arcs.
         """
-        data = synthetic_data()
-        data["services"].append({"id": "billing-svc", "name": "billing-svc",
-            "kind": "backend", "loc": 800, "file_count": 8, "color": "#3178c6",
-            "primary_language": "TypeScript"})
-        data["module_graph"]["nodes"].append({"id": "billing-svc/pay", "name": "pay",
-            "service": "billing-svc", "loc": 800, "files": 8,
-            "primary_language": "TypeScript", "color": "#3178c6", "vendored_guess": False})
-        data["module_graph"]["edges"].append(
-            {"source": "billing-svc/pay", "target": "api/auth", "weight": 4})
+        same_row = [e for e in self.edges
+                    if e["kind"] == "import" and len(e.get("ctrl") or []) == 1]
+        self.assertTrue(same_row, "expected at least one same-row dip arc")
+        bottoms = {round(p["y"] + p["h"], 3) for p in self.layout["placed"].values()}
+        for e in same_row:
+            self.assertTrue(e["same_band"])
+            # 1-point ctrl == quadratic dip; anchors sit at node bottoms.
+            self.assertEqual(len(e["ctrl"]), 1)
+            self.assertIn(round(e["y1"], 3), bottoms)
+            self.assertIn(round(e["y2"], 3), bottoms)
+            # dip apex hangs below the lower of the two anchors.
+            (_cx, cy) = e["ctrl"][0]
+            self.assertGreater(cy, max(e["y1"], e["y2"]))
+
+    def _stacked_hub_data(self):
+        """One backend service whose hub imports 14 spokes; the spokes wrap
+        into multiple rows, so several hub->spoke imports are STACKED and must
+        bracket out to the cluster's right gutter."""
+        nodes = [{"id": "web/pages", "name": "pages", "service": "web", "loc": 600,
+                  "files": 6, "primary_language": "TypeScript", "color": "#3178c6",
+                  "vendored_guess": False},
+                 {"id": "api/hub", "name": "hub", "service": "api", "loc": 9000,
+                  "files": 9, "primary_language": "TypeScript", "color": "#3178c6",
+                  "vendored_guess": False}]
+        edges = []
+        for i in range(14):
+            nodes.append({"id": f"api/s{i}", "name": f"s{i}", "service": "api",
+                          "loc": 500, "files": 5, "primary_language": "TypeScript",
+                          "color": "#3178c6", "vendored_guess": False})
+            edges.append({"source": "api/hub", "target": f"api/s{i}", "weight": 2})
+        return {
+            "scan_depth": "full", "project": {"name": "stack"},
+            "services": [
+                {"id": "web", "name": "web", "kind": "frontend", "loc": 1000,
+                 "file_count": 10, "color": "#292929", "primary_language": "TypeScript"},
+                {"id": "api", "name": "api", "kind": "backend", "loc": 5000,
+                 "file_count": 50, "color": "#3178c6", "primary_language": "TypeScript"}],
+            "modules": [], "module_graph": {"nodes": nodes, "edges": edges},
+            "http_topology": {"entry_modules": [], "endpoints": [], "edges": []},
+            "data_lineage": {"stores": [], "models": [], "edges": []},
+        }
+
+    def test_stacked_import_brackets_to_gutter(self):
+        """Stacked same-band imports bow OUT to the cluster's right gutter
+        (a 2-point bracket) instead of spearing through the node column.
+
+        Both control points share an x that exceeds BOTH endpoints' right
+        edges (proving the curve travels in the right margin, not through the
+        column), and that x stays within the viewBox.
+        """
+        data = self._stacked_hub_data()
         sel = render._sysmap_select(data, None)
         layout = render._sysmap_layout(sel)
         edges = render._sysmap_edges(data, layout)
-        same = [e for e in edges if e["kind"] == "import" and e["same_band"]]
-        self.assertTrue(same)
-        for e in same:
-            # both endpoints are bottoms; can't know which node without ids,
-            # but every same-band import y must equal some placed node's bottom.
-            bottoms = {round(p["y"] + p["h"], 3) for p in layout["placed"].values()}
-            self.assertIn(round(e["y1"], 3), bottoms)
-            self.assertIn(round(e["y2"], 3), bottoms)
+        brackets = [e for e in edges
+                    if e["kind"] == "import" and len(e.get("ctrl") or []) == 2]
+        self.assertTrue(brackets, "hub/spoke layout should produce stacked brackets")
+        for e in brackets:
+            self.assertTrue(e["same_band"])
+            ctrl_xs = {round(c[0], 3) for c in e["ctrl"]}
+            # both control points share one x (the gutter column).
+            self.assertEqual(len(ctrl_xs), 1, f"bracket ctrl xs differ: {e['ctrl']}")
+            cx = next(iter(ctrl_xs))
+            # x1/x2 are the source/target RIGHT edges in the bracket case;
+            # the gutter column must sit past both, i.e. out in the margin.
+            self.assertGreater(cx, e["x1"])
+            self.assertGreater(cx, e["x2"])
+            self.assertLessEqual(cx, render.SYSMAP_W)
+
+    def test_no_degenerate_near_vertical_dip(self):
+        """The spike signature is forbidden: no same-band import may use a
+        1-point dip whose apex x is within 5px of BOTH endpoints while the
+        endpoints are far apart vertically (that would spear the column).
+
+        Checked against both the synthetic fixture and the stacked hub layout.
+        """
+        node_h = render.SYSMAP_NODE_H
+        cases = [synthetic_data(), self._stacked_hub_data()]
+        for data in cases:
+            sel = render._sysmap_select(data, None)
+            layout = render._sysmap_layout(sel)
+            edges = render._sysmap_edges(data, layout)
+            for e in edges:
+                if e["kind"] != "import":
+                    continue
+                ctrl = e.get("ctrl") or []
+                if len(ctrl) != 1:
+                    continue
+                cx = ctrl[0][0]
+                degenerate = (abs(cx - e["x1"]) < 5 and abs(cx - e["x2"]) < 5
+                              and abs(e["y1"] - e["y2"]) > 2 * node_h)
+                self.assertFalse(degenerate, f"degenerate near-vertical dip: {e}")
 
     def test_store_edge_carries_kind_color(self):
         stores = [e for e in self.edges if e["kind"] == "store"]

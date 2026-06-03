@@ -1961,9 +1961,9 @@ SECTION_INTROS: dict[str, str] = {
                 "backend module, <strong>solid lines</strong> are code imports, and "
                 "<strong>coloured lines into cylinders</strong> show which service "
                 "writes to which store. Modules marked with <strong>▸</strong> are "
-                "entry points — the doors through which requests arrive. Imports "
-                "between modules of the same service are omitted here to keep the map "
-                "readable — the dependency matrix further down shows them in full.",
+                "entry points — the doors through which requests arrive. Solid lines "
+                "are code imports; the dependency matrix further down shows the full "
+                "import detail.",
     "languages": "Programming languages are the rules and vocabulary used to write code. "
                  "A codebase usually has one primary language plus several supporting ones "
                  "(configuration files, documentation, build scripts).",
@@ -2917,33 +2917,59 @@ def _sysmap_edges(
     out: list[dict[str, Any]] = []
 
     # ---- import edges
-    # Within-service imports are intentionally NOT drawn: a vertically-stacked
-    # pair in the same cluster column has no horizontal separation, so its
-    # "arc below" collapses into a near-vertical line that spears through every
-    # node stacked between the two. The dependency matrix further down shows
-    # within-service imports in full; the system map's job is cross-service and
-    # cross-tier wiring, so we keep only edges whose endpoints live in
-    # different services.
+    # Within-service imports ARE drawn. The spike problem (a vertically-stacked
+    # same-cluster pair whose "arc below" collapses into a near-vertical line
+    # spearing through the nodes between them) is solved by routing, not by
+    # dropping the edge: stacked same-band imports bow out to the cluster's
+    # right gutter as a bracket "]" that travels in empty margin space, while
+    # near-same-row pairs keep the clean dip-below arc. The dependency matrix
+    # further down still carries the full import detail.
     graph_edges = (data.get("module_graph") or {}).get("edges") or []
     drawable = [
         e for e in graph_edges
         if e.get("source") in placed and e.get("target") in placed
         and e["source"] != e["target"]
-        and placed[e["source"]]["node"].get("service")
-        != placed[e["target"]]["node"].get("service")
     ]
     drawable.sort(key=lambda e: -(e.get("weight") or 1))
     for e in drawable[:SYSMAP_MAX_IMPORT_EDGES]:
-        s, t = placed[e["source"]], placed[e["target"]]
+        s = placed[e["source"]]
+        t = placed[e["target"]]
         same_band = s["band"] == t["band"]
+        weight = e.get("weight") or 1
         if same_band:
-            # Anchor both ends at node bottoms; drawn as an arc below.
-            out.append({
-                "kind": "import", "same_band": True,
-                "x1": s["x"] + s["w"] / 2, "y1": s["y"] + s["h"],
-                "x2": t["x"] + t["w"] / 2, "y2": t["y"] + t["h"],
-                "weight": e.get("weight") or 1,
-            })
+            node_h = s["h"]
+            dy = abs(s["y"] - t["y"])
+            if dy <= 1.2 * node_h:
+                # near same row: gentle dip-below arc between bottom centers
+                x1 = s["x"] + s["w"] / 2; y1 = s["y"] + s["h"]
+                x2 = t["x"] + t["w"] / 2; y2 = t["y"] + t["h"]
+                dip = 22 + abs(x2 - x1) * 0.04
+                out.append({
+                    "kind": "import", "same_band": True,
+                    "x1": x1, "y1": y1, "x2": x2, "y2": y2,
+                    "ctrl": [((x1 + x2) / 2, max(y1, y2) + dip)],
+                    "weight": weight,
+                })
+            else:
+                # stacked across rows: bracket out to the cluster's right
+                # gutter so the curve clears the node column instead of
+                # spearing through it.
+                s_service = s["node"].get("service")
+                t_service = t["node"].get("service")
+                clusters = [cluster_by_service.get(s_service),
+                            cluster_by_service.get(t_service)]
+                rights = [c["x"] + c["w"] for c in clusters if c]
+                right = max(rights) if rights else max(s["x"] + s["w"],
+                                                       t["x"] + t["w"])
+                gx = min(SYSMAP_W - 8, right + 24)
+                x1 = s["x"] + s["w"]; y1 = s["y"] + s["h"] / 2  # source right-mid
+                x2 = t["x"] + t["w"]; y2 = t["y"] + t["h"] / 2  # target right-mid
+                out.append({
+                    "kind": "import", "same_band": True,
+                    "x1": x1, "y1": y1, "x2": x2, "y2": y2,
+                    "ctrl": [(gx, y1), (gx, y2)],
+                    "weight": weight,
+                })
         else:
             src_above = s["y"] < t["y"]
             out.append({
@@ -2952,7 +2978,7 @@ def _sysmap_edges(
                 "y1": s["y"] + (s["h"] if src_above else 0),
                 "x2": t["x"] + t["w"] / 2,
                 "y2": t["y"] + (0 if src_above else t["h"]),
-                "weight": e.get("weight") or 1,
+                "weight": weight,
             })
 
     # ---- HTTP edges: source service cluster → target entry module
@@ -3065,21 +3091,25 @@ def _sysmap_emit_svg(
     for e in edges:
         x1, y1, x2, y2 = e["x1"], e["y1"], e["x2"], e["y2"]
         w = max(1.0, min(4.0, 1.0 + math.log2(max(1, e["weight"]))))
-        if e["kind"] == "import" and e["same_band"]:
-            # Arc dipping below both nodes.
-            dip = 26 + abs(x2 - x1) * 0.04
-            my = max(y1, y2) + dip
-            parts.append(
-                f'<path d="M{x1:.1f},{y1:.1f} Q{(x1 + x2) / 2:.1f},{my:.1f} '
-                f'{x2:.1f},{y2:.1f}" class="sysmap-edge-import" '
-                f'stroke-width="{w:.1f}" fill="none" />'
-            )
-        elif e["kind"] == "import":
-            parts.append(
-                f'<path d="M{x1:.1f},{y1:.1f} C{x1:.1f},{(y1 + y2) / 2:.1f} '
-                f'{x2:.1f},{(y1 + y2) / 2:.1f} {x2:.1f},{y2:.1f}" '
-                f'class="sysmap-edge-import" stroke-width="{w:.1f}" fill="none" />'
-            )
+        if e["kind"] == "import":
+            sw = max(1.0, min(4.0, 1.0 + math.log2(max(1, e["weight"]))))
+            ctrl = e.get("ctrl") or []
+            if len(ctrl) == 2:                      # stacked bracket (cubic)
+                (c1x, c1y), (c2x, c2y) = ctrl
+                dpath = (f'M{e["x1"]:.1f},{e["y1"]:.1f} '
+                         f'C{c1x:.1f},{c1y:.1f} {c2x:.1f},{c2y:.1f} '
+                         f'{e["x2"]:.1f},{e["y2"]:.1f}')
+            elif len(ctrl) == 1:                    # same-row dip (quadratic)
+                (cx, cy) = ctrl[0]
+                dpath = (f'M{e["x1"]:.1f},{e["y1"]:.1f} '
+                         f'Q{cx:.1f},{cy:.1f} {e["x2"]:.1f},{e["y2"]:.1f}')
+            else:                                   # cross-band S-curve (existing)
+                midy = (e["y1"] + e["y2"]) / 2
+                dpath = (f'M{e["x1"]:.1f},{e["y1"]:.1f} '
+                         f'C{e["x1"]:.1f},{midy:.1f} {e["x2"]:.1f},{midy:.1f} '
+                         f'{e["x2"]:.1f},{e["y2"]:.1f}')
+            parts.append(f'<path d="{dpath}" class="sysmap-edge-import" '
+                         f'stroke-width="{sw:.1f}" fill="none" />')
         elif e["kind"] == "http":
             parts.append(
                 f'<path d="M{x1:.1f},{y1:.1f} C{x1:.1f},{(y1 + y2) / 2:.1f} '
