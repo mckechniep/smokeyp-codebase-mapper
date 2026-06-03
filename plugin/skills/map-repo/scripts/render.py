@@ -2482,6 +2482,243 @@ def render_modules(data: dict[str, Any], enrichment: dict[str, Any] | None = Non
 """
 
 
+# ====================================================================
+# System map — layered-bands hero ("how the system fits together")
+# ====================================================================
+#
+# The orienting "big picture": every PRODUCT module drawn as a node in
+# its tier band (frontend / backend / data), wired with the cross-tier
+# relationships the scanner found. Vendored modules are absent by
+# design — this map answers "what did this team build", not "what code
+# is in the repo". Fine-grained within-service import detail stays in
+# the dependency matrix; this map's job is the system-level wiring.
+
+SYSMAP_FRONTEND_KINDS = frozenset({"frontend", "mobile"})
+
+SYSMAP_W = 1120                 # SVG viewBox width
+SYSMAP_MARGIN_X = 20
+SYSMAP_NODE_H = 32
+SYSMAP_NODE_GAP = 10            # horizontal gap between sibling nodes
+SYSMAP_ROW_GAP = 12             # vertical gap between node rows in a cluster
+SYSMAP_CLUSTER_PAD = 16         # padding inside a service-cluster outline
+SYSMAP_CLUSTER_GAP = 24         # gap between sibling clusters
+SYSMAP_CLUSTER_LABEL_H = 24     # space reserved for the cluster's service label
+SYSMAP_BAND_LABEL_W = 28        # vertical band-label gutter on the left
+SYSMAP_BAND_GAP = 76            # vertical space between bands (edges route here)
+SYSMAP_STORE_W = 88
+SYSMAP_STORE_H = 60
+SYSMAP_STORE_GAP = 40
+SYSMAP_MAX_NODES = {"shallow": 20, "medium": 40, "full": 60}
+SYSMAP_MAX_IMPORT_EDGES = 40
+
+
+def _sysmap_node_w(label: str, is_entry: bool, loc: int = 0) -> float:
+    """Node width: fits the (truncated) label, with a LOC-bucket minimum
+    so bigger modules read as bigger (spec: 3 size buckets)."""
+    text = _truncate_label(label)
+    w = len(text) * 7.4 + 24
+    if is_entry:
+        w += 26  # room for the entry badge
+    # LOC buckets: <1k small, 1k-10k medium, >10k large.
+    loc_min = 80.0 if loc < 1_000 else (110.0 if loc < 10_000 else 140.0)
+    return max(loc_min, min(max(72.0, w), 200.0))
+
+
+def _sysmap_select(
+    data: dict[str, Any], enrichment: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    """Select product modules for the map and assign them to bands.
+
+    Returns None when there is nothing to draw. Otherwise:
+      {
+        "bands": {"frontend": [node, ...], "backend": [node, ...]},
+        "stores": [store, ...],
+        "entry_counts": {module_id: endpoint_count},
+        "excluded_vendored": int,
+        "truncated": int,
+        "services": {service_id: service_dict},
+      }
+    """
+    graph = data.get("module_graph") or {}
+    nodes = list(graph.get("nodes") or [])
+    services = {s["id"]: s for s in (data.get("services") or [])}
+    if not nodes or not services:
+        return None
+
+    # Vendored filter: heuristic flag on the node, refined by enrichment.
+    cls = (enrichment or {}).get("classification") or {}
+    enr_products = {p.get("module_id") for p in (cls.get("products") or [])}
+    enr_vendored = {v.get("module_id") for v in (cls.get("vendored") or [])}
+
+    def is_vendored(n: dict[str, Any]) -> bool:
+        nid = n.get("id")
+        if nid in enr_products:
+            return False
+        if nid in enr_vendored:
+            return True
+        return bool(n.get("vendored_guess"))
+
+    product = [n for n in nodes if not is_vendored(n)]
+    excluded = len(nodes) - len(product)
+    if not product:
+        return None
+
+    # Connectivity ranking: degree + entry-point boost, then LOC.
+    edges = list(graph.get("edges") or [])
+    degree: dict[str, int] = {}
+    for e in edges:
+        degree[e["source"]] = degree.get(e["source"], 0) + 1
+        degree[e["target"]] = degree.get(e["target"], 0) + 1
+
+    topo = data.get("http_topology") or {}
+    entry_counts: dict[str, int] = {
+        em["module"]: em.get("endpoint_count", 0)
+        for em in (topo.get("entry_modules") or [])
+        if em.get("module")
+    }
+
+    def rank(n: dict[str, Any]) -> tuple[int, int]:
+        boost = 1000 if n["id"] in entry_counts else 0
+        return (degree.get(n["id"], 0) + boost, n.get("loc", 0))
+
+    product.sort(key=rank, reverse=True)
+    cap = SYSMAP_MAX_NODES.get(data.get("scan_depth", "medium")) or 40
+    truncated = max(0, len(product) - cap)
+    visible = product[:cap]
+
+    # Band assignment by the owning service's kind.
+    bands: dict[str, list[dict[str, Any]]] = {"frontend": [], "backend": []}
+    for n in visible:
+        svc = services.get(n.get("service")) or {}
+        kind = (svc.get("kind") or "unknown").lower()
+        key = "frontend" if kind in SYSMAP_FRONTEND_KINDS else "backend"
+        bands[key].append(n)
+
+    stores = list((data.get("data_lineage") or {}).get("stores") or [])
+
+    return {
+        "bands": bands,
+        "stores": stores,
+        "entry_counts": entry_counts,
+        "excluded_vendored": excluded,
+        "truncated": truncated,
+        "services": services,
+    }
+
+
+def _sysmap_layout(sel: dict[str, Any]) -> dict[str, Any]:
+    """Compute x/y geometry for every node, cluster, band, and store.
+
+    Deterministic: same selection -> same coordinates. Bands stack
+    top-to-bottom (frontend, backend, data); service clusters sit
+    side-by-side within a band, each wrapping its nodes into rows.
+    """
+    services = sel["services"]
+    entry_counts = sel["entry_counts"]
+    placed: dict[str, dict[str, Any]] = {}
+    clusters: list[dict[str, Any]] = []
+    band_boxes: dict[str, dict[str, float]] = {}
+
+    y_cursor = 0.0
+    content_w = SYSMAP_W - 2 * SYSMAP_MARGIN_X - SYSMAP_BAND_LABEL_W
+    x_origin = SYSMAP_MARGIN_X + SYSMAP_BAND_LABEL_W
+
+    for band_key in ("frontend", "backend"):
+        band_nodes = sel["bands"].get(band_key) or []
+        if not band_nodes:
+            continue
+        band_top = y_cursor
+
+        # Group nodes by service; biggest cluster first for stable layout.
+        by_service: dict[str, list[dict[str, Any]]] = {}
+        for n in band_nodes:
+            by_service.setdefault(n.get("service") or "?", []).append(n)
+        service_ids = sorted(by_service, key=lambda sid: (-len(by_service[sid]), sid))
+
+        k = len(service_ids)
+        cluster_w = (content_w - (k - 1) * SYSMAP_CLUSTER_GAP) / k
+        band_h = 0.0
+        cx = x_origin
+        band_clusters: list[dict[str, Any]] = []
+        for sid in service_ids:
+            cnodes = by_service[sid]
+            svc = services.get(sid) or {}
+            inner_w = cluster_w - 2 * SYSMAP_CLUSTER_PAD
+
+            # Wrap nodes into rows.
+            rows: list[list[dict[str, Any]]] = [[]]
+            row_w = 0.0
+            for n in cnodes:
+                w = _sysmap_node_w(n.get("name") or n["id"],
+                                   n["id"] in entry_counts,
+                                   n.get("loc", 0))
+                n["_w"] = w
+                if row_w + w > inner_w and rows[-1]:
+                    rows.append([])
+                    row_w = 0.0
+                rows[-1].append(n)
+                row_w += w + SYSMAP_NODE_GAP
+
+            # Place nodes row by row.
+            ny = band_top + SYSMAP_CLUSTER_LABEL_H + SYSMAP_CLUSTER_PAD
+            for row in rows:
+                nx = cx + SYSMAP_CLUSTER_PAD
+                for n in row:
+                    placed[n["id"]] = {
+                        "x": nx, "y": ny, "w": n["_w"], "h": float(SYSMAP_NODE_H),
+                        "band": band_key, "node": n,
+                    }
+                    nx += n["_w"] + SYSMAP_NODE_GAP
+                ny += SYSMAP_NODE_H + SYSMAP_ROW_GAP
+
+            cluster_h = (ny - SYSMAP_ROW_GAP + SYSMAP_CLUSTER_PAD) - band_top
+            kind = (svc.get("kind") or "unknown").lower()
+            band_clusters.append({
+                "service_id": sid,
+                "band": band_key,
+                "x": cx, "y": band_top, "w": cluster_w, "h": cluster_h,
+                "color": SERVICE_KIND_COLORS.get(kind, SERVICE_KIND_COLORS["unknown"]),
+                "label": svc.get("name") or sid,
+                "kind": kind,
+            })
+            band_h = max(band_h, cluster_h)
+            cx += cluster_w + SYSMAP_CLUSTER_GAP
+
+        # Equalize cluster heights within the band.
+        for c in band_clusters:
+            c["h"] = band_h
+        clusters.extend(band_clusters)
+        band_boxes[band_key] = {"y": band_top, "h": band_h}
+        y_cursor = band_top + band_h + SYSMAP_BAND_GAP
+
+    # Data band: store cylinders, horizontally centered.
+    stores = sel["stores"]
+    store_pos: dict[str, dict[str, Any]] = {}
+    if stores:
+        band_top = y_cursor
+        total_w = len(stores) * SYSMAP_STORE_W + (len(stores) - 1) * SYSMAP_STORE_GAP
+        sx = x_origin + max(0.0, (content_w - total_w) / 2)
+        for s in stores:
+            store_pos[s["id"]] = {
+                "x": sx, "y": band_top + 4, "w": float(SYSMAP_STORE_W),
+                "h": float(SYSMAP_STORE_H), "store": s,
+            }
+            sx += SYSMAP_STORE_W + SYSMAP_STORE_GAP
+        band_boxes["data"] = {"y": band_top, "h": SYSMAP_STORE_H + 30.0}
+        y_cursor = band_top + SYSMAP_STORE_H + 30.0
+    elif band_boxes:
+        # No stores: trim the trailing band gap.
+        y_cursor -= SYSMAP_BAND_GAP
+
+    return {
+        "placed": placed,
+        "clusters": clusters,
+        "stores": store_pos,
+        "bands": band_boxes,
+        "height": y_cursor + 10.0,
+    }
+
+
 # Kind-based service zone tints. Backend gets a warm orange, frontend a
 # cool blue, library purple, anything unclassified a neutral gray. These
 # match the spirit of the reference TOPOLOGY.html palette so the report
