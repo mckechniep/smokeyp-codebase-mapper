@@ -101,6 +101,54 @@ class ModulesTest(unittest.TestCase):
         self.assertIn("scanner guess", html)
         self.assertNotIn("The web dashboard.", html)
 
+    def test_heuristic_vendored_without_enrichment(self):
+        """vendored_guess alone (no enrichment) badges, dims, and sorts last."""
+        data = {"modules": [
+            {"path": "glib-master", "file_count": 2, "loc": 9000,
+             "languages": ["JavaScript"], "description": "clone",
+             "vendored_guess": True},
+            {"path": "apps/web", "file_count": 3, "loc": 100,
+             "languages": ["TypeScript"], "description": "product",
+             "vendored_guess": False},
+        ]}
+        html = render.render_modules(data, None)
+        self.assertIn("vendored", html.lower())
+        self.assertIn("is-vendored", html)
+        # Product sorts before the (larger) vendored module.
+        self.assertLess(html.index("apps/web"), html.index("glib-master"))
+
+    def test_enrichment_product_rescues_heuristic_false_positive(self):
+        """classification.products beats vendored_guess=True."""
+        data = {"modules": [
+            {"path": "tools/build-main", "file_count": 3, "loc": 100,
+             "languages": ["TypeScript"], "description": "our build tool",
+             "vendored_guess": True},
+        ]}
+        enr = {
+            "schema_version": 1,
+            "overview": {"what_it_is": "x", "what_it_does": "y", "how_it_works": "z",
+                         "primary_stack": [], "confidence": "low", "caveats": []},
+            "classification": {
+                "products": [{"module_id": "tools/build-main", "role": "tooling", "why": "ours"}],
+                "vendored": [],
+            },
+            "module_descriptions": [],
+            "flows": [],
+        }
+        html = render.render_modules(data, enr)
+        self.assertNotIn("is-vendored", html)
+
+    def test_legacy_data_without_flag_renders_unchanged(self):
+        """Module dicts with no vendored_guess key (pre-0.8.0 codemap.json)
+        behave exactly as before."""
+        data = {"modules": [
+            {"path": "apps/web", "file_count": 3, "loc": 100,
+             "languages": ["TypeScript"], "description": "product"},
+        ]}
+        html = render.render_modules(data, None)
+        self.assertNotIn("is-vendored", html)
+        self.assertNotIn("vendored-badge", html)
+
 
 class FlowsTest(unittest.TestCase):
     def _enr(self):

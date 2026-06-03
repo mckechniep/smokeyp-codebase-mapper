@@ -2397,17 +2397,27 @@ def render_modules(data: dict[str, Any], enrichment: dict[str, Any] | None = Non
 
     # Build classification + description lookups from enrichment (keyed by path).
     vendored_ids: dict[str, dict] = {}
+    product_ids: set[str] = set()
     desc_by_id: dict[str, str] = {}
     if enrichment:
-        for v in enrichment.get("classification", {}).get("vendored", []):
+        cls = enrichment.get("classification") or {}
+        for v in cls.get("vendored", []) or []:
             if v.get("module_id"):
                 vendored_ids[v["module_id"]] = v
+        for p in cls.get("products", []) or []:
+            if p.get("module_id"):
+                product_ids.add(p["module_id"])
         for d in enrichment.get("module_descriptions", []):
             if d.get("module_id") and d.get("description"):
                 desc_by_id[d["module_id"]] = d["description"]
 
     def is_vendored(m: dict) -> bool:
-        return m.get("path") in vendored_ids
+        path = m.get("path")
+        if path in product_ids:    # enrichment rescue beats the heuristic
+            return False
+        if path in vendored_ids:   # enrichment catch beats the heuristic
+            return True
+        return bool(m.get("vendored_guess"))
 
     def card(m: dict) -> str:
         path = m.get("path", "")
@@ -2432,13 +2442,10 @@ def render_modules(data: dict[str, Any], enrichment: dict[str, Any] | None = Non
         </div>
         """
 
-    # Products first (original order), vendored last — only when classified.
-    if enrichment:
-        products = [m for m in mods if not is_vendored(m)]
-        vendored = [m for m in mods if is_vendored(m)]
-        ordered = products + vendored
-    else:
-        ordered = mods
+    # Products first (original order), vendored last.
+    products = [m for m in mods if not is_vendored(m)]
+    vendored = [m for m in mods if is_vendored(m)]
+    ordered = products + vendored
 
     cards = "".join(card(m) for m in ordered)
 
@@ -2454,7 +2461,7 @@ def render_modules(data: dict[str, Any], enrichment: dict[str, Any] | None = Non
     # Why some cards are faded — only meaningful once the LLM has flagged
     # vendored modules, so it stays absent in the no-enrichment (degraded) render.
     vendored_note = ""
-    if enrichment and any(is_vendored(m) for m in mods):
+    if any(is_vendored(m) for m in mods):
         vendored_note = (
             '<p class="module-note">Some cards are <strong>faded and tagged '
             '<em>vendored</em></strong>: that code lives in this repository but '
