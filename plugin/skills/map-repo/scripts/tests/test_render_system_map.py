@@ -501,6 +501,49 @@ class ObservationsAndBentoTest(unittest.TestCase):
         self.assertIn("auth", html)
         self.assertNotIn("call path 1", html)
 
+    def test_orphan_observation_lists_disconnected_modules(self):
+        data = synthetic_data()
+        # add 6 backend modules with NO edges -> all orphans
+        for i in range(6):
+            data["module_graph"]["nodes"].append(
+                {"id": f"api/orphan{i}", "name": f"orphan{i}", "service": "api",
+                 "loc": 50, "files": 1, "primary_language": "TypeScript",
+                 "color": "#3178c6", "vendored_guess": False})
+        sel = render._sysmap_select(data, None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(data, layout)
+        obs = render._observations_for_sysmap(sel, edges, data)
+        joined = " ".join(obs)
+        self.assertIn("no detected connections", joined)
+        self.assertIn("orphan0", joined)
+        # >4 orphans -> the first 4 are named and the rest summarized
+        self.assertIn("more", joined)
+
+    def test_unreached_entries_observation(self):
+        data = synthetic_data()
+        # Break the http edge's path so it can't resolve to a module,
+        # leaving the entry module (api/auth) with no inbound HTTP edge.
+        data["http_topology"]["edges"] = [
+            {"source_service": "web", "target_service": "api",
+             "method": "POST", "path": "/nonexistent/route", "weight": 4}]
+        sel = render._sysmap_select(data, None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(data, layout)
+        # sanity: no http edge survived the path-join
+        self.assertEqual([e for e in edges if e["kind"] == "http"], [])
+        obs = render._observations_for_sysmap(sel, edges, data)
+        joined = " ".join(obs)
+        self.assertIn("entry-point", joined.lower().replace("entry point", "entry-point"))
+        self.assertIn("no resolved http", joined.lower())
+
+    def test_observations_and_bento_escape_repo_strings(self):
+        data = synthetic_data()
+        # make the hub module name malicious (api/auth is the highest-degree node)
+        data["module_graph"]["nodes"][2]["name"] = 'h<script>&"x'
+        html = render.render_system_map(data, None)
+        self.assertNotIn("<script>", html)
+        self.assertIn("&lt;script&gt;", html)
+
 
 if __name__ == "__main__":
     unittest.main()

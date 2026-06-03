@@ -3242,7 +3242,6 @@ def _observations_for_sysmap(
         )
 
     # 5. Unreached entry modules (entry points with no HTTP edge landing on them).
-    http_targets = {(e.get("x2"), e.get("y2")) for e in edges if e["kind"] == "http"}
     n_http = sum(1 for e in edges if e["kind"] == "http")
     n_entries = sum(1 for n in all_nodes if n["id"] in sel["entry_counts"])
     if n_entries and n_http == 0:
