@@ -2646,6 +2646,7 @@ SYSMAP_DATA_BAND_PAD = 30       # label + padding below store cylinders
 SYSMAP_BOTTOM_PAD = 10          # padding below the last band
 SYSMAP_MAX_NODES = {"shallow": 20, "medium": 40, "full": 60}
 SYSMAP_MAX_IMPORT_EDGES = 40
+SYSMAP_GUTTER_LANE_STEP = 14    # px between per-target gutter spines (stacked brackets)
 
 
 def _sysmap_node_w(label: str, is_entry: bool, loc: int = 0) -> float:
@@ -2931,7 +2932,30 @@ def _sysmap_edges(
         and e["source"] != e["target"]
     ]
     drawable.sort(key=lambda e: -(e.get("weight") or 1))
-    for e in drawable[:SYSMAP_MAX_IMPORT_EDGES]:
+    capped = drawable[:SYSMAP_MAX_IMPORT_EDGES]
+
+    def _is_stacked_bracket(e: dict[str, Any]) -> bool:
+        s = placed[e["source"]]
+        t = placed[e["target"]]
+        return s["band"] == t["band"] and abs(s["y"] - t["y"]) > 1.2 * s["h"]
+
+    # Pre-pass: every target that will receive a stacked same-band bracket gets
+    # its own gutter lane, so edges converging on one hub share a single spine
+    # while edges into different hubs sit on separate spines (no merging). The
+    # busiest hub takes lane 0 (nearest the cluster); ties break on target id
+    # for determinism — no sets influence ordering.
+    bracket_count_by_target: dict[str, int] = {}
+    for e in capped:
+        if _is_stacked_bracket(e):
+            tid = e["target"]
+            bracket_count_by_target[tid] = bracket_count_by_target.get(tid, 0) + 1
+    ranked_targets = sorted(
+        bracket_count_by_target,
+        key=lambda tid: (-bracket_count_by_target[tid], tid),
+    )
+    lane_index = {tid: rank for rank, tid in enumerate(ranked_targets)}
+
+    for e in capped:
         s = placed[e["source"]]
         t = placed[e["target"]]
         same_band = s["band"] == t["band"]
@@ -2961,7 +2985,12 @@ def _sysmap_edges(
                 rights = [c["x"] + c["w"] for c in clusters if c]
                 right = max(rights) if rights else max(s["x"] + s["w"],
                                                        t["x"] + t["w"])
-                gx = min(SYSMAP_W - 8, right + 24)
+                # Fan the gutter into per-target lanes: edges into the same hub
+                # share one spine; different hubs step out by lane.
+                base = right + 24
+                gx = min(SYSMAP_W - 8,
+                         base + lane_index.get(e["target"], 0)
+                         * SYSMAP_GUTTER_LANE_STEP)
                 x1 = s["x"] + s["w"]; y1 = s["y"] + s["h"] / 2  # source right-mid
                 x2 = t["x"] + t["w"]; y2 = t["y"] + t["h"] / 2  # target right-mid
                 out.append({

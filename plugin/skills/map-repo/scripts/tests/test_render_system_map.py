@@ -349,6 +349,116 @@ class EdgesTest(unittest.TestCase):
             self.assertGreater(cx, e["x2"])
             self.assertLessEqual(cx, render.SYSMAP_W)
 
+    def _multi_target_stacked_data(self):
+        """Two backend services so the api cluster is narrow enough to leave
+        gutter room. Inside api, five high-degree source hubs fill the top
+        row; two shared targets (tgtX, tgtY) each receive TWO stacked imports
+        (from h0 and h1) and wrap to a lower row, while degree-1 fillers also
+        wrap below. This yields ≥2 distinct lower-row targets, each with ≥2
+        stacked brackets — the case that distinguishes per-target lanes."""
+        nodes = [{"id": "web/pages", "name": "pages", "service": "web",
+                  "loc": 600, "files": 6, "primary_language": "TypeScript",
+                  "color": "#3178c6", "vendored_guess": False}]
+        for h in ("h0", "h1", "h2", "h3", "h4"):
+            nodes.append({"id": f"api/{h}", "name": h, "service": "api",
+                          "loc": 9000, "files": 9, "primary_language": "TypeScript",
+                          "color": "#3178c6", "vendored_guess": False})
+        for t in ("tgtX", "tgtY"):
+            nodes.append({"id": f"api/{t}", "name": t, "service": "api",
+                          "loc": 500, "files": 5, "primary_language": "TypeScript",
+                          "color": "#3178c6", "vendored_guess": False})
+        for i in range(8):
+            nodes.append({"id": f"api/f{i:02d}", "name": f"f{i:02d}",
+                          "service": "api", "loc": 500, "files": 5,
+                          "primary_language": "TypeScript", "color": "#3178c6",
+                          "vendored_guess": False})
+        for i in range(6):
+            nodes.append({"id": f"core/c{i:02d}", "name": f"c{i:02d}",
+                          "service": "core", "loc": 500, "files": 5,
+                          "primary_language": "TypeScript", "color": "#3178c6",
+                          "vendored_guess": False})
+        edges = []
+        # Inflate every hub's degree so all five outrank the degree-2 shared
+        # targets and hold the top row, forcing tgtX/tgtY to wrap below.
+        fi = 0
+        for h in ("h0", "h1", "h2", "h3", "h4"):
+            for _ in range(3):
+                edges.append({"source": f"api/{h}", "target": f"api/f{fi % 8:02d}",
+                              "weight": 1})
+                fi += 1
+        # Both shared targets get two stacked imports (from h0 and h1).
+        for h in ("h0", "h1"):
+            edges.append({"source": f"api/{h}", "target": "api/tgtX", "weight": 2})
+            edges.append({"source": f"api/{h}", "target": "api/tgtY", "weight": 2})
+        return {
+            "scan_depth": "full", "project": {"name": "stack"},
+            "services": [
+                {"id": "web", "name": "web", "kind": "frontend", "loc": 1000,
+                 "file_count": 10, "color": "#292929", "primary_language": "TypeScript"},
+                {"id": "api", "name": "api", "kind": "backend", "loc": 5000,
+                 "file_count": 50, "color": "#3178c6", "primary_language": "TypeScript"},
+                {"id": "core", "name": "core", "kind": "backend", "loc": 3000,
+                 "file_count": 30, "color": "#3178c6", "primary_language": "TypeScript"}],
+            "modules": [], "module_graph": {"nodes": nodes, "edges": edges},
+            "http_topology": {"entry_modules": [], "endpoints": [], "edges": []},
+            "data_lineage": {"stores": [], "models": [], "edges": []},
+        }
+
+    def test_bracket_lanes_fan_by_target(self):
+        """Stacked brackets fan into per-target gutter lanes: edges converging
+        on ONE hub share a single spine (one gx), while edges into DIFFERENT
+        hubs sit on separate spines (distinct gx). This is the fix for all
+        brackets bunching onto one gutter x and merging into one bundle.
+        """
+        data = self._multi_target_stacked_data()
+        layout = render._sysmap_layout(render._sysmap_select(data, None))
+        placed = layout["placed"]
+        edges = render._sysmap_edges(data, layout)
+        brackets = [e for e in edges
+                    if e["kind"] == "import" and len(e.get("ctrl") or []) == 2]
+        self.assertTrue(brackets, "fixture should produce stacked brackets")
+
+        # Recover each bracket's target by matching its (x2, y2) anchor — the
+        # target node's right-mid — back to a placed node.
+        def target_of(e):
+            for nid, p in placed.items():
+                if (abs((p["x"] + p["w"]) - e["x2"]) < 0.5
+                        and abs((p["y"] + p["h"] / 2) - e["y2"]) < 0.5):
+                    return nid
+            return None
+
+        lanes_by_target: dict[str, set] = {}
+        for e in brackets:
+            tid = target_of(e)
+            self.assertIsNotNone(tid, f"could not resolve bracket target: {e}")
+            # Both control points of a single bracket share one x (the lane).
+            ctrl_xs = {round(c[0], 3) for c in e["ctrl"]}
+            self.assertEqual(len(ctrl_xs), 1, f"bracket ctrl xs differ: {e['ctrl']}")
+            lanes_by_target.setdefault(tid, set()).add(next(iter(ctrl_xs)))
+
+        # tgtX and tgtY each receive TWO stacked imports — proves multi-import.
+        self.assertIn("api/tgtX", lanes_by_target)
+        self.assertIn("api/tgtY", lanes_by_target)
+
+        # Convergence: every target uses exactly ONE lane, no matter how many
+        # brackets land on it (so multiple edges into a hub read as one spine).
+        for tid, lanes in lanes_by_target.items():
+            self.assertEqual(len(lanes), 1,
+                             f"target {tid} spread across lanes {sorted(lanes)}")
+
+        # Fanning: distinct targets occupy distinct lanes (no merging). With
+        # ≥2 targets this means more than one lane exists overall — the bug was
+        # exactly one lane for everything.
+        self.assertGreaterEqual(len(lanes_by_target), 2)
+        all_lanes = {next(iter(v)) for v in lanes_by_target.values()}
+        self.assertEqual(len(all_lanes), len(lanes_by_target),
+                         "each distinct target must get its own lane")
+        self.assertGreater(len(all_lanes), 1,
+                           "lanes must fan, not bunch onto a single gutter x")
+        # tgtX and tgtY specifically sit on different spines.
+        self.assertNotEqual(next(iter(lanes_by_target["api/tgtX"])),
+                            next(iter(lanes_by_target["api/tgtY"])))
+
     def test_no_degenerate_near_vertical_dip(self):
         """The spike signature is forbidden: no same-band import may use a
         1-point dip whose apex x is within 5px of BOTH endpoints while the
