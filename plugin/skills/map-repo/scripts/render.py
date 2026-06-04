@@ -576,6 +576,38 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 .sysmap-leg-store { border-top: 2px solid #336791; }
 .sysmap-note { font-size: 0.85rem; color: var(--muted); margin-top: var(--space-3); }
 
+/* ---- System map: focus + layer toggles ---- */
+.sysmap-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 var(--space-3); align-items: center; }
+.sysmap-chip {
+  font-family: var(--font-mono); font-size: 0.78rem; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 999px; padding: 3px 12px;
+  background: var(--surface); color: var(--ink-2); user-select: none;
+  transition: background var(--duration-fast, 150ms), color var(--duration-fast, 150ms), opacity var(--duration-fast, 150ms);
+}
+.sysmap-chip[aria-pressed="false"] { opacity: 0.45; text-decoration: line-through; }
+.sysmap-chip:hover { border-color: var(--accent); }
+.sysmap-hint { font-size: 0.78rem; color: var(--muted); margin-left: auto; }
+
+/* default: nothing dimmed. when a node/cluster is focused, fade the rest. */
+.sysmap-svg .sysmap-node, .sysmap-svg [class^="sysmap-edge"], .sysmap-svg .sysmap-store {
+  transition: opacity 140ms ease;
+}
+.sysmap-svg.has-focus .sysmap-node:not(.is-active),
+.sysmap-svg.has-focus [class^="sysmap-edge"]:not(.is-active),
+.sysmap-svg.has-focus .sysmap-store:not(.is-active) { opacity: 0.10; }
+.sysmap-svg .sysmap-node.is-active .sysmap-node-rect { stroke-width: 2; }
+
+/* node hover affordance */
+.sysmap-svg .sysmap-node { cursor: pointer; }
+.sysmap-svg .sysmap-node:focus { outline: none; }
+.sysmap-svg .sysmap-node:focus .sysmap-node-rect { stroke: var(--accent); stroke-width: 2; }
+
+/* layer toggles hide edge kinds / orphans */
+.sysmap-svg.hide-import [data-kind="import"],
+.sysmap-svg.hide-http [data-kind="http"],
+.sysmap-svg.hide-store [data-kind="store"] { display: none; }
+.sysmap-svg.hide-orphan .sysmap-node[data-orphan="1"] { display: none; }
+
 /* Bento beneath the map — same grid/tile pattern as .modgraph-bento. */
 .sysmap-bento {
   display: grid;
@@ -1738,6 +1770,17 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
     max-width: 100%;
     max-height: 6.0in;
   }
+
+  /* The PDF is the full static map: hide interactive controls, undo any
+     focus dimming, and restore every layer the on-screen toggles can hide. */
+  .sysmap-controls { display: none; }
+  .sysmap-svg.has-focus .sysmap-node,
+  .sysmap-svg.has-focus [class^="sysmap-edge"],
+  .sysmap-svg.has-focus .sysmap-store { opacity: 1 !important; }
+  .sysmap-svg.hide-import [data-kind="import"],
+  .sysmap-svg.hide-http [data-kind="http"],
+  .sysmap-svg.hide-store [data-kind="store"],
+  .sysmap-svg.hide-orphan .sysmap-node[data-orphan="1"] { display: initial !important; }
 
   /* The matrix is square (n x n), so on a wide landscape page it is
      height-bound. The cap must leave room for the h2 + headline so the
@@ -3188,14 +3231,30 @@ def _sysmap_emit_svg(
 
     # ---- module nodes
     entry_counts = sel["entry_counts"]
+    # A node is an "orphan" when it is not an endpoint of any drawn edge.
+    # Import edges connect two modules (src/tgt); http edges resolve to a
+    # target module (target_id). Store edges have no module endpoint (they
+    # run service -> store), so they never rescue a node from orphan status.
+    connected_ids: set[str] = set()
+    for e in edges:
+        if e["kind"] == "import":
+            if e.get("src"):
+                connected_ids.add(e["src"])
+            if e.get("tgt"):
+                connected_ids.add(e["tgt"])
+        elif e["kind"] == "http":
+            if e.get("target_id"):
+                connected_ids.add(e["target_id"])
     for nid, p in layout["placed"].items():
         n = p["node"]
         label = _truncate_label(n.get("name") or nid)
         is_entry = nid in entry_counts
         title = desc_by_id.get(nid) or nid
+        orphan_attr = "" if nid in connected_ids else ' data-orphan="1"'
         parts.append(
             f'<g class="sysmap-node{" is-entry" if is_entry else ""}" '
-            f'data-nid="{escape(nid)}" data-svc="{escape(n.get("service") or "")}" '
+            f'data-nid="{escape(nid)}" data-svc="{escape(n.get("service") or "")}"'
+            f'{orphan_attr} '
             f'tabindex="0" role="button" '
             f'aria-label="{escape((n.get("name") or nid))}">'
         )

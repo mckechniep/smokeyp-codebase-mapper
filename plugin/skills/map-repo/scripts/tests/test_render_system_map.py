@@ -793,5 +793,39 @@ class ObservationsAndBentoTest(unittest.TestCase):
         self.assertIn("&lt;script&gt;", html)
 
 
+class FocusCssTest(unittest.TestCase):
+    def test_focus_and_toggle_css_present(self):
+        css = render.CSS
+        # dimming when a focus is active
+        self.assertIn(".sysmap-svg.has-focus", css)
+        self.assertIn(".is-active", css)
+        # layer-hide classes
+        for cls in ("hide-import", "hide-http", "hide-store", "hide-orphan"):
+            self.assertIn(cls, css)
+        # print restores everything
+        # (assert the print block neutralizes focus dimming)
+        self.assertIn("sysmap-controls", css)
+
+    def test_orphan_nodes_marked(self):
+        data = synthetic_data()
+        # Add an isolated, non-vendored backend node with NO edges so an
+        # orphan actually appears in the rendered svg. (The vendored module
+        # is excluded from the map, so it is never a placed node and thus
+        # never an orphan in the output.)
+        data["module_graph"]["nodes"].append(
+            {"id": "api/lonely", "name": "lonely", "service": "api", "loc": 100,
+             "files": 1, "primary_language": "TypeScript", "color": "#3178c6",
+             "vendored_guess": False})
+        sel = render._sysmap_select(data, None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(data, layout)
+        svg = render._sysmap_emit_svg(layout, edges, sel, None)
+        # the isolated node is marked as an orphan
+        self.assertIn('data-orphan="1"', svg)
+        # a connected node (api/auth has inbound import + http edges) is NOT
+        self.assertNotRegex(
+            svg, r'data-nid="api/auth"[^>]*data-orphan="1"')
+
+
 if __name__ == "__main__":
     unittest.main()
