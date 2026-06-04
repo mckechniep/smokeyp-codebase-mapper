@@ -23,3 +23,6 @@ Thumbs.db
 
 # Misc
 *.log
+
+# Local preview/scratch renders (generated during iteration, never committed)
+preview*.html

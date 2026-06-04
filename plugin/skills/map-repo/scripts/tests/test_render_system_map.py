@@ -5,6 +5,7 @@ import re
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import render
@@ -286,6 +287,40 @@ class EdgesTest(unittest.TestCase):
         # Highest-weight edge must survive the cap.
         weights = [e["weight"] for e in imports]
         self.assertIn(59, weights)
+
+    def test_http_edges_bundle_through_target_service_gateway(self):
+        """Each HTTP edge funnels through a per-target-service gateway: both
+        control points pin the curve's waist to one x, so calls into a service
+        converge into a single readable lane instead of crisscrossing."""
+        https = [e for e in self.edges if e["kind"] == "http"]
+        self.assertTrue(https, "synthetic data has a web->api/auth route")
+        for e in https:
+            self.assertEqual(len(e["ctrl"]), 2)
+            (c1x, _c1y), (c2x, _c2y) = e["ctrl"]
+            self.assertEqual(c1x, c2x, "waist not pinned to one gateway x")
+
+    def test_http_edges_capped_with_overflow_note(self):
+        """Beyond SYSMAP_MAX_HTTP_EDGES the heaviest routes win, the overflow
+        count rides on layout, and render_system_map points to the topology."""
+        d = synthetic_data()
+        # Add a 2nd distinct frontend->backend route, heavier than the login one.
+        d["http_topology"]["endpoints"].append(
+            {"service": "api", "module": "api/billing", "file": "api/billing/c.ts",
+             "framework": "NestJS", "method": "GET", "path": "/api/bill"})
+        d["http_topology"]["edges"].append(
+            {"source_service": "web", "target_service": "api",
+             "method": "GET", "path": "/api/bill", "weight": 9})
+        with mock.patch.object(render, "SYSMAP_MAX_HTTP_EDGES", 1):
+            sel = render._sysmap_select(d, None)
+            layout = render._sysmap_layout(sel)
+            edges = render._sysmap_edges(d, layout)
+            drawn = [e for e in edges if e["kind"] == "http"]
+            self.assertEqual(len(drawn), 1)              # capped
+            self.assertEqual(layout["http_truncated"], 1)
+            self.assertEqual(drawn[0]["target_id"], "api/billing")  # heaviest kept
+            html = render.render_system_map(d, None)
+            self.assertIn("+1 more", html)
+            self.assertIn("#codemap-topov2-section", html)
 
     def test_cross_band_import_anchors_at_band_facing_edges(self):
         """A frontend->backend import edge anchors source-bottom -> target-top."""
@@ -914,6 +949,19 @@ class FocusJsTest(unittest.TestCase):
         self.assertIn("pinnedEl", script)
         self.assertIn("'use strict'", script)
 
+    def test_focus_is_http_flow_aware(self):
+        """Clicking a service must isolate its HTTP flow and light the FAR end
+        of each route (caller/callee cards), and node focus must consider HTTP
+        edges (not import-only). The service->card index + the callee/caller
+        branches are the mechanism; their absence means a regression to the old
+        import-only focus. (Behavior is covered end-to-end by the node DOM-stub
+        harness; this is the CI-level structural guard.)"""
+        html = render.render_system_map(synthetic_data(), None)
+        script = html[html.index("<script>"):]
+        self.assertIn("clusterBySvc", script)   # service -> card index for far ends
+        self.assertIn("isCallee", script)        # node focus: "who calls me"
+        self.assertIn("isCaller", script)        # node focus: "what I call"
+
 
 class LayerChipsTest(unittest.TestCase):
     def test_controls_present_with_chips(self):
@@ -965,6 +1013,31 @@ class FacetsTest(unittest.TestCase):
         slc = render._sysmap_service_slice(synthetic_data(), "api")
         node_ids = {n["id"] for n in slc["module_graph"]["nodes"]}
         self.assertTrue(all(nid.startswith("api/") for nid in node_ids))
+
+    def test_facets_are_focus_wired(self):
+        """The focus JS must wire each per-service facet svg, not only the
+        overview. Guards against the old single-svg scoping (facets static)
+        silently returning after a refactor."""
+        html = render.render_system_map(synthetic_data(), None)
+        js = html[html.index("<script>"):]
+        self.assertIn("function wire(svg)", js)            # per-svg refactor
+        self.assertIn(".sysmap-frame .sysmap-svg", js)     # overview map
+        self.assertIn(".sysmap-facets .sysmap-svg", js)    # facet cards
+
+    def test_facet_layout_staggers_node_baselines(self):
+        """Facets pass node_stagger so sibling modules don't share one
+        baseline (their import lines then read as distinct strokes). The
+        same selection laid out with stagger must push at least one node
+        lower than the flat (overview) layout; stagger=0 stays byte-identical
+        and is exercised implicitly by the golden body test."""
+        slc = render._sysmap_service_slice(synthetic_data(), "api")
+        sel = render._sysmap_select(slc, None)
+        flat = render._sysmap_layout(sel)                       # stagger=0
+        staggered = render._sysmap_layout(sel, node_stagger=22)
+        self.assertGreater(
+            max(p["y"] for p in staggered["placed"].values()),
+            max(p["y"] for p in flat["placed"].values()),
+            "node_stagger should shift at least one node off the baseline")
 
     def test_facet_viewbox_is_compact_crop(self):
         """Facet svgs crop meaningfully below the full SYSMAP_W=1120 canvas.
@@ -1034,6 +1107,60 @@ class FacetsTest(unittest.TestCase):
         self.assertEqual(base["placed"], explicit_none["placed"])
         self.assertEqual(base["stores"], explicit_none["stores"])
         self.assertEqual(base["bands"], explicit_none["bands"])
+
+
+class SystemMapPolishTest(unittest.TestCase):
+    def test_section_has_technical_eyebrow(self):
+        html = render.render_system_map(synthetic_data(), None)
+        self.assertIn('class="section-eyebrow"', html)
+        self.assertIn("System architecture", html)
+        # eyebrow precedes the plain-speak headline
+        self.assertLess(html.index("section-eyebrow"),
+                        html.index("How the system fits together"))
+
+    def test_sysmap_viewbox_has_top_gutter(self):
+        """The overview viewBox starts at a negative y so a focused top-row
+        (frontend) card's selection outline isn't clipped at y=0."""
+        html = render.render_system_map(synthetic_data(), None)
+        self.assertIn(f'viewBox="0 {-render.SYSMAP_MARGIN_TOP} ', html)
+
+    def test_backend_cluster_label_sits_below_its_top(self):
+        """Backend cards take HTTP arrows at the top, so their label is moved to
+        the bottom band — its y must fall in the lower half of the card rect."""
+        html = render.render_system_map(synthetic_data(), None)
+        # The 'api' service is backend in synthetic_data. Find its cluster group.
+        g = html.index('data-svc="api"')
+        seg = html[g:g + 600]
+        rect = re.search(r'y="([\d.]+)"\s+width="[\d.]+"\s+height="([\d.]+)"', seg)
+        # emit order is <text x=".." y=".." class="sysmap-cluster-label" ...>
+        label = re.search(r'<text x="[\d.]+" y="([\d.]+)" class="sysmap-cluster-label"', seg)
+        self.assertIsNotNone(rect)
+        self.assertIsNotNone(label)
+        ry, rh, ly = float(rect.group(1)), float(rect.group(2)), float(label.group(1))
+        self.assertGreater(ly, ry + rh / 2,
+                           "backend label should be in the lower half of the card")
+
+
+class TopologyFocusTest(unittest.TestCase):
+    def test_topology_groups_and_focus_wired(self):
+        """Service cards and flows are focusable groups carrying identity hooks,
+        and the inline focus JS is present (behavior covered by the node harness;
+        this is the CI structural guard)."""
+        html = render.render_service_topology_v2(synthetic_data())
+        self.assertIn('class="topov2-node-group"', html)
+        self.assertIn('class="topov2-edge-group"', html)
+        self.assertIn("data-svc=", html)
+        self.assertIn("data-src=", html)
+        self.assertIn("data-tgt=", html)
+        js = html[html.index("<script>"):]
+        self.assertIn("focusNode", js)
+        self.assertIn("focusEdge", js)
+        self.assertIn("Escape", js)
+
+    def test_topology_has_eyebrow_and_hint(self):
+        html = render.render_service_topology_v2(synthetic_data())
+        self.assertIn("Service topology", html)         # eyebrow label
+        self.assertIn("topov2-hint", html)              # interaction discoverability
 
 
 if __name__ == "__main__":

@@ -394,6 +394,21 @@ pre code { background: transparent; padding: 0; }
   color: var(--ink-2);
 }
 
+/* ---- Section eyebrow (technical label above a plain-speak headline) ---- */
+/* The big section-separator gap normally lives on h2's margin-top. When an
+   eyebrow precedes the h2 that gap would strand the eyebrow up by the PREVIOUS
+   section, so move the separator onto the eyebrow's top and let its h2 hug it. */
+.section-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: var(--space-8) 0 var(--space-1);
+}
+.section-eyebrow + h2 { margin-top: 0; }
+
 /* ---- Section intros (beginner explanations) ---- */
 .section-intro {
   color: var(--ink-2);
@@ -506,11 +521,22 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   box-shadow: var(--shadow);
   padding: var(--space-5) var(--space-5) var(--space-4);
   margin-bottom: var(--space-4);
-  margin-left: -56px;
-  margin-right: -56px;
+  /* Break out past the 780px text column to a canvas just wide enough for the
+     1120-unit map at NATIVE size — not bigger. main is centered, so its midpoint
+     is the viewport midpoint: margin = 50% - halfWidth centers this wider child.
+     The cap (1200px ≈ SYSMAP_W + padding) plus .sysmap-svg max-width below means
+     a busy map fills the canvas while a sparse one renders calm at native size,
+     never ballooned. 94vw keeps it inset from the edges on narrower screens. */
+  width: min(94vw, 1200px);
+  margin-left: calc(50% - min(47vw, 600px));
+  margin-right: calc(50% - min(47vw, 600px));
 }
+/* Cap upscaling: the overview map never renders wider than its native 1120-unit
+   viewBox. Sparse maps then sit calm at native size (centered) instead of being
+   stretched to fill the canvas; dense maps still use the full width they need. */
+.sysmap-frame .sysmap-svg { display: block; max-width: 1120px; margin: 0 auto; }
 @media (max-width: 880px) {
-  .sysmap-frame { margin-left: 0; margin-right: 0; }
+  .sysmap-frame { width: auto; margin-left: 0; margin-right: 0; }
 }
 .sysmap-wrap { overflow-x: auto; }
 .sysmap-headline {
@@ -647,8 +673,10 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 /* Per-service facet maps (static small-multiples below the overview). */
 .sysmap-facets { margin-top: var(--space-5); }
 .sysmap-facets > h3 { font-family: var(--font-serif); margin: 0 0 var(--space-2); }
-.sysmap-facet-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3); }
-@media (max-width: 760px) { .sysmap-facet-grid { grid-template-columns: 1fr; } }
+/* One facet per row: each card spans the full content width, so its
+   width="100%" SVG scales up ~2x in each dimension (~4x area) vs the old
+   two-up small-multiples grid. */
+.sysmap-facet-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-4); }
 .sysmap-facet-card {
   margin: 0; background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); padding: var(--space-3);
@@ -969,6 +997,22 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   font-family: var(--font-mono);
   font-size: 10px;
   fill: var(--ink-2);
+}
+
+/* ---- Topology v2 focus (click a service or a flow to isolate it) ---- */
+.topov2-edge-group, .topov2-node-group { cursor: pointer; }
+.topov2-edge-group:focus, .topov2-node-group:focus { outline: none; }
+.topov2-node-group:focus .topov2-node-bg,
+.topov2-node-group.is-active .topov2-node-bg { stroke: var(--accent); stroke-width: 2; }
+.topov2-svg.has-focus .topov2-edge-group:not(.is-active),
+.topov2-svg.has-focus .topov2-node-group:not(.is-active) { opacity: 0.12; }
+.topov2-edge-group.is-active .topov2-edge { stroke-opacity: 0.95; }
+.topov2-hint { font-family: var(--font-mono); font-size: 0.74rem; color: var(--muted); margin: var(--space-2) 0 0; }
+@media print {
+  .topov2-hint { display: none; }
+  /* No JS in print: never leave the map dimmed. */
+  .topov2-svg.has-focus .topov2-edge-group:not(.is-active),
+  .topov2-svg.has-focus .topov2-node-group:not(.is-active) { opacity: 1; }
 }
 
 /* ---- Topology v2 bento ---- */
@@ -1732,6 +1776,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   .cpaths-frame,
   .lineage2-frame {
     box-shadow: none;
+    width: auto;            /* drop the screen vw-bleed; the page is wide enough */
     margin-left: 0;
     margin-right: 0;
     page-break-inside: avoid;
@@ -2688,6 +2733,8 @@ SYSMAP_FRONTEND_KINDS = frozenset({"frontend", "mobile"})
 
 SYSMAP_W = 1120                 # SVG viewBox width
 SYSMAP_MARGIN_X = 20
+SYSMAP_MARGIN_TOP = 10          # top viewBox gutter so a focused top-row card's
+                                # selection outline isn't clipped at y=0
 SYSMAP_NODE_H = 32
 SYSMAP_NODE_GAP = 10            # horizontal gap between sibling nodes
 SYSMAP_ROW_GAP = 12             # vertical gap between node rows in a cluster
@@ -2706,8 +2753,19 @@ SYSMAP_DATA_BAND_PAD = 30       # label + padding below store cylinders
 SYSMAP_BOTTOM_PAD = 10          # padding below the last band
 SYSMAP_MAX_NODES = {"shallow": 20, "medium": 40, "full": 60}
 SYSMAP_MAX_IMPORT_EDGES = 40
-SYSMAP_FACET_MAX_W = 520        # compact-width cap for per-service facet clusters
+SYSMAP_MAX_HTTP_EDGES = 24       # heaviest routes kept; overflow → C4 topology
+SYSMAP_FACET_MAX_W = 680        # compact-width cap for per-service facet clusters
 SYSMAP_GUTTER_LANE_STEP = 14    # px between per-target gutter spines (stacked brackets)
+# Per-service facets are rendered full-width (one card per row) and scaled to
+# fill, so they can afford much more generous internal spacing than the dense
+# overview. Pushing modules apart is what lets the individual import lines read
+# as distinct strokes instead of an overlapping bundle.
+SYSMAP_FACET_NODE_GAP = 30      # horizontal gap between sibling nodes (facets)
+SYSMAP_FACET_ROW_GAP = 48       # vertical gap between node rows (facets)
+SYSMAP_FACET_CLUSTER_PAD = 24   # padding inside a service-cluster outline (facets)
+SYSMAP_FACET_BAND_GAP = 112     # vertical space between bands (facets; edges route here)
+SYSMAP_FACET_GUTTER_LANE_STEP = 22  # px between gutter spines (facets)
+SYSMAP_FACET_NODE_STAGGER = 22  # zig-zag alternate facet nodes off the shared baseline
 
 
 def _sysmap_node_w(label: str, is_entry: bool, loc: int = 0) -> float:
@@ -2805,7 +2863,14 @@ def _sysmap_select(
 
 
 def _sysmap_layout(
-    sel: dict[str, Any], compact_max_w: float | None = None
+    sel: dict[str, Any], compact_max_w: float | None = None,
+    *,
+    node_gap: float = SYSMAP_NODE_GAP,
+    row_gap: float = SYSMAP_ROW_GAP,
+    cluster_pad: float = SYSMAP_CLUSTER_PAD,
+    band_gap: float = SYSMAP_BAND_GAP,
+    cluster_row_gap: float = SYSMAP_CLUSTER_ROW_GAP,
+    node_stagger: float = 0.0,
 ) -> dict[str, Any]:
     """Compute x/y geometry for every node, cluster, band, and store.
 
@@ -2818,6 +2883,11 @@ def _sysmap_layout(
     across the full canvas. The store/data band is centered within the
     same effective width so it aligns under the clusters. When None (the
     overview), layout is byte-identical to the uncapped behavior.
+
+    The ``*_gap``/``cluster_pad`` overrides let callers loosen the layout
+    without disturbing the overview: they default to the dense overview
+    constants, and only the per-service facets pass larger values so their
+    modules spread out and the import lines between them stay legible.
     """
     services = sel["services"]
     entry_counts = sel["entry_counts"]
@@ -2852,7 +2922,7 @@ def _sysmap_layout(
         cluster_w = (content_w - (cols - 1) * SYSMAP_CLUSTER_GAP) / cols
         if compact_max_w is not None:
             cluster_w = min(cluster_w, compact_max_w)
-        inner_w = cluster_w - 2 * SYSMAP_CLUSTER_PAD
+        inner_w = cluster_w - 2 * cluster_pad
 
         # Pass 1: lay out each cluster's nodes relative to a (0, 0) origin and
         # record its natural height. Node widths are kept locally (never
@@ -2873,23 +2943,36 @@ def _sysmap_layout(
                     rows.append([])
                     row_w = 0.0
                 rows[-1].append((n, w))
-                row_w += w + SYSMAP_NODE_GAP
+                row_w += w + node_gap
 
             # Relative node placement: x/y measured from the cluster's own
             # top-left corner. Absolute offsets are applied in pass 2.
+            # Backend cards receive HTTP arrows at the TOP, so reserve the label
+            # band at the BOTTOM there (nodes start at the top, label sits below)
+            # to keep incoming lines off the text. Frontend/other keep top labels.
+            label_at_top = band_key != "backend"
             rel: list[dict[str, Any]] = []
-            ny = SYSMAP_CLUSTER_LABEL_H + SYSMAP_CLUSTER_PAD
+            ny = (SYSMAP_CLUSTER_LABEL_H + cluster_pad) if label_at_top else cluster_pad
             for row in rows:
-                nx = SYSMAP_CLUSTER_PAD
-                for n, w in row:
+                nx = cluster_pad
+                for col, (n, w) in enumerate(row):
+                    # Zig-zag alternate columns down by node_stagger so siblings
+                    # don't share one baseline; their import lines then start and
+                    # end at different heights and read as distinct strokes. The
+                    # guard keeps the overview (stagger=0) byte-identical.
+                    dy = ny + node_stagger if (node_stagger and col % 2) else ny
                     rel.append({
-                        "id": n["id"], "dx": nx, "dy": ny, "w": w,
+                        "id": n["id"], "dx": nx, "dy": dy, "w": w,
                         "node": n,
                     })
-                    nx += w + SYSMAP_NODE_GAP
-                ny += SYSMAP_NODE_H + SYSMAP_ROW_GAP
+                    nx += w + node_gap
+                ny += SYSMAP_NODE_H + row_gap
+                if node_stagger:
+                    ny += node_stagger
 
-            cluster_h = ny - SYSMAP_ROW_GAP + SYSMAP_CLUSTER_PAD
+            cluster_h = ny - row_gap + cluster_pad
+            if not label_at_top:
+                cluster_h += SYSMAP_CLUSTER_LABEL_H   # bottom label band
             kind = (svc.get("kind") or "unknown").lower()
             cluster_layouts.append({
                 "service_id": sid, "kind": kind,
@@ -2907,7 +2990,7 @@ def _sysmap_layout(
         grid_row_top = [0.0] * num_grid_rows
         for r in range(1, num_grid_rows):
             grid_row_top[r] = (grid_row_top[r - 1] + grid_row_h[r - 1]
-                               + SYSMAP_CLUSTER_ROW_GAP)
+                               + cluster_row_gap)
 
         # Pass 2: assign grid cells, apply absolute offsets, equalize each
         # cluster's height to ITS grid-row's max, and place nodes.
@@ -2933,10 +3016,10 @@ def _sysmap_layout(
             })
 
         band_h = (sum(grid_row_h)
-                  + (num_grid_rows - 1) * SYSMAP_CLUSTER_ROW_GAP)
+                  + (num_grid_rows - 1) * cluster_row_gap)
         clusters.extend(band_clusters)
         band_boxes[band_key] = {"y": band_top, "h": band_h}
-        y_cursor = band_top + band_h + SYSMAP_BAND_GAP
+        y_cursor = band_top + band_h + band_gap
 
     # Data band: store cylinders, horizontally centered.
     stores = sel["stores"]
@@ -2960,7 +3043,7 @@ def _sysmap_layout(
         y_cursor = band_top + data_band_h
     elif band_boxes:
         # No stores: trim the trailing band gap.
-        y_cursor -= SYSMAP_BAND_GAP
+        y_cursor -= band_gap
 
     return {
         "placed": placed,
@@ -2972,7 +3055,8 @@ def _sysmap_layout(
 
 
 def _sysmap_edges(
-    data: dict[str, Any], layout: dict[str, Any]
+    data: dict[str, Any], layout: dict[str, Any],
+    *, gutter_lane_step: float = SYSMAP_GUTTER_LANE_STEP,
 ) -> list[dict[str, Any]]:
     """Compute drawable edges between placed elements.
 
@@ -3066,7 +3150,7 @@ def _sysmap_edges(
                 base = right + 24
                 gx = min(SYSMAP_W - 8,
                          base + lane_index.get(e["target"], 0)
-                         * SYSMAP_GUTTER_LANE_STEP)
+                         * gutter_lane_step)
                 x1 = s["x"] + s["w"]; y1 = s["y"] + s["h"] / 2  # source right-mid
                 x2 = t["x"] + t["w"]; y2 = t["y"] + t["h"] / 2  # target right-mid
                 out.append({
@@ -3116,13 +3200,35 @@ def _sysmap_edges(
         http_weight[key] = http_weight.get(key, 0) + (e.get("weight") or 1)
         http_cluster[e["source_service"]] = src_cluster
 
-    for (src_service, target_module), weight in sorted(http_weight.items()):
+    # Cap by weight (heaviest routes win) so a large repo can't drown the map
+    # in long cross-band lines; the C4 Service topology section below carries
+    # the full service wiring. The overflow count rides on `layout` so the
+    # caller can render a "+N more" note without re-deriving the dedup.
+    http_items = sorted(http_weight.items(), key=lambda kv: (-kv[1], kv[0]))
+    layout["http_truncated"] = max(0, len(http_items) - SYSMAP_MAX_HTTP_EDGES)
+    for (src_service, target_module), weight in http_items[:SYSMAP_MAX_HTTP_EDGES]:
         c = http_cluster[src_service]
         t = placed[target_module]
+        x1 = c["x"] + c["w"] / 2
+        y1 = c["y"] + c["h"]
+        x2 = t["x"] + t["w"] / 2
+        y2 = t["y"]
+        # Bundle by TARGET SERVICE: every call into a service funnels through a
+        # shared vertical "gateway" lane at that service-cluster's center, so
+        # edges converge into one readable bundle per destination instead of a
+        # field of crisscrossing diagonals. Both control points pin the curve's
+        # waist to gateway_x; only the source and target ends fan out. Edges to
+        # the same service therefore overlap mid-channel (the bundle) and the
+        # focus JS still isolates any single one on click.
+        t_service = t["node"].get("service")
+        tcl = cluster_by_service.get(t_service)
+        gateway_x = (tcl["x"] + tcl["w"] / 2) if tcl else x2
+        span = y2 - y1
         out.append({
             "kind": "http", "same_band": False,
-            "x1": c["x"] + c["w"] / 2, "y1": c["y"] + c["h"],
-            "x2": t["x"] + t["w"] / 2, "y2": t["y"],
+            "x1": x1, "y1": y1, "x2": x2, "y2": y2,
+            "ctrl": [(gateway_x, y1 + span * 0.33),
+                     (gateway_x, y1 + span * 0.66)],
             "weight": weight,
             # Carried so the bento can name this path ("web → auth").
             "source_service": src_service,
@@ -3165,7 +3271,8 @@ def _sysmap_emit_svg(
     height = layout["height"]
     vw = SYSMAP_W if view_w is None else view_w
     parts: list[str] = [
-        f'<svg class="sysmap-svg" viewBox="0 0 {vw:.0f} {height:.0f}" '
+        f'<svg class="sysmap-svg" '
+        f'viewBox="0 {-SYSMAP_MARGIN_TOP} {vw:.0f} {height + SYSMAP_MARGIN_TOP:.0f}" '
         f'width="100%" role="img" '
         f'aria-label="System map: product modules in tiers with their connections">'
     ]
@@ -3199,8 +3306,10 @@ def _sysmap_emit_svg(
             f'stroke="{escape(c["color"])}" stroke-opacity="0.45" '
             f'stroke-width="1.25" stroke-dasharray="none" />'
         )
+        # Backend cards label at the bottom (HTTP arrives at the top); others top.
+        label_y = (c["y"] + c["h"] - 9) if c.get("band") == "backend" else (c["y"] + 16)
         parts.append(
-            f'<text x="{c["x"] + 12:.1f}" y="{c["y"] + 16:.1f}" '
+            f'<text x="{c["x"] + 12:.1f}" y="{label_y:.1f}" '
             f'class="sysmap-cluster-label" fill="{escape(c["color"])}">'
             f'{escape(_topov2_truncate(c["label"], 38))}'
             f' <tspan class="sysmap-cluster-kind">· {escape(c["kind"].upper())}</tspan></text>'
@@ -3238,9 +3347,19 @@ def _sysmap_emit_svg(
                 f'stroke-width="{sw:.1f}" fill="none" />'
             )
         elif e["kind"] == "http":
+            # Cubic through the per-target-service gateway lane (bundled). Falls
+            # back to the straight mid-channel S-curve if no ctrl was provided.
+            hctrl = e.get("ctrl") or []
+            if len(hctrl) == 2:
+                (h1x, h1y), (h2x, h2y) = hctrl
+                hpath = (f'M{x1:.1f},{y1:.1f} C{h1x:.1f},{h1y:.1f} '
+                         f'{h2x:.1f},{h2y:.1f} {x2:.1f},{y2:.1f}')
+            else:
+                midy = (y1 + y2) / 2
+                hpath = (f'M{x1:.1f},{y1:.1f} C{x1:.1f},{midy:.1f} '
+                         f'{x2:.1f},{midy:.1f} {x2:.1f},{y2:.1f}')
             parts.append(
-                f'<path d="M{x1:.1f},{y1:.1f} C{x1:.1f},{(y1 + y2) / 2:.1f} '
-                f'{x2:.1f},{(y1 + y2) / 2:.1f} {x2:.1f},{y2:.1f}" '
+                f'<path d="{hpath}" '
                 f'class="sysmap-edge-http" data-kind="http" '
                 f'data-src-svc="{escape(e.get("source_service") or "")}" '
                 f'data-tgt="{escape(e.get("target_id") or "")}" '
@@ -3617,8 +3736,14 @@ def render_sysmap_facets(
             continue  # no product (non-vendored) nodes for this service
         if not sel["bands"].get("frontend") and not sel["bands"].get("backend"):
             continue
-        layout = _sysmap_layout(sel, compact_max_w=SYSMAP_FACET_MAX_W)
-        edges = _sysmap_edges(slc, layout)
+        layout = _sysmap_layout(
+            sel, compact_max_w=SYSMAP_FACET_MAX_W,
+            node_gap=SYSMAP_FACET_NODE_GAP, row_gap=SYSMAP_FACET_ROW_GAP,
+            cluster_pad=SYSMAP_FACET_CLUSTER_PAD, band_gap=SYSMAP_FACET_BAND_GAP,
+            node_stagger=SYSMAP_FACET_NODE_STAGGER,
+        )
+        edges = _sysmap_edges(slc, layout,
+                              gutter_lane_step=SYSMAP_FACET_GUTTER_LANE_STEP)
 
         # Crop the viewBox to the actual content extent + margin so the facet
         # isn't 1120px of mostly-empty canvas. Fold in EDGE x-extents too:
@@ -3676,7 +3801,9 @@ def render_sysmap_facets(
         '<h3>Per-service views</h3>'
         '<p class="section-intro">Each service in isolation: its own modules and '
         'internal imports, plus the data stores it writes to. Cross-service calls '
-        'are summarized in each caption rather than drawn.</p>'
+        'are summarized in each caption rather than drawn. '
+        '<span class="sysmap-hint">Hover or click a module to trace just its own '
+        'import lines; click again or press Esc to clear.</span></p>'
         '<div class="sysmap-facet-grid">' + "".join(cards) + '</div>'
         '</div>'
     )
@@ -3688,17 +3815,23 @@ def render_sysmap_facets(
 # toggles CSS classes — never touches innerHTML — so it degrades to the full
 # static map when JS is off, and the print stylesheet restores opacity anyway.
 #
-# SCOPING: deliberately bound to the ONE overview svg at
-# `#codemap-sysmap-section .sysmap-frame .sysmap-svg`. The per-service facet
-# svgs (Task 5) live OUTSIDE `.sysmap-frame`, so this JS never touches them —
-# they stay static small-multiples.
+# SCOPING: `wire(svg)` wires ONE map; it is called for the overview svg at
+# `#codemap-sysmap-section .sysmap-frame .sysmap-svg` AND for each per-service
+# facet svg at `#codemap-sysmap-section .sysmap-facets .sysmap-svg`. Each call
+# closes over its own svg + pinned state, so the facets trace independently.
+# The facets carry the same data-* hooks and focus CSS as the overview, so
+# tracing works there too; the layer-toggle chips remain overview-only because
+# their query is frame-scoped (closest('.sysmap-frame') is null for a facet).
 SYSMAP_JS = """
 <script>
 (function () {
   'use strict';
-  var svg = document.querySelector(
-    '#codemap-sysmap-section .sysmap-frame .sysmap-svg');
-  if (!svg) return;  // graceful no-op if the overview map is absent
+
+  // Wire ONE map svg (overview or a per-service facet) with hover/click focus.
+  // Each call closes over its own svg + pinned state, so the facet cards trace
+  // independently. Returns its clearFocus so the shared Escape handler below
+  // can reset every wired map at once.
+  function wire(svg) {
 
   var nodes = Array.prototype.slice.call(svg.querySelectorAll('.sysmap-node'));
   var clusters = Array.prototype.slice.call(
@@ -3721,6 +3854,13 @@ SYSMAP_JS = """
   stores.forEach(function (s) {
     var id = s.getAttribute('data-store');
     if (id) storeById[id] = s;
+  });
+  // Service id -> its cluster card, so HTTP focus can light the FAR end of a
+  // route (the caller/callee service box), not just the line.
+  var clusterBySvc = {};
+  clusters.forEach(function (c) {
+    var s = c.getAttribute('data-svc');
+    if (s) clusterBySvc[s] = c;
   });
 
   // Import adjacency: node id -> { nbrs: Set(node id), edges: [path] }.
@@ -3761,7 +3901,11 @@ SYSMAP_JS = """
   function activate(el) { if (el) el.classList.add('is-active'); }
 
   // Node focus = the node + its import-edge neighbours + the import-edges
-  // between them. Fade everything else.
+  // between them, PLUS the HTTP routes that touch it and their far ends:
+  // click a backend entry module to light who calls it (the frontend cards),
+  // or a frontend module to light what its service calls (the entry modules).
+  // Fade everything else. HTTP edges carry source as a SERVICE (data-src-svc),
+  // not a module, so a frontend module lights all of its service's calls.
   function applyNodeFocus(nid) {
     var node = nodeById[nid];
     if (!node) return;
@@ -3775,6 +3919,15 @@ SYSMAP_JS = """
       });
       a.edges.forEach(activate);
     }
+    var nsvc = node.getAttribute('data-svc');
+    httpEdges.forEach(function (p) {
+      var isCallee = p.getAttribute('data-tgt') === nid;        // this module is called
+      var isCaller = p.getAttribute('data-src-svc') === nsvc;   // this module's svc calls
+      if (!isCallee && !isCaller) return;
+      activate(p);
+      if (isCallee) activate(clusterBySvc[p.getAttribute('data-src-svc')]);  // who calls me
+      if (isCaller) activate(nodeById[p.getAttribute('data-tgt')]);          // what I call
+    });
   }
 
   // Cluster focus = the whole service subgraph: every node in the service,
@@ -3799,10 +3952,19 @@ SYSMAP_JS = """
         activate(p);
       }
     });
+    // HTTP routes touching this service: light the line AND both ends so the
+    // flow reads end-to-end — click a backend service to see every frontend
+    // that calls it, or a frontend service to see every backend it reaches.
     httpEdges.forEach(function (p) {
       if (p.getAttribute('data-src-svc') === svc ||
           inSvc[p.getAttribute('data-tgt')]) {
         activate(p);
+        activate(clusterBySvc[p.getAttribute('data-src-svc')]);   // caller card
+        var tn = nodeById[p.getAttribute('data-tgt')];            // callee module
+        if (tn) {
+          activate(tn);
+          activate(clusterBySvc[tn.getAttribute('data-svc')]);    // callee card
+        }
       }
     });
     storeEdges.forEach(function (p) {
@@ -3892,12 +4054,6 @@ SYSMAP_JS = """
     clearFocus();
   });
 
-  // ---- Escape clears + unpins
-  document.addEventListener('keydown', function (ev) {
-    if (ev.key !== 'Escape' || nothingToClear()) return;
-    clearFocus();
-  });
-
   // ---- layer-toggle chips
   // Scope the chip query to the SAME frame as the overview svg so the Task 5
   // per-service facet maps (which live outside .sysmap-frame) are untouched.
@@ -3922,6 +4078,27 @@ SYSMAP_JS = """
       chip.setAttribute('aria-pressed', on ? 'false' : 'true');
       svg.classList.toggle(hideClass, on);  // pressing OFF hides that layer
     });
+  });
+
+    return clearFocus;  // hand the reset back to the shared Escape handler
+  }  // end wire
+
+  // Wire the overview map, then every per-service facet card. The facets carry
+  // the same data-* hooks + focus CSS as the overview; only this binding was
+  // scoped away from them before, which is why they used to be static.
+  var clearers = [];
+  var overviewSvg = document.querySelector(
+    '#codemap-sysmap-section .sysmap-frame .sysmap-svg');
+  if (overviewSvg) clearers.push(wire(overviewSvg));
+  Array.prototype.forEach.call(
+    document.querySelectorAll(
+      '#codemap-sysmap-section .sysmap-facets .sysmap-svg'),
+    function (s) { clearers.push(wire(s)); });
+
+  // ---- Escape clears + unpins every wired map at once
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Escape') return;
+    clearers.forEach(function (clear) { clear(); });
   });
 })();
 </script>
@@ -3952,6 +4129,16 @@ def render_system_map(
             f'shows everything).</p>'
         )
 
+    http_truncated = layout.get("http_truncated", 0)
+    http_note = ""
+    if http_truncated:
+        http_note = (
+            f'<p class="sysmap-note">Showing the {SYSMAP_MAX_HTTP_EDGES} heaviest '
+            f'HTTP routes; +{http_truncated} more not drawn — see the '
+            f'<a href="#codemap-topov2-section">Service topology</a> below for the '
+            f'full service-to-service wiring.</p>'
+        )
+
     legend = (
         '<div class="sysmap-legend">'
         '<span class="sysmap-leg-item"><span class="sysmap-leg-http"></span> HTTP call</span>'
@@ -3971,12 +4158,13 @@ def render_system_map(
         '<button type="button" class="sysmap-chip" data-layer="http" aria-pressed="true">HTTP</button>'
         '<button type="button" class="sysmap-chip" data-layer="store" aria-pressed="true">Stores</button>'
         '<button type="button" class="sysmap-chip" data-layer="orphan" aria-pressed="true">Orphans</button>'
-        '<span class="sysmap-hint">hover a module to trace · click to pin · click a service to isolate</span>'
+        '<span class="sysmap-hint">hover a module to trace · click a service box to isolate its HTTP flow · click to pin · Esc clears</span>'
         '</div>'
     )
 
     return f"""
 <section id="codemap-sysmap-section">
+  <p class="section-eyebrow">System architecture</p>
   <h2>How the system fits together</h2>
   {section_intro("sysmap")}
   <div class="sysmap-frame">
@@ -3985,6 +4173,7 @@ def render_system_map(
     <div class="sysmap-wrap">{svg}</div>
     {legend}
     {truncation_note}
+    {http_note}
   </div>
   {observations_html}
   {bento_html}
@@ -4857,6 +5046,7 @@ def render_module_graph_section(data: dict[str, Any]) -> str:
 
     return f"""
 <section id="codemap-modgraph-section">
+  <p class="section-eyebrow">Dependency graph</p>
   <h2>How the modules connect</h2>
   {section_intro("modgraph")}
   <div class="modgraph-frame" style="position: relative;">
@@ -5182,6 +5372,86 @@ def _topov2_truncate(s: str, max_chars: int) -> str:
     return s[: max_chars - 1].rstrip() + "…"
 
 
+# Inline focus for the Service topology. Dependency-free IIFE; class-toggle only
+# (degrades to the full static diagram with JS off, and the print stylesheet
+# restores opacity). Click a service card or a flow to isolate it; hover previews
+# when nothing is pinned; Esc / background click clears. Mirrors the system map's
+# focus model but on the simpler service-level graph.
+TOPOV2_JS = """
+<script>
+(function () {
+  'use strict';
+  var svg = document.querySelector('#codemap-topov2-section .topov2-svg');
+  if (!svg) return;
+  var nodes = Array.prototype.slice.call(svg.querySelectorAll('.topov2-node-group'));
+  var edges = Array.prototype.slice.call(svg.querySelectorAll('.topov2-edge-group'));
+  var nodeBySvc = {};
+  nodes.forEach(function (n) {
+    var s = n.getAttribute('data-svc');
+    if (s) nodeBySvc[s] = n;
+  });
+
+  function clearActive() {
+    svg.classList.remove('has-focus');
+    nodes.forEach(function (n) { n.classList.remove('is-active'); });
+    edges.forEach(function (e) { e.classList.remove('is-active'); });
+  }
+  function activate(el) { if (el) el.classList.add('is-active'); }
+
+  // Service focus = the service + every flow touching it + the services at the
+  // other end of those flows.
+  function focusNode(svc) {
+    clearActive();
+    svg.classList.add('has-focus');
+    activate(nodeBySvc[svc]);
+    edges.forEach(function (e) {
+      var s = e.getAttribute('data-src'), t = e.getAttribute('data-tgt');
+      if (s === svc || t === svc) {
+        activate(e); activate(nodeBySvc[s]); activate(nodeBySvc[t]);
+      }
+    });
+  }
+  // Flow focus = just that edge and its two endpoints.
+  function focusEdge(e) {
+    clearActive();
+    svg.classList.add('has-focus');
+    activate(e);
+    activate(nodeBySvc[e.getAttribute('data-src')]);
+    activate(nodeBySvc[e.getAttribute('data-tgt')]);
+  }
+
+  var pinnedEl = null;
+  function clearFocus() { pinnedEl = null; clearActive(); }
+  function toggle(el, focusFn) {
+    if (pinnedEl === el) { clearFocus(); } else { focusFn(); pinnedEl = el; }
+  }
+  function wire(el, focusFn) {
+    el.addEventListener('mouseenter', function () { if (!pinnedEl) focusFn(); });
+    el.addEventListener('mouseleave', function () { if (!pinnedEl) clearActive(); });
+    el.addEventListener('focus', function () { if (!pinnedEl) focusFn(); });
+    el.addEventListener('blur', function () { if (!pinnedEl) clearActive(); });
+    el.addEventListener('click', function (ev) { ev.stopPropagation(); toggle(el, focusFn); });
+    el.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
+        ev.preventDefault(); ev.stopPropagation(); toggle(el, focusFn);
+      }
+    });
+  }
+  nodes.forEach(function (n) { wire(n, function () { focusNode(n.getAttribute('data-svc')); }); });
+  edges.forEach(function (e) { wire(e, function () { focusEdge(e); }); });
+
+  function nothingToClear() {
+    return !pinnedEl && !svg.classList.contains('has-focus');
+  }
+  svg.addEventListener('click', function () { if (!nothingToClear()) clearFocus(); });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && !nothingToClear()) clearFocus();
+  });
+})();
+</script>
+"""
+
+
 def render_service_topology_v2(data: dict[str, Any]) -> str:
     topo = data.get("http_topology") or {}
     raw_edges = topo.get("edges") or []
@@ -5314,6 +5584,12 @@ def render_service_topology_v2(data: dict[str, Any]) -> str:
             mid_y = (ay + by) / 2
 
         sw = _stroke_w(agg["count"])
+        # Wrap path + pill in a focusable group so clicking the edge (or either
+        # endpoint service) can isolate this flow and dim the rest.
+        parts.append(
+            f'<g class="topov2-edge-group" data-src="{escape(src_id)}" '
+            f'data-tgt="{escape(tgt_id)}" tabindex="0" role="button">'
+        )
         parts.append(
             f'<path class="topov2-edge" d="{d}" '
             f'stroke-width="{sw}" '
@@ -5323,15 +5599,20 @@ def render_service_topology_v2(data: dict[str, Any]) -> str:
             f'</path>'
         )
 
-        # Edge weight label — drawn as a small pill near the midpoint
-        # of the long horizontal segment. We center text and size the
-        # background rect to fit, approximating text width by char count.
+        # Edge weight label — a small pill LIFTED ABOVE the source-side run, so
+        # it never sits on the path itself or on the L-bend junction (where pills
+        # used to pile up). Focus dimming keeps dense junctions legible too.
         label_text = f'{agg["count"]} call{"s" if agg["count"] != 1 else ""}'
         # Rough char-width estimate at 10px mono.
         text_w = max(40, len(label_text) * 6 + 12)
         text_h = 18
-        rect_x = mid_x - text_w / 2
-        rect_y = mid_y - text_h / 2
+        if abs(ay - by) < 2:
+            lx = (ax + bx) / 2                 # straight: true midpoint
+        else:
+            lx = (3 * ax + bx) / 4             # L-shape: midpoint of source run
+        baseline = ay - 8                      # text baseline above the line
+        rect_x = lx - text_w / 2
+        rect_y = baseline - text_h + 4
         parts.append(
             f'<rect class="topov2-edge-label-bg" '
             f'x="{rect_x:.1f}" y="{rect_y:.1f}" '
@@ -5339,15 +5620,21 @@ def render_service_topology_v2(data: dict[str, Any]) -> str:
         )
         parts.append(
             f'<text class="topov2-edge-label" '
-            f'x="{mid_x:.1f}" y="{mid_y + 3.5:.1f}" '
+            f'x="{lx:.1f}" y="{baseline:.1f}" '
             f'text-anchor="middle">{escape(label_text)}</text>'
         )
+        parts.append('</g>')
 
     # ----- Service cards -----
     for n in nodes:
         p = pos[n["id"]]
         x, y = p["x"], p["y"]
         color = SERVICE_KIND_COLORS.get(n.get("kind") or "unknown", "#a0a0a0")
+        # Focusable group: clicking the card isolates this service's flows.
+        parts.append(
+            f'<g class="topov2-node-group" data-svc="{escape(n["id"])}" '
+            f'tabindex="0" role="button">'
+        )
         # Background card
         parts.append(
             f'<rect class="topov2-node-bg" '
@@ -5425,6 +5712,7 @@ def render_service_topology_v2(data: dict[str, Any]) -> str:
             f'x="{title_x:.1f}" y="{y + TOPOV2_BOX_H - 16:.1f}" '
             f'font-size="10.5">{escape(stat)}</text>'
         )
+        parts.append('</g>')  # close topov2-node-group
 
     parts.append("</svg>")
     svg = "".join(parts)
@@ -5488,15 +5776,18 @@ def render_service_topology_v2(data: dict[str, Any]) -> str:
 
     return f"""
 <section id="codemap-topov2-section">
+  <p class="section-eyebrow">Service topology</p>
   <h2>How the services talk to each other</h2>
   {section_intro("topology")}
   <div class="topov2-frame">
     <p class="topov2-headline">{headline}</p>
     <div class="topov2-wrap">{svg}</div>
+    <p class="topov2-hint">Click a service or a flow to isolate it · Esc clears</p>
   </div>
   {notes_html}
   {observations_html}
   {bento_html}
+  {TOPOV2_JS}
 </section>
 """
 
@@ -6176,6 +6467,7 @@ def render_critical_paths_section(data: dict[str, Any]) -> str:
 
     return f"""
 <section id="codemap-cpaths-section">
+  <p class="section-eyebrow">Request flow</p>
   <h2>What happens when a request flows through</h2>
   {section_intro("cpaths")}
   <div class="cpaths-frame">
@@ -6805,6 +7097,7 @@ def render_data_lineage_v2(data: dict[str, Any]) -> str:
 
     return f"""
 <section id="codemap-lineage2-section">
+  <p class="section-eyebrow">Data lineage</p>
   <h2>Where each service stores its data</h2>
   {section_intro("lineage")}
   <div class="lineage2-frame">
