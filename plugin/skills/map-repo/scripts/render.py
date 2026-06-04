@@ -3127,6 +3127,9 @@ def _sysmap_emit_svg(
         parts.append('</g>')
 
     # ---- edges (drawn under nodes)
+    # data-tgt is the target MODULE id on import and http edges; store edges
+    # use data-tgt-store (a store id) instead — the focus JS branches on
+    # data-kind to read the right hook.
     for e in edges:
         x1, y1, x2, y2 = e["x1"], e["y1"], e["x2"], e["y2"]
         w = max(1.0, min(4.0, 1.0 + math.log2(max(1, e["weight"]))))
@@ -3158,8 +3161,8 @@ def _sysmap_emit_svg(
                 f'<path d="M{x1:.1f},{y1:.1f} C{x1:.1f},{(y1 + y2) / 2:.1f} '
                 f'{x2:.1f},{(y1 + y2) / 2:.1f} {x2:.1f},{y2:.1f}" '
                 f'class="sysmap-edge-http" data-kind="http" '
-                f'data-src-svc="{escape(e["source_service"])}" '
-                f'data-tgt="{escape(e["target_id"])}" '
+                f'data-src-svc="{escape(e.get("source_service") or "")}" '
+                f'data-tgt="{escape(e.get("target_id") or "")}" '
                 f'stroke-width="{w:.1f}" fill="none" '
                 f'marker-end="url(#sysmap-arrow)" />'
             )

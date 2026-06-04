@@ -531,6 +531,37 @@ class IdentityHooksTest(unittest.TestCase):
         # an import edge exposes its endpoints
         self.assertRegex(svg, r'data-src="[^"]+" data-tgt="[^"]+"')
 
+    def test_id_data_attrs_are_escaped(self):
+        """Module/service ids with HTML metachars must be escaped in data-attrs."""
+        d = synthetic_data()
+        # give a node an id with metacharacters and rewire its edges to match
+        bad = 'api/au<th>&"x'
+        for n in d["module_graph"]["nodes"]:
+            if n["id"] == "api/auth":
+                n["id"] = bad
+        for e in d["module_graph"]["edges"]:
+            if e.get("target") == "api/auth":
+                e["target"] = bad
+            if e.get("source") == "api/auth":
+                e["source"] = bad
+        # also a metachar in a service id
+        for s in d["services"]:
+            if s["id"] == "api":
+                s["id"] = 'ap&i'
+        for n in d["module_graph"]["nodes"]:
+            if n.get("service") == "api":
+                n["service"] = 'ap&i'
+        sel = render._sysmap_select(d, None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(d, layout)
+        svg = render._sysmap_emit_svg(layout, edges, sel, None)
+        # raw metachars must not appear inside the data-nid value
+        self.assertNotIn('data-nid="api/au<th>', svg)
+        self.assertNotIn('<th>', svg)
+        # escaped form present
+        self.assertIn('&lt;th&gt;', svg)
+        self.assertIn('&amp;', svg)
+
 
 class LayoutStressTest(unittest.TestCase):
     def _many_service_data(self, n_services=15):
