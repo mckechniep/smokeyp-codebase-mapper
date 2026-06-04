@@ -879,5 +879,21 @@ class FocusJsTest(unittest.TestCase):
         self.assertIn("'use strict'", script)
 
 
+class LayerChipsTest(unittest.TestCase):
+    def test_controls_present_with_chips(self):
+        html = render.render_system_map(synthetic_data(), None)
+        self.assertIn("sysmap-controls", html)
+        for label in ("Imports", "HTTP", "Stores", "Orphans"):
+            self.assertIn(label, html)
+        self.assertIn('aria-pressed="true"', html)   # chips start enabled
+        self.assertIn("sysmap-chip", html)
+
+    def test_chip_toggle_wired_in_js(self):
+        html = render.render_system_map(synthetic_data(), None)
+        js = html[html.index("<script>"):]
+        for cls in ("hide-import", "hide-http", "hide-store", "hide-orphan"):
+            self.assertIn(cls, js)
+
+
 if __name__ == "__main__":
     unittest.main()

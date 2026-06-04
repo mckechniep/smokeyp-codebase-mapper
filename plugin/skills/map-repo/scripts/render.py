@@ -3703,6 +3703,32 @@ SYSMAP_JS = """
     if (ev.key !== 'Escape' || nothingToClear()) return;
     clearFocus();
   });
+
+  // ---- layer-toggle chips
+  // Scope the chip query to the SAME frame as the overview svg so the Task 5
+  // per-service facet maps (which live outside .sysmap-frame) are untouched.
+  // Each chip's data-layer maps to the svg's hide-<layer> class: pressing the
+  // chip removes that layer (sets aria-pressed=false + adds the hide class);
+  // pressing again restores it. Class-toggle only — no innerHTML, no deps.
+  var hideClassByLayer = {
+    'import': 'hide-import',
+    'http': 'hide-http',
+    'store': 'hide-store',
+    'orphan': 'hide-orphan'
+  };
+  var frame = svg.closest('.sysmap-frame');
+  var chips = frame
+    ? Array.prototype.slice.call(frame.querySelectorAll('.sysmap-chip'))
+    : [];
+  chips.forEach(function (chip) {
+    var hideClass = hideClassByLayer[chip.getAttribute('data-layer')];
+    if (!hideClass) return;
+    chip.addEventListener('click', function () {
+      var on = chip.getAttribute('aria-pressed') !== 'false';
+      chip.setAttribute('aria-pressed', on ? 'false' : 'true');
+      svg.classList.toggle(hideClass, on);  // pressing OFF hides that layer
+    });
+  });
 })();
 </script>
 """
@@ -3744,12 +3770,23 @@ def render_system_map(
     observations_html = _render_observations(_observations_for_sysmap(sel, edges, data))
     bento_html = render_sysmap_bento(data, sel, edges)
 
+    controls = (
+        '<div class="sysmap-controls" role="group" aria-label="Map filters">'
+        '<button type="button" class="sysmap-chip" data-layer="import" aria-pressed="true">Imports</button>'
+        '<button type="button" class="sysmap-chip" data-layer="http" aria-pressed="true">HTTP</button>'
+        '<button type="button" class="sysmap-chip" data-layer="store" aria-pressed="true">Stores</button>'
+        '<button type="button" class="sysmap-chip" data-layer="orphan" aria-pressed="true">Orphans</button>'
+        '<span class="sysmap-hint">hover a module to trace · click to pin · click a service to isolate</span>'
+        '</div>'
+    )
+
     return f"""
 <section id="codemap-sysmap-section">
   <h2>How the system fits together</h2>
   {section_intro("sysmap")}
   <div class="sysmap-frame">
     <p class="sysmap-headline">{headline}</p>
+    {controls}
     <div class="sysmap-wrap">{svg}</div>
     {legend}
     {truncation_note}
