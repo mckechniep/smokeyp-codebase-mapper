@@ -311,12 +311,27 @@ pre code { background: transparent; padding: 0; }
 .deps-eco .title .file { font-family: var(--font-mono); font-size: 0.85rem; color: var(--muted); }
 .deps-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: var(--space-2) var(--space-4);
   font-family: var(--font-mono);
   font-size: 0.83rem;
 }
-.deps-list .dep .ver { color: var(--muted); margin-left: 6px; }
+/* Name takes the line; a long "version" (e.g. a tarball path or git URL, not a
+   real semver) wraps to its OWN line via flex-wrap instead of crushing the name
+   down to one-character-per-line. Both sides set min-width:0 + overflow-wrap so
+   neither can overrun the column. */
+.deps-list .dep {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 10px;
+  min-width: 0;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 3px;
+}
+.deps-list .dep .dep-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; color: var(--ink); }
+.deps-list .dep .ver { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; color: var(--muted); }
 
 /* ---- Entry points ---- */
 .entries {
@@ -467,6 +482,120 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   margin: 0 calc(var(--space-5) * -1);
   padding: 0 var(--space-5);
 }
+
+/* ---- System map (layered-bands hero) ---- */
+.sysmap-frame {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  margin-bottom: var(--space-4);
+  margin-left: -56px;
+  margin-right: -56px;
+}
+@media (max-width: 880px) {
+  .sysmap-frame { margin-left: 0; margin-right: 0; }
+}
+.sysmap-wrap { overflow-x: auto; }
+.sysmap-headline {
+  font-size: 1.05rem;
+  color: var(--ink-2);
+  margin: 0 0 var(--space-4);
+}
+.sysmap-excluded { color: var(--muted); }
+.sysmap-band-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  fill: var(--muted);
+}
+.sysmap-cluster-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+.sysmap-cluster-kind { font-weight: 400; opacity: 0.7; font-size: 10px; }
+.sysmap-node-rect {
+  fill: var(--surface);
+  stroke: oklch(70% 0.01 250);
+  stroke-width: 1.25;
+}
+.sysmap-node.is-entry .sysmap-node-rect {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+.sysmap-node-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  fill: var(--ink);
+}
+.sysmap-entry-badge { font-size: 12px; fill: var(--accent); }
+.sysmap-endpoint-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  fill: var(--muted);
+}
+.sysmap-store-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  fill: var(--ink-2);
+}
+.sysmap-edge-import { stroke: oklch(60% 0.01 250 / 0.55); }
+.sysmap-edge-http { stroke: oklch(58% 0.14 250 / 0.8); stroke-dasharray: 5 4; }
+.sysmap-legend {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+.sysmap-leg-item { display: inline-flex; align-items: center; gap: 6px; }
+.sysmap-leg-http, .sysmap-leg-import, .sysmap-leg-store {
+  display: inline-block; width: 26px; height: 0;
+}
+.sysmap-leg-http { border-top: 2px dashed oklch(58% 0.14 250 / 0.8); }
+.sysmap-leg-import { border-top: 2px solid oklch(60% 0.01 250 / 0.55); }
+.sysmap-leg-store { border-top: 2px solid #336791; }
+.sysmap-note { font-size: 0.85rem; color: var(--muted); margin-top: var(--space-3); }
+
+/* Bento beneath the map — same grid/tile pattern as .modgraph-bento. */
+.sysmap-bento {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.sysmap-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+}
+.sysmap-tile .tile-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: var(--space-2);
+}
+.sysmap-tile .tile-headline {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  color: var(--ink);
+  margin: 0 0 var(--space-3);
+  line-height: 1.35;
+}
+.sysmap-tile .tile-body { flex: 1; }
+.sysmap-rows { display: flex; flex-direction: column; gap: 6px; font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink-2); }
+.sysmap-row { display: flex; justify-content: space-between; gap: 12px; }
+.sysmap-row .v { color: var(--ink); font-weight: 600; white-space: nowrap; }
 .modgraph-matrix {
   display: block;
   margin: 0 auto;
@@ -1494,6 +1623,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 @page { size: Letter portrait; margin: 0.6in; }
 @page hero { size: Letter landscape; margin: 0.4in; }
 
+#codemap-sysmap-section,
 #codemap-modgraph-section,
 #codemap-topov2-section,
 #codemap-cpaths-section,
@@ -1514,6 +1644,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   .card, .deps-eco, .entries li { page-break-inside: avoid; break-inside: avoid; }
 
   /* Each hero section starts a fresh landscape page. */
+  #codemap-sysmap-section,
   #codemap-modgraph-section,
   #codemap-topov2-section,
   #codemap-cpaths-section,
@@ -1523,6 +1654,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   }
 
   /* Avoid awkward splits between heading and body */
+  #codemap-sysmap-section h2,
   #codemap-modgraph-section h2,
   #codemap-topov2-section h2,
   #codemap-cpaths-section h2,
@@ -1530,6 +1662,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 
   /* On landscape hero pages the page itself is wide enough — we don't
      need the negative-margin "escape" used on screen. */
+  .sysmap-frame,
   .modgraph-frame,
   .topov2-frame,
   .cpaths-frame,
@@ -1554,6 +1687,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
      what they're looking at. Hiding it lets the h2 + frame share a
      single landscape page instead of stranding the heading on a
      near-empty intro-only page above the SVG. */
+  #codemap-sysmap-section > .section-intro,
   #codemap-modgraph-section > .section-intro,
   #codemap-topov2-section > .section-intro,
   #codemap-cpaths-section > .section-intro,
@@ -1563,6 +1697,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 
   /* Tighten the print h2 so it doesn't claim a 3rd of the page above
      the diagram. The serif still reads as a section heading. */
+  #codemap-sysmap-section > h2,
   #codemap-modgraph-section > h2,
   #codemap-topov2-section > h2,
   #codemap-cpaths-section > h2,
@@ -1578,6 +1713,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
      padding + headline, so the SVG itself caps at 6.0in (~576px).
      viewBox preserves aspect ratio while scaling — text stays
      crisp because PDF is vector. */
+  .sysmap-svg,
   .topov2-svg,
   .lineage2-svg {
     display: block;
@@ -1734,12 +1870,47 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 .flow-narration { color: var(--ink-2); font-size: 0.9rem; line-height: 1.55; margin: 0 0 var(--space-3); overflow-wrap: anywhere; }
 .flow-ends { font-size: 0.86rem; color: var(--ink); margin-top: var(--space-2); overflow-wrap: anywhere; }
 
-/* minmax(0, …) + overflow-wrap let long monospace citations wrap inside a
-   narrow lane instead of overflowing the card. */
-.flow-body { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 14px; }
-.flow-spine { display: block; }
-.flow-steps { display: flex; flex-direction: column; min-width: 0; }
-.flow-step { min-height: 56px; padding-bottom: 8px; min-width: 0; }
+/* Each step owns its number badge inside its own grid row, so numbers stay
+   aligned with their text however tall a step grows. A pseudo-element draws
+   the connector between consecutive badges (pure CSS, print-safe).
+   minmax(0,1fr) + overflow-wrap keep long monospace citations from
+   overflowing a narrow lane. */
+.flow-steps { list-style: none; margin: 0; padding: 0; }
+.flow-step {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 14px;
+  position: relative;
+  padding-bottom: var(--space-3);
+  min-width: 0;
+}
+.flow-step:last-child { padding-bottom: 0; }
+.flow-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 22px;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+  transform: translateX(-50%);
+}
+.flow-step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--lane-color, var(--accent));
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink);
+  position: relative;
+  z-index: 1;
+}
+.flow-step-main { min-width: 0; }
 .flow-step-label { font-weight: 600; font-size: 0.95rem; color: var(--ink); overflow-wrap: anywhere; }
 .flow-step-cite { font-size: 0.8rem; color: var(--muted); overflow-wrap: anywhere; }
 .flow-step-cite code { font-family: var(--font-mono); overflow-wrap: anywhere; }
@@ -1778,6 +1949,42 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 <aside class="report-explainer">
   This report is a structural snapshot of a software codebase. It shows <strong>what languages</strong> are used, <strong>what the main building blocks</strong> are, <strong>what outside packages</strong> the project relies on, and <strong>where the program starts running</strong>. Use it to onboard a new contributor, share a high-level overview with stakeholders, or audit how a project is organized. A glossary at the end explains any technical terms.
 </aside>
+
+<section id="codemap-sysmap-section">
+  <h2>How the system fits together</h2>
+  <p class="section-intro">One map of the whole system: the product's own modules (vendored and third-party code is excluded) arranged in tiers — user-facing code on top, server code in the middle, data stores at the bottom. <strong>Dashed lines</strong> are HTTP calls from the frontend to a backend module, <strong>solid lines</strong> are code imports, and <strong>coloured lines into cylinders</strong> show which service writes to which store. Modules marked with <strong>▸</strong> are entry points — the doors through which requests arrive. Solid lines are code imports; the dependency matrix further down shows the full import detail.</p>
+  <div class="sysmap-frame">
+    <p class="sysmap-headline">The product is <strong>7</strong> frontend modules, <strong>30</strong> backend modules, <strong>4</strong> data stores, connected by <strong>8</strong> HTTP call paths.</p>
+    <div class="sysmap-wrap"><svg class="sysmap-svg" viewBox="0 0 1120 692" width="100%" role="img" aria-label="System map: product modules in tiers with their connections"><text x="28" y="44.0" class="sysmap-band-label" transform="rotate(-90 28 44.0)" text-anchor="middle">FRONTEND</text><text x="28" y="340.0" class="sysmap-band-label" transform="rotate(-90 28 340.0)" text-anchor="middle">BACKEND</text><text x="28" y="637.0" class="sysmap-band-label" transform="rotate(-90 28 637.0)" text-anchor="middle">DATA</text><rect x="48.0" y="0.0" width="1052.0" height="88.0" rx="10" fill="#7aa2f7" fill-opacity="0.05" stroke="#7aa2f7" stroke-opacity="0.45" stroke-width="1.25" stroke-dasharray="none" /><text x="60.0" y="16.0" class="sysmap-cluster-label" fill="#7aa2f7">Front-End-FitTalk <tspan class="sysmap-cluster-kind">· FRONTEND</tspan></text><rect x="48.0" y="164.0" width="334.7" height="352.0" rx="10" fill="#cc785c" fill-opacity="0.05" stroke="#cc785c" stroke-opacity="0.45" stroke-width="1.25" stroke-dasharray="none" /><text x="60.0" y="180.0" class="sysmap-cluster-label" fill="#cc785c">Back-End-FitTalk <tspan class="sysmap-cluster-kind">· BACKEND</tspan></text><rect x="406.7" y="164.0" width="334.7" height="352.0" rx="10" fill="#cc785c" fill-opacity="0.05" stroke="#cc785c" stroke-opacity="0.45" stroke-width="1.25" stroke-dasharray="none" /><text x="418.7" y="180.0" class="sysmap-cluster-label" fill="#cc785c">FitTalk_AI <tspan class="sysmap-cluster-kind">· BACKEND</tspan></text><rect x="765.3" y="164.0" width="334.7" height="352.0" rx="10" fill="#a0a0a0" fill-opacity="0.05" stroke="#a0a0a0" stroke-opacity="0.45" stroke-width="1.25" stroke-dasharray="none" /><text x="777.3" y="180.0" class="sysmap-cluster-label" fill="#a0a0a0">? <tspan class="sysmap-cluster-kind">· UNKNOWN</tspan></text><path d="M180.6,440.0 C420.7,440.0 420.7,220.0 174.0,220.0" class="sysmap-edge-import" stroke-width="4.0" fill="none" /><path d="M322.8,264.0 C420.7,264.0 420.7,220.0 174.0,220.0" class="sysmap-edge-import" stroke-width="4.0" fill="none" /><path d="M195.4,396.0 C420.7,396.0 420.7,220.0 174.0,220.0" class="sysmap-edge-import" stroke-width="4.0" fill="none" /><path d="M294.0,308.0 C420.7,308.0 420.7,220.0 174.0,220.0" class="sysmap-edge-import" stroke-width="4.0" fill="none" /><path d="M202.8,264.0 C420.7,264.0 420.7,220.0 174.0,220.0" class="sysmap-edge-import" stroke-width="4.0" fill="none" /><path d="M300.6,440.0 C420.7,440.0 420.7,220.0 174.0,220.0" class="sysmap-edge-import" stroke-width="4.0" fill="none" /><path d="M180.6,440.0 C406.7,440.0 406.7,484.0 270.6,484.0" class="sysmap-edge-import" stroke-width="3.6" fill="none" /><path d="M330.2,220.0 C406.7,220.0 406.7,484.0 270.6,484.0" class="sysmap-edge-import" stroke-width="3.6" fill="none" /><path d="M322.8,264.0 C406.7,264.0 406.7,484.0 270.6,484.0" class="sysmap-edge-import" stroke-width="3.3" fill="none" /><path d="M202.8,264.0 C406.7,264.0 406.7,484.0 270.6,484.0" class="sysmap-edge-import" stroke-width="3.3" fill="none" /><path d="M202.8,264.0 C434.7,264.0 434.7,220.0 330.2,220.0" class="sysmap-edge-import" stroke-width="3.3" fill="none" /><path d="M345.0,352.0 C420.7,352.0 420.7,220.0 174.0,220.0" class="sysmap-edge-import" stroke-width="3.3" fill="none" /><path d="M257.1,236.0 Q188.1,263.5 119.0,236.0" class="sysmap-edge-import" stroke-width="3.3" fill="none" /><path d="M174.0,308.0 C420.7,308.0 420.7,220.0 174.0,220.0" class="sysmap-edge-import" stroke-width="3.3" fill="none" /><path d="M195.4,396.0 C406.7,396.0 406.7,484.0 270.6,484.0" class="sysmap-edge-import" stroke-width="3.3" fill="none" /><path d="M174.0,352.0 C420.7,352.0 420.7,220.0 174.0,220.0" class="sysmap-edge-import" stroke-width="3.3" fill="none" /><path d="M292.4,396.0 C420.7,396.0 420.7,220.0 174.0,220.0" class="sysmap-edge-import" stroke-width="3.3" fill="none" /><path d="M322.8,264.0 C434.7,264.0 434.7,220.0 330.2,220.0" class="sysmap-edge-import" stroke-width="2.6" fill="none" /><path d="M174.0,220.0 C406.7,220.0 406.7,484.0 270.6,484.0" class="sysmap-edge-import" stroke-width="2.6" fill="none" /><path d="M202.8,264.0 C476.7,264.0 476.7,308.0 174.0,308.0" class="sysmap-edge-import" stroke-width="2.6" fill="none" /><path d="M345.0,352.0 C406.7,352.0 406.7,484.0 270.6,484.0" class="sysmap-edge-import" stroke-width="2.6" fill="none" /><path d="M345.0,352.0 C434.7,352.0 434.7,220.0 330.2,220.0" class="sysmap-edge-import" stroke-width="2.6" fill="none" /><path d="M174.0,308.0 C406.7,308.0 406.7,484.0 270.6,484.0" class="sysmap-edge-import" stroke-width="2.6" fill="none" /><path d="M294.0,308.0 C406.7,308.0 406.7,484.0 270.6,484.0" class="sysmap-edge-import" stroke-width="2.6" fill="none" /><path d="M174.0,352.0 C406.7,352.0 406.7,484.0 270.6,484.0" class="sysmap-edge-import" stroke-width="2.6" fill="none" /><path d="M292.4,396.0 C406.7,396.0 406.7,484.0 270.6,484.0" class="sysmap-edge-import" stroke-width="2.6" fill="none" /><path d="M180.6,484.0 C420.7,484.0 420.7,220.0 174.0,220.0" class="sysmap-edge-import" stroke-width="2.6" fill="none" /><path d="M239.0,324.0 Q179.0,350.8 119.0,324.0" class="sysmap-edge-import" stroke-width="2.0" fill="none" /><path d="M294.0,308.0 C434.7,308.0 434.7,220.0 330.2,220.0" class="sysmap-edge-import" stroke-width="2.0" fill="none" /><path d="M300.6,440.0 C406.7,440.0 406.7,484.0 270.6,484.0" class="sysmap-edge-import" stroke-width="2.0" fill="none" /><path d="M122.3,500.0 Q176.5,526.3 230.6,500.0" class="sysmap-edge-import" stroke-width="2.0" fill="none" /><path d="M267.8,280.0 Q200.6,307.4 133.4,280.0" class="sysmap-edge-import" stroke-width="1.0" fill="none" /><path d="M174.0,220.0 C448.7,220.0 448.7,352.0 174.0,352.0" class="sysmap-edge-import" stroke-width="1.0" fill="none" /><path d="M330.2,220.0 C490.7,220.0 490.7,264.0 322.8,264.0" class="sysmap-edge-import" stroke-width="1.0" fill="none" /><path d="M174.0,308.0 C448.7,308.0 448.7,352.0 174.0,352.0" class="sysmap-edge-import" stroke-width="1.0" fill="none" /><path d="M294.0,308.0 C462.7,308.0 462.7,264.0 202.8,264.0" class="sysmap-edge-import" stroke-width="1.0" fill="none" /><path d="M195.4,396.0 C434.7,396.0 434.7,220.0 330.2,220.0" class="sysmap-edge-import" stroke-width="1.0" fill="none" /><path d="M292.4,396.0 C448.7,396.0 448.7,352.0 174.0,352.0" class="sysmap-edge-import" stroke-width="1.0" fill="none" /><path d="M104.0,72.0 Q259.1,106.4 414.2,72.0" class="sysmap-edge-import" stroke-width="1.0" fill="none" /><path d="M104.0,72.0 Q149.0,97.6 194.0,72.0" class="sysmap-edge-import" stroke-width="1.0" fill="none" /><path d="M574.0,88.0 C574.0,278.0 122.3,278.0 122.3,468.0" class="sysmap-edge-http" stroke-width="2.6" fill="none" marker-end="url(#sysmap-arrow)" /><path d="M574.0,88.0 C574.0,212.0 119.0,212.0 119.0,336.0" class="sysmap-edge-http" stroke-width="2.6" fill="none" marker-end="url(#sysmap-arrow)" /><path d="M574.0,88.0 C574.0,168.0 133.4,168.0 133.4,248.0" class="sysmap-edge-http" stroke-width="4.0" fill="none" marker-end="url(#sysmap-arrow)" /><path d="M574.0,88.0 C574.0,146.0 257.1,146.0 257.1,204.0" class="sysmap-edge-http" stroke-width="3.0" fill="none" marker-end="url(#sysmap-arrow)" /><path d="M574.0,88.0 C574.0,256.0 122.3,256.0 122.3,424.0" class="sysmap-edge-http" stroke-width="4.0" fill="none" marker-end="url(#sysmap-arrow)" /><path d="M574.0,88.0 C574.0,190.0 119.0,190.0 119.0,292.0" class="sysmap-edge-http" stroke-width="4.0" fill="none" marker-end="url(#sysmap-arrow)" /><path d="M574.0,88.0 C574.0,212.0 264.5,212.0 264.5,336.0" class="sysmap-edge-http" stroke-width="3.0" fill="none" marker-end="url(#sysmap-arrow)" /><path d="M574.0,88.0 C574.0,168.0 267.8,168.0 267.8,248.0" class="sysmap-edge-http" stroke-width="3.3" fill="none" marker-end="url(#sysmap-arrow)" /><path d="M215.3,516.0 C215.3,556.0 510.0,556.0 510.0,596.0" stroke="#336791" stroke-opacity="0.75" stroke-width="4.0" fill="none" marker-end="url(#sysmap-arrow)" /><path d="M574.0,516.0 C574.0,556.0 510.0,556.0 510.0,596.0" stroke="#336791" stroke-opacity="0.75" stroke-width="2.0" fill="none" marker-end="url(#sysmap-arrow)" /><defs><marker id="sysmap-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="oklch(50% 0.01 250)" /></marker></defs><g class="sysmap-node"><title>Front-End-FitTalk/services/api</title><rect x="64.0" y="40.0" width="80.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="74.0" y="60.0" class="sysmap-node-label">api</text></g><g class="sysmap-node"><title>Front-End-FitTalk/services/cache</title><rect x="154.0" y="40.0" width="80.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="164.0" y="60.0" class="sysmap-node-label">cache</text></g><g class="sysmap-node"><title>Front-End-FitTalk/services/notifications</title><rect x="244.0" y="40.0" width="120.2" height="32.0" rx="6" class="sysmap-node-rect" /><text x="254.0" y="60.0" class="sysmap-node-label">notifications</text></g><g class="sysmap-node"><title>Front-End-FitTalk/services/auth</title><rect x="374.2" y="40.0" width="80.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="384.2" y="60.0" class="sysmap-node-label">auth</text></g><g class="sysmap-node"><title>Front-End-FitTalk/app/(app)</title><rect x="464.2" y="40.0" width="110.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="474.2" y="60.0" class="sysmap-node-label">(app)</text></g><g class="sysmap-node"><title>Front-End-FitTalk/app/(auth)</title><rect x="584.2" y="40.0" width="80.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="594.2" y="60.0" class="sysmap-node-label">(auth)</text></g><g class="sysmap-node"><title>Front-End-FitTalk/services/websocket</title><rect x="674.2" y="40.0" width="90.6" height="32.0" rx="6" class="sysmap-node-rect" /><text x="684.2" y="60.0" class="sysmap-node-label">websocket</text></g><g class="sysmap-node is-entry"><title>Back-End-FitTalk/src/common</title><rect x="64.0" y="204.0" width="110.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="74.0" y="224.0" class="sysmap-entry-badge">▸</text><text x="86.0" y="224.0" class="sysmap-node-label">common</text><text x="166.0" y="224.0" text-anchor="end" class="sysmap-endpoint-count">5</text></g><g class="sysmap-node is-entry"><title>Back-End-FitTalk/src/modules/notifications</title><rect x="184.0" y="204.0" width="146.2" height="32.0" rx="6" class="sysmap-node-rect" /><text x="194.0" y="224.0" class="sysmap-entry-badge">▸</text><text x="206.0" y="224.0" class="sysmap-node-label">notifications</text><text x="322.2" y="224.0" text-anchor="end" class="sysmap-endpoint-count">3</text></g><g class="sysmap-node is-entry"><title>Back-End-FitTalk/src/modules/consultation</title><rect x="64.0" y="248.0" width="138.8" height="32.0" rx="6" class="sysmap-node-rect" /><text x="74.0" y="268.0" class="sysmap-entry-badge">▸</text><text x="86.0" y="268.0" class="sysmap-node-label">consultation</text><text x="194.8" y="268.0" text-anchor="end" class="sysmap-endpoint-count">10</text></g><g class="sysmap-node is-entry"><title>Back-End-FitTalk/src/modules/workouts</title><rect x="212.8" y="248.0" width="110.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="222.8" y="268.0" class="sysmap-entry-badge">▸</text><text x="234.8" y="268.0" class="sysmap-node-label">workouts</text><text x="314.8" y="268.0" text-anchor="end" class="sysmap-endpoint-count">19</text></g><g class="sysmap-node is-entry"><title>Back-End-FitTalk/src/modules/programs</title><rect x="64.0" y="292.0" width="110.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="74.0" y="312.0" class="sysmap-entry-badge">▸</text><text x="86.0" y="312.0" class="sysmap-node-label">programs</text><text x="166.0" y="312.0" text-anchor="end" class="sysmap-endpoint-count">13</text></g><g class="sysmap-node is-entry"><title>Back-End-FitTalk/src/modules/admin</title><rect x="184.0" y="292.0" width="110.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="194.0" y="312.0" class="sysmap-entry-badge">▸</text><text x="206.0" y="312.0" class="sysmap-node-label">admin</text><text x="286.0" y="312.0" text-anchor="end" class="sysmap-endpoint-count">13</text></g><g class="sysmap-node is-entry"><title>Back-End-FitTalk/src/modules/auth</title><rect x="64.0" y="336.0" width="110.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="74.0" y="356.0" class="sysmap-entry-badge">▸</text><text x="86.0" y="356.0" class="sysmap-node-label">auth</text><text x="166.0" y="356.0" text-anchor="end" class="sysmap-endpoint-count">12</text></g><g class="sysmap-node is-entry"><title>Back-End-FitTalk/src/modules/workout-logging</title><rect x="184.0" y="336.0" width="161.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="194.0" y="356.0" class="sysmap-entry-badge">▸</text><text x="206.0" y="356.0" class="sysmap-node-label">workout-logging</text><text x="337.0" y="356.0" text-anchor="end" class="sysmap-endpoint-count">5</text></g><g class="sysmap-node is-entry"><title>Back-End-FitTalk/src/modules/ai-coaching</title><rect x="64.0" y="380.0" width="131.4" height="32.0" rx="6" class="sysmap-node-rect" /><text x="74.0" y="400.0" class="sysmap-entry-badge">▸</text><text x="86.0" y="400.0" class="sysmap-node-label">ai-coaching</text><text x="187.4" y="400.0" text-anchor="end" class="sysmap-endpoint-count">7</text></g><g class="sysmap-node is-entry"><title>Back-End-FitTalk/src/modules/goals</title><rect x="205.4" y="380.0" width="87.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="215.4" y="400.0" class="sysmap-entry-badge">▸</text><text x="227.4" y="400.0" class="sysmap-node-label">goals</text><text x="284.4" y="400.0" text-anchor="end" class="sysmap-endpoint-count">6</text></g><g class="sysmap-node is-entry"><title>Back-End-FitTalk/src/modules/nutrition</title><rect x="64.0" y="424.0" width="116.6" height="32.0" rx="6" class="sysmap-node-rect" /><text x="74.0" y="444.0" class="sysmap-entry-badge">▸</text><text x="86.0" y="444.0" class="sysmap-node-label">nutrition</text><text x="172.6" y="444.0" text-anchor="end" class="sysmap-endpoint-count">20</text></g><g class="sysmap-node is-entry"><title>Back-End-FitTalk/src/modules/support</title><rect x="190.6" y="424.0" width="110.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="200.6" y="444.0" class="sysmap-entry-badge">▸</text><text x="212.6" y="444.0" class="sysmap-node-label">support</text><text x="292.6" y="444.0" text-anchor="end" class="sysmap-endpoint-count">6</text></g><g class="sysmap-node is-entry"><title>Back-End-FitTalk/src/modules/analytics</title><rect x="64.0" y="468.0" width="116.6" height="32.0" rx="6" class="sysmap-node-rect" /><text x="74.0" y="488.0" class="sysmap-entry-badge">▸</text><text x="86.0" y="488.0" class="sysmap-node-label">analytics</text><text x="172.6" y="488.0" text-anchor="end" class="sysmap-endpoint-count">3</text></g><g class="sysmap-node"><title>Back-End-FitTalk/src/prisma</title><rect x="190.6" y="468.0" width="80.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="200.6" y="488.0" class="sysmap-node-label">prisma</text></g><g class="sysmap-node"><title>Back-End-FitTalk/src/config</title><rect x="280.6" y="468.0" width="80.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="290.6" y="488.0" class="sysmap-node-label">config</text></g><g class="sysmap-node is-entry"><title>FitTalk_AI/app/api</title><rect x="422.7" y="204.0" width="110.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="432.7" y="224.0" class="sysmap-entry-badge">▸</text><text x="444.7" y="224.0" class="sysmap-node-label">api</text><text x="524.7" y="224.0" text-anchor="end" class="sysmap-endpoint-count">9</text></g><g class="sysmap-node is-entry"><title>FitTalk_AI/app/core</title><rect x="542.7" y="204.0" width="110.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="552.7" y="224.0" class="sysmap-entry-badge">▸</text><text x="564.7" y="224.0" class="sysmap-node-label">core</text><text x="644.7" y="224.0" text-anchor="end" class="sysmap-endpoint-count">2</text></g><g class="sysmap-node is-entry"><title>FitTalk_AI/app/utils</title><rect x="422.7" y="248.0" width="87.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="432.7" y="268.0" class="sysmap-entry-badge">▸</text><text x="444.7" y="268.0" class="sysmap-node-label">utils</text><text x="501.7" y="268.0" text-anchor="end" class="sysmap-endpoint-count">2</text></g><g class="sysmap-node"><title>FitTalk_AI/app/services/analysis</title><rect x="519.7" y="248.0" width="110.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="529.7" y="268.0" class="sysmap-node-label">analysis</text></g><g class="sysmap-node"><title>FitTalk_AI/app/db</title><rect x="422.7" y="292.0" width="110.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="432.7" y="312.0" class="sysmap-node-label">db</text></g><g class="sysmap-node"><title>FitTalk_AI/app/services/planning</title><rect x="542.7" y="292.0" width="110.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="552.7" y="312.0" class="sysmap-node-label">planning</text></g><g class="sysmap-node"><title>FitTalk_AI/app/services/coach</title><rect x="422.7" y="336.0" width="80.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="432.7" y="356.0" class="sysmap-node-label">coach</text></g><g class="sysmap-node"><title>FitTalk_AI/app/services/embeddings</title><rect x="512.7" y="336.0" width="98.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="522.7" y="356.0" class="sysmap-node-label">embeddings</text></g><g class="sysmap-node"><title>FitTalk_AI/app/services/llm</title><rect x="620.7" y="336.0" width="80.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="630.7" y="356.0" class="sysmap-node-label">llm</text></g><g class="sysmap-node"><title>FitTalk_AI/app/prompts</title><rect x="422.7" y="380.0" width="80.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="432.7" y="400.0" class="sysmap-node-label">prompts</text></g><g class="sysmap-node"><title>FitTalk_AI/app/services/voice</title><rect x="512.7" y="380.0" width="80.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="522.7" y="400.0" class="sysmap-node-label">voice</text></g><g class="sysmap-node"><title>analysis</title><rect x="781.3" y="204.0" width="110.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="791.3" y="224.0" class="sysmap-node-label">analysis</text></g><g class="sysmap-node"><title>.github</title><rect x="901.3" y="204.0" width="80.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="911.3" y="224.0" class="sysmap-node-label">.github</text></g><g class="sysmap-node"><title>docs</title><rect x="991.3" y="204.0" width="80.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="1001.3" y="224.0" class="sysmap-node-label">docs</text></g><g class="sysmap-node"><title>scripts</title><rect x="781.3" y="248.0" width="80.0" height="32.0" rx="6" class="sysmap-node-rect" /><text x="791.3" y="268.0" class="sysmap-node-label">scripts</text></g><g class="sysmap-store"><title>Supabase</title><rect x="338.0" y="604.0" width="88.0" height="26.0" fill="#3ecf8e" fill-opacity="0.88" /><ellipse cx="382.0" cy="630.0" rx="44.0" ry="8" fill="#3ecf8e" fill-opacity="0.88" /><ellipse cx="382.0" cy="604.0" rx="44.0" ry="8" fill="#3ecf8e" fill-opacity="1" /><line class="lineage2-cyl-stroke" x1="338.0" y1="604.0" x2="338.0" y2="630.0" stroke="oklch(20% 0.012 250 / 0.18)" /><line class="lineage2-cyl-stroke" x1="426.0" y1="604.0" x2="426.0" y2="630.0" stroke="oklch(20% 0.012 250 / 0.18)" /><ellipse cx="382.0" cy="604.0" rx="44.0" ry="8" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><path d="M338.0,630.0 A44.0,8 0 0 0 426.0,630.0" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><text x="382.0" y="662.0" text-anchor="middle" class="sysmap-store-label">Supabase</text></g><g class="sysmap-store"><title>PostgreSQL</title><rect x="466.0" y="604.0" width="88.0" height="26.0" fill="#336791" fill-opacity="0.88" /><ellipse cx="510.0" cy="630.0" rx="44.0" ry="8" fill="#336791" fill-opacity="0.88" /><ellipse cx="510.0" cy="604.0" rx="44.0" ry="8" fill="#336791" fill-opacity="1" /><line class="lineage2-cyl-stroke" x1="466.0" y1="604.0" x2="466.0" y2="630.0" stroke="oklch(20% 0.012 250 / 0.18)" /><line class="lineage2-cyl-stroke" x1="554.0" y1="604.0" x2="554.0" y2="630.0" stroke="oklch(20% 0.012 250 / 0.18)" /><ellipse cx="510.0" cy="604.0" rx="44.0" ry="8" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><path d="M466.0,630.0 A44.0,8 0 0 0 554.0,630.0" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><text x="510.0" y="662.0" text-anchor="middle" class="sysmap-store-label">PostgreSQL</text></g><g class="sysmap-store"><title>Redis</title><rect x="594.0" y="604.0" width="88.0" height="26.0" fill="#d82c20" fill-opacity="0.88" /><ellipse cx="638.0" cy="630.0" rx="44.0" ry="8" fill="#d82c20" fill-opacity="0.88" /><ellipse cx="638.0" cy="604.0" rx="44.0" ry="8" fill="#d82c20" fill-opacity="1" /><line class="lineage2-cyl-stroke" x1="594.0" y1="604.0" x2="594.0" y2="630.0" stroke="oklch(20% 0.012 250 / 0.18)" /><line class="lineage2-cyl-stroke" x1="682.0" y1="604.0" x2="682.0" y2="630.0" stroke="oklch(20% 0.012 250 / 0.18)" /><ellipse cx="638.0" cy="604.0" rx="44.0" ry="8" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><path d="M594.0,630.0 A44.0,8 0 0 0 682.0,630.0" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><text x="638.0" y="662.0" text-anchor="middle" class="sysmap-store-label">Redis</text></g><g class="sysmap-store"><title>Firebase / Firestore</title><rect x="722.0" y="604.0" width="88.0" height="26.0" fill="#ffa611" fill-opacity="0.88" /><ellipse cx="766.0" cy="630.0" rx="44.0" ry="8" fill="#ffa611" fill-opacity="0.88" /><ellipse cx="766.0" cy="604.0" rx="44.0" ry="8" fill="#ffa611" fill-opacity="1" /><line class="lineage2-cyl-stroke" x1="722.0" y1="604.0" x2="722.0" y2="630.0" stroke="oklch(20% 0.012 250 / 0.18)" /><line class="lineage2-cyl-stroke" x1="810.0" y1="604.0" x2="810.0" y2="630.0" stroke="oklch(20% 0.012 250 / 0.18)" /><ellipse cx="766.0" cy="604.0" rx="44.0" ry="8" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><path d="M722.0,630.0 A44.0,8 0 0 0 810.0,630.0" fill="none" stroke="oklch(20% 0.012 250 / 0.22)" stroke-width="1" /><text x="766.0" y="662.0" text-anchor="middle" class="sysmap-store-label">Firebase / Fi…</text></g></svg></div>
+    <div class="sysmap-legend"><span class="sysmap-leg-item"><span class="sysmap-leg-http"></span> HTTP call</span><span class="sysmap-leg-item"><span class="sysmap-leg-import"></span> code import</span><span class="sysmap-leg-item"><span class="sysmap-leg-store"></span> reads/writes data</span><span class="sysmap-leg-item">▸ entry point (number = endpoints)</span></div>
+    
+  </div>
+  <aside class="observations" role="note"><div class="observations-label">Observations</div><ul><li><strong><code>common</code></strong> is the most-connected module on the map (14 import relationships) — changes there ripple furthest.</li><li><strong>87%</strong> of mapped code lives in the backend tier — this is a backend-heavy system; the frontend is comparatively thin.</li><li>19 modules on the map have <strong>no detected connections</strong>: <code>(app)</code>, <code>(auth)</code>, <code>websocket</code>, <code>api</code> (+15 more) — either truly standalone or wired together in a way the scanner can't see.</li></ul></aside>
+  
+<div class="sysmap-bento">
+  <div class="sysmap-tile">
+    <div class="tile-label">Composition</div>
+    <div class="tile-headline">Code and stores per tier</div>
+    <div class="tile-body"><div class="sysmap-rows"><div class="sysmap-row"><span>Frontend modules</span><span class="v">7 · 7,244 LOC</span></div><div class="sysmap-row"><span>Backend modules</span><span class="v">30 · 47,714 LOC</span></div><div class="sysmap-row"><span>Data stores</span><span class="v">4</span></div></div></div>
+  </div>
+  <div class="sysmap-tile">
+    <div class="tile-label">Call paths</div>
+    <div class="tile-headline">Heaviest frontend → backend routes</div>
+    <div class="tile-body"><div class="sysmap-rows"><div class="sysmap-row"><span>Front-End-Fit… → programs</span><span class="v">13 calls</span></div><div class="sysmap-row"><span>Front-End-Fit… → nutrition</span><span class="v">12 calls</span></div><div class="sysmap-row"><span>Front-End-Fit… → consultation</span><span class="v">10 calls</span></div><div class="sysmap-row"><span>Front-End-Fit… → workouts</span><span class="v">5 calls</span></div><div class="sysmap-row"><span>Front-End-Fit… → notifications</span><span class="v">4 calls</span></div><div class="sysmap-row"><span>Front-End-Fit… → workout-loggi…</span><span class="v">4 calls</span></div></div></div>
+  </div>
+  <div class="sysmap-tile">
+    <div class="tile-label">Entry points</div>
+    <div class="tile-headline">Where requests arrive, per service</div>
+    <div class="tile-body"><div class="sysmap-rows"><div class="sysmap-row"><span>Back-End-FitTalk</span><span class="v">13 entry modules</span></div><div class="sysmap-row"><span>FitTalk_AI</span><span class="v">3 entry modules</span></div></div></div>
+  </div>
+  <div class="sysmap-tile">
+    <div class="tile-label">Excluded</div>
+    <div class="tile-headline">What this map deliberately leaves out</div>
+    <div class="tile-body"><div class="sysmap-rows"><div class="sysmap-row"><span>Vendored modules excluded</span><span class="v">0</span></div><div class="sysmap-row"><span>Small modules truncated</span><span class="v">0</span></div></div></div>
+  </div>
+</div>
+
+</section>
 
 <section>
   <h2>From README.md</h2>
