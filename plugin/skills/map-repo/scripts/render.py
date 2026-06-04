@@ -3214,7 +3214,7 @@ def _sysmap_emit_svg(
             parts.append(
                 f'<path d="M{x1:.1f},{y1:.1f} C{x1:.1f},{(y1 + y2) / 2:.1f} '
                 f'{x2:.1f},{(y1 + y2) / 2:.1f} {x2:.1f},{y2:.1f}" '
-                f'data-kind="store" '
+                f'class="sysmap-edge-store" data-kind="store" '
                 f'data-src-svc="{escape(e.get("source_service") or "")}" '
                 f'data-tgt-store="{escape(e.get("target_store") or "")}" '
                 f'stroke="{escape(color)}" stroke-opacity="0.75" '
@@ -3488,6 +3488,207 @@ def render_sysmap_bento(
 """
 
 
+# Inline focus behaviour for the System Map. Plain (non-f) string so its JS
+# braces survive interpolation; referenced as {SYSMAP_JS} inside the f-string
+# section. Dependency-free IIFE (no framework/CDN/import/require). It only
+# toggles CSS classes — never touches innerHTML — so it degrades to the full
+# static map when JS is off, and the print stylesheet restores opacity anyway.
+#
+# SCOPING: deliberately bound to the ONE overview svg at
+# `#codemap-sysmap-section .sysmap-frame .sysmap-svg`. The per-service facet
+# svgs (Task 5) live OUTSIDE `.sysmap-frame`, so this JS never touches them —
+# they stay static small-multiples.
+SYSMAP_JS = """
+<script>
+(function () {
+  var svg = document.querySelector(
+    '#codemap-sysmap-section .sysmap-frame .sysmap-svg');
+  if (!svg) return;  // graceful no-op if the overview map is absent
+
+  var nodes = Array.prototype.slice.call(svg.querySelectorAll('.sysmap-node'));
+  var clusters = Array.prototype.slice.call(
+    svg.querySelectorAll('.sysmap-cluster'));
+  var stores = Array.prototype.slice.call(svg.querySelectorAll('.sysmap-store'));
+  var importEdges = Array.prototype.slice.call(
+    svg.querySelectorAll('[data-kind="import"]'));
+  var httpEdges = Array.prototype.slice.call(
+    svg.querySelectorAll('[data-kind="http"]'));
+  var storeEdges = Array.prototype.slice.call(
+    svg.querySelectorAll('[data-kind="store"]'));
+
+  // Index nodes/stores by id for O(1) lookup.
+  var nodeById = {};
+  nodes.forEach(function (n) {
+    var id = n.getAttribute('data-nid');
+    if (id) nodeById[id] = n;
+  });
+  var storeById = {};
+  stores.forEach(function (s) {
+    var id = s.getAttribute('data-store');
+    if (id) storeById[id] = s;
+  });
+
+  // Import adjacency: node id -> { nbrs: Set(node id), edges: [path] }.
+  var adj = {};
+  function ensure(id) {
+    if (!adj[id]) adj[id] = { nbrs: {}, edges: [] };
+    return adj[id];
+  }
+  importEdges.forEach(function (p) {
+    var s = p.getAttribute('data-src');
+    var t = p.getAttribute('data-tgt');
+    if (!s || !t) return;  // skip malformed edges
+    ensure(s).edges.push(p);
+    ensure(t).edges.push(p);
+    adj[s].nbrs[t] = true;
+    adj[t].nbrs[s] = true;
+  });
+
+  var pinned = false;  // a click/keyboard selection survives mouseleave
+
+  function clearActive() {
+    svg.classList.remove('has-focus');
+    nodes.forEach(function (n) { n.classList.remove('is-active'); });
+    clusters.forEach(function (c) { c.classList.remove('is-active'); });
+    stores.forEach(function (s) { s.classList.remove('is-active'); });
+    importEdges.forEach(function (e) { e.classList.remove('is-active'); });
+    httpEdges.forEach(function (e) { e.classList.remove('is-active'); });
+    storeEdges.forEach(function (e) { e.classList.remove('is-active'); });
+  }
+
+  function activate(el) { if (el) el.classList.add('is-active'); }
+
+  // Node focus = the node + its import-edge neighbours + the import-edges
+  // between them. Fade everything else.
+  function applyNodeFocus(nid) {
+    var node = nodeById[nid];
+    if (!node) return;
+    clearActive();
+    svg.classList.add('has-focus');
+    activate(node);
+    var a = adj[nid];
+    if (a) {
+      Object.keys(a.nbrs).forEach(function (other) {
+        activate(nodeById[other]);
+      });
+      a.edges.forEach(activate);
+    }
+  }
+
+  // Cluster focus = the whole service subgraph: every node in the service,
+  // every import-edge touching the service, every http/store edge from the
+  // service (or http edge landing on a node in it), and the service's stores.
+  function applyClusterFocus(svc) {
+    if (!svc) return;
+    clearActive();
+    svg.classList.add('has-focus');
+    var inSvc = {};
+    nodes.forEach(function (n) {
+      if (n.getAttribute('data-svc') === svc) {
+        inSvc[n.getAttribute('data-nid')] = true;
+        activate(n);
+      }
+    });
+    clusters.forEach(function (c) {
+      if (c.getAttribute('data-svc') === svc) activate(c);
+    });
+    importEdges.forEach(function (p) {
+      if (inSvc[p.getAttribute('data-src')] || inSvc[p.getAttribute('data-tgt')]) {
+        activate(p);
+      }
+    });
+    httpEdges.forEach(function (p) {
+      if (p.getAttribute('data-src-svc') === svc ||
+          inSvc[p.getAttribute('data-tgt')]) {
+        activate(p);
+      }
+    });
+    storeEdges.forEach(function (p) {
+      if (p.getAttribute('data-src-svc') === svc) {
+        activate(p);
+        activate(storeById[p.getAttribute('data-tgt-store')]);
+      }
+    });
+  }
+
+  function clearFocus() { pinned = false; clearActive(); }
+
+  // ---- node interactions
+  nodes.forEach(function (n) {
+    var nid = n.getAttribute('data-nid');
+    n.addEventListener('mouseenter', function () {
+      if (!pinned) applyNodeFocus(nid);
+    });
+    n.addEventListener('mouseleave', function () {
+      if (!pinned) clearActive();
+    });
+    n.addEventListener('focus', function () {
+      if (!pinned) applyNodeFocus(nid);
+    });
+    n.addEventListener('blur', function () {
+      if (!pinned) clearActive();
+    });
+    n.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      if (pinned && n.classList.contains('is-active')) {
+        clearFocus();  // clicking the pinned node again clears
+      } else {
+        applyNodeFocus(nid);
+        pinned = true;
+      }
+    });
+    n.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (pinned && n.classList.contains('is-active')) {
+          clearFocus();
+        } else {
+          applyNodeFocus(nid);
+          pinned = true;
+        }
+      }
+    });
+  });
+
+  // ---- cluster interactions (always pin a service subgraph)
+  clusters.forEach(function (c) {
+    var svc = c.getAttribute('data-svc');
+    c.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      if (pinned && c.classList.contains('is-active')) {
+        clearFocus();
+      } else {
+        applyClusterFocus(svc);
+        pinned = true;
+      }
+    });
+    c.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (pinned && c.classList.contains('is-active')) {
+          clearFocus();
+        } else {
+          applyClusterFocus(svc);
+          pinned = true;
+        }
+      }
+    });
+  });
+
+  // ---- background click clears (a click that reached the svg itself)
+  svg.addEventListener('click', function () { clearFocus(); });
+
+  // ---- Escape clears + unpins
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') clearFocus();
+  });
+})();
+</script>
+"""
+
+
 def render_system_map(
     data: dict[str, Any], enrichment: dict[str, Any] | None = None
 ) -> str:
@@ -3536,6 +3737,7 @@ def render_system_map(
   </div>
   {observations_html}
   {bento_html}
+  {SYSMAP_JS}
 </section>
 """
 

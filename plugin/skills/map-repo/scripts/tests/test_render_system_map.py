@@ -661,9 +661,12 @@ class RenderSectionTest(unittest.TestCase):
         data["services"][1]["name"] = 'svc<b>&'                    # api service name
         data["data_lineage"]["stores"][0]["name"] = 'pg<i>&"'      # store name
         html = render.render_system_map(data, None)
-        self.assertNotIn("<script>", html)
-        self.assertNotIn("<b>", html)
-        self.assertIn("&lt;script&gt;", html)
+        # The section now carries one legitimate inline focus <script>; exclude
+        # it so the assertion measures only data-derived content escaping.
+        body = html[:html.index("<script>")]
+        self.assertNotIn("<script>", body)
+        self.assertNotIn("<b>", body)
+        self.assertIn("&lt;script&gt;", body)
 
     def test_enrichment_descriptions_become_tooltips(self):
         enr = {"classification": {"products": [], "vendored": []},
@@ -789,8 +792,11 @@ class ObservationsAndBentoTest(unittest.TestCase):
         # make the hub module name malicious (api/auth is the highest-degree node)
         data["module_graph"]["nodes"][2]["name"] = 'h<script>&"x'
         html = render.render_system_map(data, None)
-        self.assertNotIn("<script>", html)
-        self.assertIn("&lt;script&gt;", html)
+        # Drop the legitimate inline focus <script> (always appended last) so the
+        # escaping assertion sees only the observations/bento data region.
+        body = html[:html.index("<script>")]
+        self.assertNotIn("<script>", body)
+        self.assertIn("&lt;script&gt;", body)
 
 
 class FocusCssTest(unittest.TestCase):
@@ -825,6 +831,43 @@ class FocusCssTest(unittest.TestCase):
         # a connected node (api/auth has inbound import + http edges) is NOT
         self.assertNotRegex(
             svg, r'data-nid="api/auth"[^>]*data-orphan="1"')
+
+
+class StoreEdgeClassTest(unittest.TestCase):
+    """Carry-forward fix: store edge paths must carry a sysmap-edge-* class so
+    the focus dim selector ([class^="sysmap-edge"]) catches them and they can be
+    made .is-active alongside the store cylinder they connect to."""
+
+    def test_store_edge_path_has_class(self):
+        data = synthetic_data()
+        sel = render._sysmap_select(data, None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(data, layout)
+        svg = render._sysmap_emit_svg(layout, edges, sel, None)
+        # the store connector path carries the dim-participating class
+        self.assertIn('class="sysmap-edge-store"', svg)
+        # and it is still a store-kind edge with its inline stroke intact
+        self.assertRegex(
+            svg, r'class="sysmap-edge-store"[^>]*data-kind="store"')
+
+
+class FocusJsTest(unittest.TestCase):
+    def test_section_includes_focus_script(self):
+        html = render.render_system_map(synthetic_data(), None)
+        self.assertIn("<script>", html)
+        # references the section/svg and key behaviors by hook
+        self.assertIn("has-focus", html)
+        self.assertIn("is-active", html)
+        self.assertIn("data-nid", html)        # JS reads node ids
+        self.assertIn("addEventListener", html)
+        self.assertIn("Escape", html)          # esc clears focus
+
+    def test_script_is_dependency_free(self):
+        html = render.render_system_map(synthetic_data(), None)
+        # no external/script srcs, no framework globals
+        self.assertNotIn("src=", html[html.index("<script>"):])
+        for banned in ("require(", "import ", "d3.", "React", "cdn"):
+            self.assertNotIn(banned, html[html.index("<script>"):])
 
 
 if __name__ == "__main__":
