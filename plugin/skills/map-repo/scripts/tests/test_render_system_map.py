@@ -489,6 +489,49 @@ class EdgesTest(unittest.TestCase):
         self.assertEqual(stores[0]["color"], render.STORE_KIND_COLORS["postgres"])
 
 
+class IdentityHooksTest(unittest.TestCase):
+    def setUp(self):
+        self.data = synthetic_data()
+        self.sel = render._sysmap_select(self.data, None)
+        self.layout = render._sysmap_layout(self.sel)
+        self.edges = render._sysmap_edges(self.data, self.layout)
+
+    def test_import_edges_carry_src_tgt_ids(self):
+        imp = [e for e in self.edges if e["kind"] == "import"]
+        self.assertTrue(imp)
+        for e in imp:
+            self.assertIn("src", e)
+            self.assertIn("tgt", e)
+            self.assertIn(e["src"], self.layout["placed"])
+            self.assertIn(e["tgt"], self.layout["placed"])
+
+    def test_http_edges_carry_src_service_and_tgt(self):
+        for e in [e for e in self.edges if e["kind"] == "http"]:
+            self.assertIn("source_service", e)
+            self.assertIn("target_id", e)
+
+    def test_store_edges_carry_src_service_and_store(self):
+        for e in [e for e in self.edges if e["kind"] == "store"]:
+            self.assertIn("source_service", e)
+            self.assertIn("target_store", e)
+
+    def test_svg_nodes_have_data_attrs(self):
+        svg = render._sysmap_emit_svg(self.layout, self.edges, self.sel, None)
+        # every node group exposes its id + service + is focusable
+        self.assertIn('data-nid="api/auth"', svg)
+        self.assertIn('data-svc="api"', svg)
+        self.assertIn('tabindex="0"', svg)
+        self.assertIn('role="button"', svg)
+
+    def test_svg_edges_have_data_attrs(self):
+        svg = render._sysmap_emit_svg(self.layout, self.edges, self.sel, None)
+        self.assertIn('data-kind="import"', svg)
+        self.assertIn('data-kind="http"', svg)
+        self.assertIn('data-kind="store"', svg)
+        # an import edge exposes its endpoints
+        self.assertRegex(svg, r'data-src="[^"]+" data-tgt="[^"]+"')
+
+
 class LayoutStressTest(unittest.TestCase):
     def _many_service_data(self, n_services=15):
         """One frontend svc + n_services single-module backend svcs + 1 store."""

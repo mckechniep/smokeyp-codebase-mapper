@@ -2970,6 +2970,7 @@ def _sysmap_edges(
                 dip = 22 + abs(x2 - x1) * 0.04
                 out.append({
                     "kind": "import", "same_band": True,
+                    "src": e["source"], "tgt": e["target"],
                     "x1": x1, "y1": y1, "x2": x2, "y2": y2,
                     "ctrl": [((x1 + x2) / 2, max(y1, y2) + dip)],
                     "weight": weight,
@@ -2995,6 +2996,7 @@ def _sysmap_edges(
                 x2 = t["x"] + t["w"]; y2 = t["y"] + t["h"] / 2  # target right-mid
                 out.append({
                     "kind": "import", "same_band": True,
+                    "src": e["source"], "tgt": e["target"],
                     "x1": x1, "y1": y1, "x2": x2, "y2": y2,
                     "ctrl": [(gx, y1), (gx, y2)],
                     "weight": weight,
@@ -3003,6 +3005,7 @@ def _sysmap_edges(
             src_above = s["y"] < t["y"]
             out.append({
                 "kind": "import", "same_band": False,
+                "src": e["source"], "tgt": e["target"],
                 "x1": s["x"] + s["w"] / 2,
                 "y1": s["y"] + (s["h"] if src_above else 0),
                 "x2": t["x"] + t["w"] / 2,
@@ -3060,6 +3063,8 @@ def _sysmap_edges(
         kind = (sp["store"].get("kind") or "unknown")
         out.append({
             "kind": "store", "same_band": False,
+            "source_service": e.get("source_service"),
+            "target_store": e.get("target_store"),
             "x1": c["x"] + c["w"] / 2, "y1": c["y"] + c["h"],
             "x2": sp["x"] + sp["w"] / 2, "y2": sp["y"],
             "weight": e.get("weight") or 1,
@@ -3103,6 +3108,10 @@ def _sysmap_emit_svg(
     # ---- service cluster outlines + labels
     for c in layout["clusters"]:
         parts.append(
+            f'<g class="sysmap-cluster" data-svc="{escape(c["service_id"])}" '
+            f'tabindex="0" role="button">'
+        )
+        parts.append(
             f'<rect x="{c["x"]:.1f}" y="{c["y"]:.1f}" '
             f'width="{c["w"]:.1f}" height="{c["h"]:.1f}" rx="10" '
             f'fill="{escape(c["color"])}" fill-opacity="0.05" '
@@ -3115,6 +3124,7 @@ def _sysmap_emit_svg(
             f'{escape(_topov2_truncate(c["label"], 38))}'
             f' <tspan class="sysmap-cluster-kind">· {escape(c["kind"].upper())}</tspan></text>'
         )
+        parts.append('</g>')
 
     # ---- edges (drawn under nodes)
     for e in edges:
@@ -3137,13 +3147,20 @@ def _sysmap_emit_svg(
                 dpath = (f'M{e["x1"]:.1f},{e["y1"]:.1f} '
                          f'C{e["x1"]:.1f},{midy:.1f} {e["x2"]:.1f},{midy:.1f} '
                          f'{e["x2"]:.1f},{e["y2"]:.1f}')
-            parts.append(f'<path d="{dpath}" class="sysmap-edge-import" '
-                         f'stroke-width="{sw:.1f}" fill="none" />')
+            parts.append(
+                f'<path d="{dpath}" class="sysmap-edge-import" '
+                f'data-kind="import" data-src="{escape(e["src"])}" '
+                f'data-tgt="{escape(e["tgt"])}" '
+                f'stroke-width="{sw:.1f}" fill="none" />'
+            )
         elif e["kind"] == "http":
             parts.append(
                 f'<path d="M{x1:.1f},{y1:.1f} C{x1:.1f},{(y1 + y2) / 2:.1f} '
                 f'{x2:.1f},{(y1 + y2) / 2:.1f} {x2:.1f},{y2:.1f}" '
-                f'class="sysmap-edge-http" stroke-width="{w:.1f}" fill="none" '
+                f'class="sysmap-edge-http" data-kind="http" '
+                f'data-src-svc="{escape(e["source_service"])}" '
+                f'data-tgt="{escape(e["target_id"])}" '
+                f'stroke-width="{w:.1f}" fill="none" '
                 f'marker-end="url(#sysmap-arrow)" />'
             )
         else:  # store
@@ -3151,6 +3168,9 @@ def _sysmap_emit_svg(
             parts.append(
                 f'<path d="M{x1:.1f},{y1:.1f} C{x1:.1f},{(y1 + y2) / 2:.1f} '
                 f'{x2:.1f},{(y1 + y2) / 2:.1f} {x2:.1f},{y2:.1f}" '
+                f'data-kind="store" '
+                f'data-src-svc="{escape(e.get("source_service") or "")}" '
+                f'data-tgt-store="{escape(e.get("target_store") or "")}" '
                 f'stroke="{escape(color)}" stroke-opacity="0.75" '
                 f'stroke-width="{w:.1f}" fill="none" '
                 f'marker-end="url(#sysmap-arrow)" />'
@@ -3170,7 +3190,12 @@ def _sysmap_emit_svg(
         label = _truncate_label(n.get("name") or nid)
         is_entry = nid in entry_counts
         title = desc_by_id.get(nid) or nid
-        parts.append(f'<g class="sysmap-node{" is-entry" if is_entry else ""}">')
+        parts.append(
+            f'<g class="sysmap-node{" is-entry" if is_entry else ""}" '
+            f'data-nid="{escape(nid)}" data-svc="{escape(n.get("service") or "")}" '
+            f'tabindex="0" role="button" '
+            f'aria-label="{escape((n.get("name") or nid))}">'
+        )
         parts.append(f'<title>{escape(title)}</title>')
         parts.append(
             f'<rect x="{p["x"]:.1f}" y="{p["y"]:.1f}" width="{p["w"]:.1f}" '
@@ -3201,7 +3226,7 @@ def _sysmap_emit_svg(
         kind = (s.get("kind") or "unknown")
         color = STORE_KIND_COLORS.get(kind, "#888888")
         full_name = s.get("name") or sid
-        parts.append('<g class="sysmap-store">')
+        parts.append(f'<g class="sysmap-store" data-store="{escape(sid)}">')
         parts.append(f'<title>{escape(full_name)}</title>')
         parts.append(_lineage2_emit_cylinder(sp["x"], sp["y"], sp["w"], sp["h"] - 18, color))
         parts.append(
