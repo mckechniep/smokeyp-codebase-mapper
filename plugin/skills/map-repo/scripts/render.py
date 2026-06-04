@@ -658,6 +658,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   margin-bottom: var(--space-2);
 }
 .sysmap-facet-card .sysmap-facet-stat { color: var(--muted); }
+.sysmap-facet-card .sysmap-facet-rel { display: block; color: var(--muted); font-size: 0.76rem; margin-top: 2px; }
 @media print { .sysmap-facet-grid { grid-template-columns: 1fr 1fr; } }
 .modgraph-matrix {
   display: block;
@@ -3158,9 +3159,9 @@ def _sysmap_emit_svg(
     """Emit the system-map SVG. Drawing order: band labels, cluster
     outlines, edges (under nodes), nodes, stores.
 
-    ``view_w`` overrides the viewBox width (and the right-edge clamp for
-    band labels) so a facet can crop to its actual content instead of the
-    full ``SYSMAP_W`` canvas. The overview passes nothing (keeps 1120)."""
+    ``view_w`` overrides the viewBox width so a facet can crop to its actual
+    content instead of the full ``SYSMAP_W`` canvas. The overview passes
+    nothing (keeps 1120)."""
     height = layout["height"]
     vw = SYSMAP_W if view_w is None else view_w
     parts: list[str] = [
@@ -3557,7 +3558,7 @@ def _sysmap_service_slice(
     lineage = data.get("data_lineage") or {}
     lin_edges = [e for e in (lineage.get("edges") or [])
                  if e.get("source_service") == service_id]
-    targeted = {e.get("target_store") for e in lin_edges}
+    targeted = {e.get("target_store") for e in lin_edges if e.get("target_store")}
     lin_stores = [s for s in (lineage.get("stores") or [])
                   if s.get("id") in targeted]
 
@@ -3620,15 +3621,23 @@ def render_sysmap_facets(
         edges = _sysmap_edges(slc, layout)
 
         # Crop the viewBox to the actual content extent + margin so the facet
-        # isn't 1120px of mostly-empty canvas.
-        extents: list[float] = [0.0]
-        for p in layout["placed"].values():
-            extents.append(p["x"] + p["w"])
-        for sp in layout["stores"].values():
-            extents.append(sp["x"] + sp["w"])
-        for c in layout["clusters"]:
-            extents.append(c["x"] + c["w"])
-        view_w = max(extents) + SYSMAP_MARGIN_X
+        # isn't 1120px of mostly-empty canvas. Fold in EDGE x-extents too:
+        # stacked same-band import brackets bow out to a right-gutter spine
+        # (gx = right + 24 + lane*step) that can land far past the box edges,
+        # so a node/store/cluster-only crop would clip those arcs.
+        edge_max_x = 0.0
+        for e in edges:
+            xs = [e.get("x1", 0), e.get("x2", 0)]
+            for (cx, cy) in (e.get("ctrl") or []):
+                xs.append(cx)
+            edge_max_x = max([edge_max_x] + xs)
+        content_max_x = max(
+            [edge_max_x]
+            + [p["x"] + p["w"] for p in layout["placed"].values()]
+            + [sp["x"] + sp["w"] for sp in layout["stores"].values()]
+            + [c["x"] + c["w"] for c in layout["clusters"]]
+        )
+        view_w = content_max_x + SYSMAP_MARGIN_X
 
         svg = _sysmap_emit_svg(layout, edges, sel, enrichment, view_w=view_w)
 

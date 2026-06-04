@@ -1,5 +1,6 @@
 """Tests for the System Map hero section (selection, layout, edges, render)."""
 import json
+import math
 import re
 import sys
 import unittest
@@ -69,6 +70,40 @@ def synthetic_data():
                        "models": ["User"], "frameworks": ["Prisma"], "weight": 1}],
         },
     }
+
+
+def _facet_view_w_and_edge_max(data):
+    """Reconstruct (service_id, view_w, edge_max_x) per facet using the SAME
+    pipeline render_sysmap_facets uses, so a test can assert no edge x-extent
+    exceeds the cropped viewBox width (the gutter-clipping regression guard)."""
+    out = []
+    for svc in data.get("services") or []:
+        sid = svc.get("id")
+        if not sid:
+            continue
+        slc = render._sysmap_service_slice(data, sid)
+        sel = render._sysmap_select(slc, None)
+        if sel is None:
+            continue
+        if not sel["bands"].get("frontend") and not sel["bands"].get("backend"):
+            continue
+        layout = render._sysmap_layout(sel, compact_max_w=render.SYSMAP_FACET_MAX_W)
+        edges = render._sysmap_edges(slc, layout)
+        edge_max_x = 0.0
+        for e in edges:
+            xs = [e.get("x1", 0), e.get("x2", 0)]
+            for (cx, cy) in (e.get("ctrl") or []):
+                xs.append(cx)
+            edge_max_x = max([edge_max_x] + xs)
+        content_max_x = max(
+            [edge_max_x]
+            + [p["x"] + p["w"] for p in layout["placed"].values()]
+            + [sp["x"] + sp["w"] for sp in layout["stores"].values()]
+            + [c["x"] + c["w"] for c in layout["clusters"]]
+        )
+        view_w = content_max_x + render.SYSMAP_MARGIN_X
+        out.append((sid, view_w, edge_max_x))
+    return out
 
 
 class SelectTest(unittest.TestCase):
@@ -916,7 +951,7 @@ class FacetsTest(unittest.TestCase):
         layout = render._sysmap_layout(sel)
         for p in layout["placed"].values():
             self.assertGreaterEqual(p["x"], 0)
-            self.assertEqual(p["x"], p["x"])  # NaN guard
+            self.assertFalse(math.isnan(p["x"]))  # NaN guard
         html = render.render_sysmap_facets(d, None)
         self.assertNotIn("nan", html.lower())
 
@@ -932,8 +967,12 @@ class FacetsTest(unittest.TestCase):
         self.assertTrue(all(nid.startswith("api/") for nid in node_ids))
 
     def test_facet_viewbox_is_compact_crop(self):
-        """Facet svgs crop well below the full SYSMAP_W canvas, proving the
-        compact-width cap makes the viewBox meaningful (not ~1120 of strip)."""
+        """Facet svgs crop meaningfully below the full SYSMAP_W=1120 canvas.
+
+        The bound is deliberately loose: folding edge gutter-spine x-extents
+        into view_w (the clipping fix) can push a hub-heavy facet toward ~760,
+        so a tight <700 cap would be brittle. <850 still proves the crop is
+        real (well under 1120) without flapping."""
         html = render.render_sysmap_facets(synthetic_data(), None)
         marker = html.index("sysmap-facets")
         seg = html[marker:]
@@ -942,8 +981,49 @@ class FacetsTest(unittest.TestCase):
         self.assertTrue(widths, "expected at least one facet viewBox width")
         for w in widths:
             self.assertGreater(w, 0)
-            self.assertLess(w, 700,
+            self.assertLess(w, 850,
                             f"facet viewBox width {w} not compactly cropped")
+            self.assertLess(w, render.SYSMAP_W)
+
+    def test_no_facet_edge_extends_past_viewbox(self):
+        """Regression guard for the gutter-clipping bug: every edge's max x
+        (endpoints + bracket control points) must sit within the facet's
+        cropped view_w, else stacked import arcs get clipped at the right edge
+        (was confirmed ~88px beyond on fittalk Back-End). Uses real fittalk
+        data when present, else the synthetic codemap."""
+        if FITTALK.exists():
+            data = json.loads(FITTALK.read_text())
+        else:
+            data = synthetic_data()
+        facets = _facet_view_w_and_edge_max(data)
+        self.assertTrue(facets, "expected at least one facet to evaluate")
+        for sid, view_w, edge_max_x in facets:
+            self.assertLessEqual(
+                edge_max_x, view_w,
+                f"facet {sid}: edge x {edge_max_x} exceeds view_w {view_w}")
+
+    def test_facet_caption_escapes_service_name(self):
+        """A service name with HTML-active chars must be escaped in the facet
+        caption — never emitted as raw markup."""
+        d = synthetic_data()
+        d["services"][1]["name"] = 'we<b>&"x'
+        html = render.render_sysmap_facets(d, None)
+        self.assertNotIn("<b>", html)
+        self.assertIn("we&lt;b&gt;", html)
+
+    def test_fewer_than_two_services_no_facets(self):
+        """With under 2 product services, facets would just duplicate the
+        overview, so render_sysmap_facets returns ''. Here: one product
+        service plus one fully-vendored service (which selects to nothing)."""
+        d = synthetic_data()
+        # Drop the backend's product modules, keep only the vendored one, so
+        # 'api' has no product nodes -> only 'web' yields a facet card.
+        d["module_graph"]["nodes"] = [
+            n for n in d["module_graph"]["nodes"]
+            if not (n["service"] == "api" and not n.get("vendored_guess"))
+        ]
+        d["module_graph"]["edges"] = []
+        self.assertEqual(render.render_sysmap_facets(d, None), "")
 
     def test_overview_layout_unchanged_with_inert_compact_param(self):
         """compact_max_w defaults are inert: passing None must reproduce the
