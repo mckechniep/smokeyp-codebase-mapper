@@ -869,6 +869,15 @@ class FocusJsTest(unittest.TestCase):
         for banned in ("require(", "import ", "d3.", "React", "cdn"):
             self.assertNotIn(banned, html[html.index("<script>"):])
 
+    def test_pin_tracks_element_not_active_class(self):
+        # Regression guard: the pin toggle must key off an explicit pinned
+        # ELEMENT, not the shared is-active class. Keying off the class made a
+        # member click inside a pinned cluster clear instead of drill down.
+        html = render.render_system_map(synthetic_data(), None)
+        script = html[html.index("<script>"):]
+        self.assertIn("pinnedEl", script)
+        self.assertIn("'use strict'", script)
+
 
 if __name__ == "__main__":
     unittest.main()

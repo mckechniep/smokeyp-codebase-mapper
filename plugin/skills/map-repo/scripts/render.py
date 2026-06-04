@@ -3501,6 +3501,7 @@ def render_sysmap_bento(
 SYSMAP_JS = """
 <script>
 (function () {
+  'use strict';
   var svg = document.querySelector(
     '#codemap-sysmap-section .sysmap-frame .sysmap-svg');
   if (!svg) return;  // graceful no-op if the overview map is absent
@@ -3544,7 +3545,14 @@ SYSMAP_JS = """
     adj[t].nbrs[s] = true;
   });
 
-  var pinned = false;  // a click/keyboard selection survives mouseleave
+  // A click/keyboard selection survives mouseleave. Track the pinned ELEMENT
+  // (node or cluster) explicitly — NOT the shared is-active class. A pinned
+  // cluster marks all its member nodes is-active, so keying the toggle off the
+  // class made clicking a member node read as "re-click the pin" and clear,
+  // instead of drilling into that node. With the element tracked directly:
+  // re-clicking the pinned element clears; clicking a DIFFERENT element re-pins
+  // (switches focus, e.g. service -> member module drill-down).
+  var pinnedEl = null;
 
   function clearActive() {
     svg.classList.remove('has-focus');
@@ -3611,78 +3619,89 @@ SYSMAP_JS = """
     });
   }
 
-  function clearFocus() { pinned = false; clearActive(); }
+  function clearFocus() { pinnedEl = null; clearActive(); }
 
   // ---- node interactions
+  // Hover previews only when nothing is pinned. Clicking the pinned node clears;
+  // clicking a different node (re-)pins it — drilling in even from a pinned
+  // service whose members are all is-active.
+  function toggleNode(n, nid) {
+    if (pinnedEl === n) {
+      clearFocus();  // clicking the pinned node again clears
+    } else {
+      applyNodeFocus(nid);
+      pinnedEl = n;
+    }
+  }
   nodes.forEach(function (n) {
     var nid = n.getAttribute('data-nid');
     n.addEventListener('mouseenter', function () {
-      if (!pinned) applyNodeFocus(nid);
+      if (!pinnedEl) applyNodeFocus(nid);
     });
     n.addEventListener('mouseleave', function () {
-      if (!pinned) clearActive();
+      if (!pinnedEl) clearActive();
     });
     n.addEventListener('focus', function () {
-      if (!pinned) applyNodeFocus(nid);
+      if (!pinnedEl) applyNodeFocus(nid);
     });
     n.addEventListener('blur', function () {
-      if (!pinned) clearActive();
+      if (!pinnedEl) clearActive();
     });
     n.addEventListener('click', function (ev) {
       ev.stopPropagation();
-      if (pinned && n.classList.contains('is-active')) {
-        clearFocus();  // clicking the pinned node again clears
-      } else {
-        applyNodeFocus(nid);
-        pinned = true;
-      }
+      toggleNode(n, nid);
     });
     n.addEventListener('keydown', function (ev) {
       if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
         ev.preventDefault();
         ev.stopPropagation();
-        if (pinned && n.classList.contains('is-active')) {
-          clearFocus();
-        } else {
-          applyNodeFocus(nid);
-          pinned = true;
-        }
+        toggleNode(n, nid);
       }
     });
   });
 
-  // ---- cluster interactions (always pin a service subgraph)
+  // ---- cluster interactions (pin a service subgraph)
+  // Same element-keyed toggle: re-clicking the pinned cluster clears; clicking
+  // a member node afterwards re-pins to that node (drill-down) because the
+  // member node !== the pinned cluster element.
+  function toggleCluster(c, svc) {
+    if (pinnedEl === c) {
+      clearFocus();
+    } else {
+      applyClusterFocus(svc);
+      pinnedEl = c;
+    }
+  }
   clusters.forEach(function (c) {
     var svc = c.getAttribute('data-svc');
     c.addEventListener('click', function (ev) {
       ev.stopPropagation();
-      if (pinned && c.classList.contains('is-active')) {
-        clearFocus();
-      } else {
-        applyClusterFocus(svc);
-        pinned = true;
-      }
+      toggleCluster(c, svc);
     });
     c.addEventListener('keydown', function (ev) {
       if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
         ev.preventDefault();
         ev.stopPropagation();
-        if (pinned && c.classList.contains('is-active')) {
-          clearFocus();
-        } else {
-          applyClusterFocus(svc);
-          pinned = true;
-        }
+        toggleCluster(c, svc);
       }
     });
   });
 
+  // Nothing pinned and no lingering focus → clearing is a no-op; skip the work.
+  function nothingToClear() {
+    return !pinnedEl && !svg.classList.contains('has-focus');
+  }
+
   // ---- background click clears (a click that reached the svg itself)
-  svg.addEventListener('click', function () { clearFocus(); });
+  svg.addEventListener('click', function () {
+    if (nothingToClear()) return;
+    clearFocus();
+  });
 
   // ---- Escape clears + unpins
   document.addEventListener('keydown', function (ev) {
-    if (ev.key === 'Escape') clearFocus();
+    if (ev.key !== 'Escape' || nothingToClear()) return;
+    clearFocus();
   });
 })();
 </script>
