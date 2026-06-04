@@ -3656,7 +3656,7 @@ def render_sysmap_facets(
             rel_bits.append("called by " + ", ".join(escape(c) for c in cb))
         if cl:
             rel_bits.append("calls " + ", ".join(escape(c) for c in cl))
-        rel_html = (f'<span class="sysmap-facet-rel"> · {" · ".join(rel_bits)}</span>'
+        rel_html = (f'<span class="sysmap-facet-rel">{" · ".join(rel_bits)}</span>'
                     if rel_bits else "")
 
         name = escape(svc.get("name") or sid)
