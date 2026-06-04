@@ -2705,6 +2705,7 @@ SYSMAP_DATA_BAND_PAD = 30       # label + padding below store cylinders
 SYSMAP_BOTTOM_PAD = 10          # padding below the last band
 SYSMAP_MAX_NODES = {"shallow": 20, "medium": 40, "full": 60}
 SYSMAP_MAX_IMPORT_EDGES = 40
+SYSMAP_FACET_MAX_W = 520        # compact-width cap for per-service facet clusters
 SYSMAP_GUTTER_LANE_STEP = 14    # px between per-target gutter spines (stacked brackets)
 
 
@@ -2802,12 +2803,20 @@ def _sysmap_select(
     }
 
 
-def _sysmap_layout(sel: dict[str, Any]) -> dict[str, Any]:
+def _sysmap_layout(
+    sel: dict[str, Any], compact_max_w: float | None = None
+) -> dict[str, Any]:
     """Compute x/y geometry for every node, cluster, band, and store.
 
     Deterministic: same selection -> same coordinates. Bands stack
     top-to-bottom (frontend, backend, data); service clusters sit
     side-by-side within a band, each wrapping its nodes into rows.
+
+    ``compact_max_w`` caps each cluster's width so a small service lays
+    out as a tidy box (nodes wrap into more rows) instead of stretching
+    across the full canvas. The store/data band is centered within the
+    same effective width so it aligns under the clusters. When None (the
+    overview), layout is byte-identical to the uncapped behavior.
     """
     services = sel["services"]
     entry_counts = sel["entry_counts"]
@@ -2840,6 +2849,8 @@ def _sysmap_layout(sel: dict[str, Any]) -> dict[str, Any]:
                    // (SYSMAP_MIN_CLUSTER_W + SYSMAP_CLUSTER_GAP))
         cols = max(1, min(cols, k))
         cluster_w = (content_w - (cols - 1) * SYSMAP_CLUSTER_GAP) / cols
+        if compact_max_w is not None:
+            cluster_w = min(cluster_w, compact_max_w)
         inner_w = cluster_w - 2 * SYSMAP_CLUSTER_PAD
 
         # Pass 1: lay out each cluster's nodes relative to a (0, 0) origin and
@@ -2932,7 +2943,11 @@ def _sysmap_layout(sel: dict[str, Any]) -> dict[str, Any]:
     if stores:
         band_top = y_cursor
         total_w = len(stores) * SYSMAP_STORE_W + (len(stores) - 1) * SYSMAP_STORE_GAP
-        sx = x_origin + max(0.0, (content_w - total_w) / 2)
+        # Center stores within the SAME effective width as the (possibly
+        # capped) clusters so the data band aligns under them. With no cap
+        # this equals content_w (overview behavior unchanged).
+        effective_w = content_w if compact_max_w is None else min(content_w, compact_max_w)
+        sx = x_origin + max(0.0, (effective_w - total_w) / 2)
         for s in stores:
             store_pos[s["id"]] = {
                 "x": sx, "y": band_top + SYSMAP_STORE_INSET, "w": float(SYSMAP_STORE_W),
@@ -3601,7 +3616,7 @@ def render_sysmap_facets(
             continue  # no product (non-vendored) nodes for this service
         if not sel["bands"].get("frontend") and not sel["bands"].get("backend"):
             continue
-        layout = _sysmap_layout(sel)
+        layout = _sysmap_layout(sel, compact_max_w=SYSMAP_FACET_MAX_W)
         edges = _sysmap_edges(slc, layout)
 
         # Crop the viewBox to the actual content extent + margin so the facet

@@ -1,5 +1,6 @@
 """Tests for the System Map hero section (selection, layout, edges, render)."""
 import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -929,6 +930,30 @@ class FacetsTest(unittest.TestCase):
         slc = render._sysmap_service_slice(synthetic_data(), "api")
         node_ids = {n["id"] for n in slc["module_graph"]["nodes"]}
         self.assertTrue(all(nid.startswith("api/") for nid in node_ids))
+
+    def test_facet_viewbox_is_compact_crop(self):
+        """Facet svgs crop well below the full SYSMAP_W canvas, proving the
+        compact-width cap makes the viewBox meaningful (not ~1120 of strip)."""
+        html = render.render_sysmap_facets(synthetic_data(), None)
+        marker = html.index("sysmap-facets")
+        seg = html[marker:]
+        widths = [float(m.group(1))
+                  for m in re.finditer(r'viewBox="0 0 ([0-9.]+) ', seg)]
+        self.assertTrue(widths, "expected at least one facet viewBox width")
+        for w in widths:
+            self.assertGreater(w, 0)
+            self.assertLess(w, 700,
+                            f"facet viewBox width {w} not compactly cropped")
+
+    def test_overview_layout_unchanged_with_inert_compact_param(self):
+        """compact_max_w defaults are inert: passing None must reproduce the
+        exact placed coordinates of the no-arg overview call."""
+        sel = render._sysmap_select(synthetic_data(), None)
+        base = render._sysmap_layout(sel)
+        explicit_none = render._sysmap_layout(sel, compact_max_w=None)
+        self.assertEqual(base["placed"], explicit_none["placed"])
+        self.assertEqual(base["stores"], explicit_none["stores"])
+        self.assertEqual(base["bands"], explicit_none["bands"])
 
 
 if __name__ == "__main__":
