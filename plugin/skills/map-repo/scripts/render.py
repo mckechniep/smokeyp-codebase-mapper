@@ -643,6 +643,22 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 .sysmap-rows { display: flex; flex-direction: column; gap: 6px; font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink-2); }
 .sysmap-row { display: flex; justify-content: space-between; gap: 12px; }
 .sysmap-row .v { color: var(--ink); font-weight: 600; white-space: nowrap; }
+
+/* Per-service facet maps (static small-multiples below the overview). */
+.sysmap-facets { margin-top: var(--space-5); }
+.sysmap-facets > h3 { font-family: var(--font-serif); margin: 0 0 var(--space-2); }
+.sysmap-facet-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3); }
+@media (max-width: 760px) { .sysmap-facet-grid { grid-template-columns: 1fr; } }
+.sysmap-facet-card {
+  margin: 0; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: var(--space-3);
+}
+.sysmap-facet-card figcaption {
+  font-family: var(--font-mono); font-size: 0.82rem; color: var(--ink-2);
+  margin-bottom: var(--space-2);
+}
+.sysmap-facet-card .sysmap-facet-stat { color: var(--muted); }
+@media print { .sysmap-facet-grid { grid-template-columns: 1fr 1fr; } }
 .modgraph-matrix {
   display: block;
   margin: 0 auto;
@@ -3122,12 +3138,18 @@ def _sysmap_emit_svg(
     edges: list[dict[str, Any]],
     sel: dict[str, Any],
     enrichment: dict[str, Any] | None = None,
+    view_w: float | None = None,
 ) -> str:
     """Emit the system-map SVG. Drawing order: band labels, cluster
-    outlines, edges (under nodes), nodes, stores."""
+    outlines, edges (under nodes), nodes, stores.
+
+    ``view_w`` overrides the viewBox width (and the right-edge clamp for
+    band labels) so a facet can crop to its actual content instead of the
+    full ``SYSMAP_W`` canvas. The overview passes nothing (keeps 1120)."""
     height = layout["height"]
+    vw = SYSMAP_W if view_w is None else view_w
     parts: list[str] = [
-        f'<svg class="sysmap-svg" viewBox="0 0 {SYSMAP_W} {height:.0f}" '
+        f'<svg class="sysmap-svg" viewBox="0 0 {vw:.0f} {height:.0f}" '
         f'width="100%" role="img" '
         f'aria-label="System map: product modules in tiers with their connections">'
     ]
@@ -3488,6 +3510,154 @@ def render_sysmap_bento(
 """
 
 
+def _sysmap_service_slice(
+    data: dict[str, Any], service_id: str
+) -> dict[str, Any]:
+    """A data-shaped dict scoped to a single service, for a facet mini-map.
+
+    Reuses the overview pipeline (`_sysmap_select`/`_sysmap_layout`/
+    `_sysmap_edges`) on a slice that contains ONLY this service's wiring:
+      - services: just the one service dict (or a stub if absent).
+      - module_graph.nodes: only nodes owned by ``service_id``.
+      - module_graph.edges: only INTERNAL imports (both endpoints in the
+        service's node set).
+      - data_lineage: stores + edges for this service only.
+      - http_topology: keep entry_modules/endpoints for the service so entry
+        badges still render, but `edges: []` — cross-service HTTP is summarized
+        as text in the facet caption, never drawn.
+      - scan_depth: carried over so a giant service's facet is capped too.
+    """
+    svc = next(
+        (s for s in (data.get("services") or []) if s.get("id") == service_id),
+        {"id": service_id, "name": service_id, "kind": "unknown"},
+    )
+
+    graph = data.get("module_graph") or {}
+    nodes = [n for n in (graph.get("nodes") or [])
+             if n.get("service") == service_id]
+    node_ids = {n["id"] for n in nodes}
+    edges = [e for e in (graph.get("edges") or [])
+             if e.get("source") in node_ids and e.get("target") in node_ids]
+
+    lineage = data.get("data_lineage") or {}
+    lin_edges = [e for e in (lineage.get("edges") or [])
+                 if e.get("source_service") == service_id]
+    targeted = {e.get("target_store") for e in lin_edges}
+    lin_stores = [s for s in (lineage.get("stores") or [])
+                  if s.get("id") in targeted]
+
+    topo = data.get("http_topology") or {}
+    entry_modules = [em for em in (topo.get("entry_modules") or [])
+                     if em.get("service") == service_id]
+    endpoints = [ep for ep in (topo.get("endpoints") or [])
+                 if ep.get("service") == service_id]
+
+    return {
+        "scan_depth": data.get("scan_depth", "medium"),
+        "services": [svc],
+        "module_graph": {"nodes": nodes, "edges": edges},
+        "data_lineage": {"stores": lin_stores, "models": [], "edges": lin_edges},
+        "http_topology": {
+            "entry_modules": entry_modules,
+            "endpoints": endpoints,
+            "edges": [],
+        },
+    }
+
+
+def render_sysmap_facets(
+    data: dict[str, Any], enrichment: dict[str, Any] | None = None
+) -> str:
+    """Static small-multiples: one compact mini-map per product service.
+
+    Each facet shows only that service's internal imports + its stores,
+    viewBox-cropped to its own content. Cross-service HTTP is summarized as
+    a text "called by / calls" line, never drawn. No JS — the facets sit
+    OUTSIDE `.sysmap-frame`, so the overview's focus JS never touches them.
+
+    Returns "" when there are fewer than 2 product services (a single-service
+    repo's facet would just duplicate the overview)."""
+    services = data.get("services") or []
+
+    # Cross-service HTTP relationships (TEXT only, from the FULL data).
+    callers: dict[str, set[str]] = {}   # svc -> services that call it
+    callees: dict[str, set[str]] = {}   # svc -> services it calls
+    for e in (data.get("http_topology") or {}).get("edges") or []:
+        src = e.get("source_service")
+        tgt = e.get("target_service")
+        if not src or not tgt or src == tgt:
+            continue
+        callers.setdefault(tgt, set()).add(src)
+        callees.setdefault(src, set()).add(tgt)
+
+    cards: list[str] = []
+    for svc in services:
+        sid = svc.get("id")
+        if not sid:
+            continue
+        slc = _sysmap_service_slice(data, sid)
+        sel = _sysmap_select(slc, enrichment)
+        if sel is None:
+            continue  # no product (non-vendored) nodes for this service
+        if not sel["bands"].get("frontend") and not sel["bands"].get("backend"):
+            continue
+        layout = _sysmap_layout(sel)
+        edges = _sysmap_edges(slc, layout)
+
+        # Crop the viewBox to the actual content extent + margin so the facet
+        # isn't 1120px of mostly-empty canvas.
+        extents: list[float] = [0.0]
+        for p in layout["placed"].values():
+            extents.append(p["x"] + p["w"])
+        for sp in layout["stores"].values():
+            extents.append(sp["x"] + sp["w"])
+        for c in layout["clusters"]:
+            extents.append(c["x"] + c["w"])
+        view_w = max(extents) + SYSMAP_MARGIN_X
+
+        svg = _sysmap_emit_svg(layout, edges, sel, enrichment, view_w=view_w)
+
+        # Caption: name + one-line stat + optional cross-service text.
+        n_mod = sum(len(b) for b in sel["bands"].values())
+        n_imp = sum(1 for e in edges if e["kind"] == "import")
+        n_store = len(sel["stores"])
+        stat = (f"{n_mod} module{'s' if n_mod != 1 else ''} · "
+                f"{n_imp} import{'s' if n_imp != 1 else ''} · "
+                f"{n_store} store{'s' if n_store != 1 else ''}")
+
+        rel_bits: list[str] = []
+        cb = sorted(callers.get(sid, set()))
+        cl = sorted(callees.get(sid, set()))
+        if cb:
+            rel_bits.append("called by " + ", ".join(escape(c) for c in cb))
+        if cl:
+            rel_bits.append("calls " + ", ".join(escape(c) for c in cl))
+        rel_html = (f'<span class="sysmap-facet-rel"> · {" · ".join(rel_bits)}</span>'
+                    if rel_bits else "")
+
+        name = escape(svc.get("name") or sid)
+        cards.append(
+            f'<figure class="sysmap-facet-card">'
+            f'<figcaption><strong>{name}</strong> '
+            f'<span class="sysmap-facet-stat">{escape(stat)}</span>'
+            f'{rel_html}</figcaption>'
+            f'{svg}</figure>'
+        )
+
+    if len(cards) < 2:
+        return ""
+
+    return (
+        '<div class="sysmap-facets">'
+        '<h3>Per-service views</h3>'
+        '<p class="section-intro">Each service in isolation: its own modules and '
+        'internal imports, plus the data stores it writes to. Cross-service calls '
+        'are summarized in each caption rather than drawn.</p>'
+        '<div class="sysmap-facet-grid">' + "".join(cards) + '</div>'
+        '</div>'
+    )
+
+
 # Inline focus behaviour for the System Map. Plain (non-f) string so its JS
 # braces survive interpolation; referenced as {SYSMAP_JS} inside the f-string
 # section. Dependency-free IIFE (no framework/CDN/import/require). It only
@@ -3769,6 +3939,7 @@ def render_system_map(
 
     observations_html = _render_observations(_observations_for_sysmap(sel, edges, data))
     bento_html = render_sysmap_bento(data, sel, edges)
+    facets_html = render_sysmap_facets(data, enrichment)
 
     controls = (
         '<div class="sysmap-controls" role="group" aria-label="Map filters">'
@@ -3793,6 +3964,7 @@ def render_system_map(
   </div>
   {observations_html}
   {bento_html}
+  {facets_html}
   {SYSMAP_JS}
 </section>
 """

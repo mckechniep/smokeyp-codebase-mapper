@@ -895,5 +895,41 @@ class LayerChipsTest(unittest.TestCase):
             self.assertIn(cls, js)
 
 
+class FacetsTest(unittest.TestCase):
+    def test_one_facet_per_product_service(self):
+        html = render.render_sysmap_facets(synthetic_data(), None)
+        self.assertIn("sysmap-facets", html)
+        # synthetic has 2 services (web, api) -> 2 facet cards
+        self.assertEqual(html.count("sysmap-facet-card"), 2)
+
+    def test_facet_titles_name_services(self):
+        html = render.render_sysmap_facets(synthetic_data(), None)
+        self.assertIn("web", html)
+        self.assertIn("api", html)
+
+    def test_facet_svg_no_overflow_or_nan(self):
+        # build one facet slice and check geometry like the overview
+        d = synthetic_data()
+        slc = render._sysmap_service_slice(d, "api")
+        sel = render._sysmap_select(slc, None)
+        layout = render._sysmap_layout(sel)
+        for p in layout["placed"].values():
+            self.assertGreaterEqual(p["x"], 0)
+            self.assertEqual(p["x"], p["x"])  # NaN guard
+        html = render.render_sysmap_facets(d, None)
+        self.assertNotIn("nan", html.lower())
+
+    def test_facets_in_document(self):
+        html = render.render_system_map(synthetic_data(), None)
+        self.assertIn("sysmap-facets", html)
+        # facets come after the bento
+        self.assertGreater(html.index("sysmap-facets"), html.index("sysmap-bento"))
+
+    def test_facet_excludes_other_services_nodes(self):
+        slc = render._sysmap_service_slice(synthetic_data(), "api")
+        node_ids = {n["id"] for n in slc["module_graph"]["nodes"]}
+        self.assertTrue(all(nid.startswith("api/") for nid in node_ids))
+
+
 if __name__ == "__main__":
     unittest.main()
