@@ -915,6 +915,13 @@ class ModgraphWidthTest(unittest.TestCase):
         self.assertIn("min(94vw, 1200px)", body)
         self.assertIn("calc(50% - min(47vw, 600px))", body)
 
+    def test_modgraph_bento_matches_matrix_width(self):
+        # The bento (composition/edges/entries/languages cards) must break out to
+        # the same width as the matrix, so it doesn't look stranded beneath it.
+        body = self._rule_body(render.CSS, ".modgraph-bento")
+        self.assertIn("min(94vw, 1200px)", body)
+        self.assertIn("calc(50% - min(47vw, 600px))", body)
+
 
 class StoreEdgeClassTest(unittest.TestCase):
     """Carry-forward fix: store edge paths must carry a sysmap-edge-* class so
@@ -1173,6 +1180,19 @@ class TopologyFocusTest(unittest.TestCase):
         html = render.render_service_topology_v2(synthetic_data())
         self.assertIn("Service topology", html)         # eyebrow label
         self.assertIn("topov2-hint", html)              # interaction discoverability
+
+    def test_kind_chip_sits_above_node_title(self):
+        """The kind pill must be raised into its own row above the title, so a
+        long service name never runs underneath it (overlap regression guard)."""
+        html = render.render_service_topology_v2(synthetic_data())
+        chip = re.search(r'class="topov2-kind-chip"[^>]*\by="([\d.]+)"[^>]*height="(\d+)"', html)
+        title = re.search(r'class="topov2-node-title"[^>]*\by="([\d.]+)"', html)
+        self.assertIsNotNone(chip)
+        self.assertIsNotNone(title)
+        chip_bottom = float(chip.group(1)) + float(chip.group(2))
+        title_baseline = float(title.group(1))
+        self.assertLess(chip_bottom, title_baseline,
+                        "kind chip must sit entirely above the title baseline")
 
 
 if __name__ == "__main__":

@@ -135,6 +135,23 @@ class InferredEdgeRenderTest(unittest.TestCase):
     def test_inferred_css_rule_present(self):
         self.assertIn(".sysmap-edge-http-inferred", render.CSS)
 
+    def test_inferred_edge_is_red_dashed_and_thicker(self):
+        # Was faint dotted (1 4, opacity 0.5); now a red, dashed, thicker line
+        # so it reads as clearly as the deterministic HTTP calls.
+        import re as _re
+        m = _re.search(r"\.sysmap-edge-http-inferred\s*\{([^}]*)\}", render.CSS)
+        self.assertIsNotNone(m)
+        body = m.group(1)
+        self.assertIn("var(--accent)", body)   # red, from the palette token
+        self.assertIn("6 4", body)              # dashed like the deterministic 5 4
+        self.assertIn("!important", body)       # overrides the thin inline stroke-width
+        self.assertNotIn("1 4", body)           # no longer the faint dotted pattern
+
+    def test_inferred_legend_says_red_dashed(self):
+        html = render.render_system_map(self._synth(), None)
+        self.assertIn("Red dashed", html)
+        self.assertIn("inferred by AI", html)
+
     def test_legend_note_when_inferred_present(self):
         html = render.render_system_map(self._synth(), None)
         self.assertIn("inferred by AI", html)

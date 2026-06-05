@@ -590,7 +590,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 }
 .sysmap-edge-import { stroke: oklch(60% 0.01 250 / 0.55); }
 .sysmap-edge-http { stroke: oklch(58% 0.14 250 / 0.8); stroke-dasharray: 5 4; }
-.sysmap-edge-http-inferred { stroke-dasharray: 1 4; stroke-opacity: 0.5; }
+.sysmap-edge-http-inferred { stroke: var(--accent); stroke-dasharray: 6 4; stroke-opacity: 0.95; stroke-width: 2.5 !important; }
 .sysmap-legend-inferred { font-size: 0.82rem; color: var(--muted); margin: var(--space-3) 0 0; }
 .sysmap-legend {
   display: flex;
@@ -787,6 +787,14 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-3);
   margin-top: var(--space-3);
+  /* Match the matrix frame's full-bleed width so the cards align under the
+     wide matrix instead of looking stranded at the 780px text column. */
+  width: min(94vw, 1200px);
+  margin-left: calc(50% - min(47vw, 600px));
+  margin-right: calc(50% - min(47vw, 600px));
+}
+@media (max-width: 880px) {
+  .modgraph-bento { width: auto; margin-left: 0; margin-right: 0; }
 }
 .modgraph-tile {
   background: var(--surface);
@@ -4166,7 +4174,7 @@ def render_system_map(
             f'full service-to-service wiring.</p>'
         )
 
-    inferred_note = ('\n    <p class="sysmap-legend-inferred">Dotted HTTP arrows are '
+    inferred_note = ('\n    <p class="sysmap-legend-inferred">Red dashed HTTP arrows are '
                      '<strong>inferred by AI</strong> from code it read, not '
                      'matched by the scanner.</p>') if has_inferred else ""
 
@@ -5694,7 +5702,9 @@ def render_service_topology_v2(data: dict[str, Any]) -> str:
         title_max = 22 if cols <= 3 else 18
         title = _topov2_truncate(n.get("name") or n["id"], title_max)
         title_x = x + 16
-        title_y = y + TOPOV2_STRIPE_H + 28
+        # Title sits BELOW the kind chip (raised to its own top row) so a long
+        # service name (e.g. brevity-mobile-app-dev) never runs under the pill.
+        title_y = y + TOPOV2_STRIPE_H + 38
         parts.append(
             f'<text class="topov2-node-title" '
             f'x="{title_x:.1f}" y="{title_y:.1f}" '
@@ -5706,7 +5716,8 @@ def render_service_topology_v2(data: dict[str, Any]) -> str:
         chip_w = max(48, len(chip_label) * 6 + 12)
         chip_h = 16
         chip_x = x + TOPOV2_BOX_W - chip_w - 12
-        chip_y = y + TOPOV2_STRIPE_H + 14
+        # Raised to its own row just under the stripe, above the title.
+        chip_y = y + TOPOV2_STRIPE_H + 6
         parts.append(
             f'<rect class="topov2-kind-chip" '
             f'x="{chip_x:.1f}" y="{chip_y:.1f}" '
