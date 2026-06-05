@@ -212,6 +212,26 @@ class StepEdgeVerificationTest(unittest.TestCase):
         _errors, warnings = ve.validate(enr, self.dir)
         self.assertEqual(self._edge_warnings(warnings), [])
 
+    def test_elixir_predicate_symbol_no_false_warning(self):
+        # ?/! suffixes must still match a real bare call -> no warning.
+        a = self._write("a.ex", "def go(c) do\n  if valid?(c), do: save!(c)\nend\n")
+        b = self._write("checks.ex", "def valid?(c), do: true\n")
+        enr = self._enr([{"label": "a", "file": a, "symbol": "go"},
+                         {"label": "b", "file": b, "symbol": "valid?"}])
+        _errors, warnings = ve.validate(enr, self.dir)
+        self.assertEqual(self._edge_warnings(warnings), [])
+
+    def test_symbol_prefix_not_matched(self):
+        # A normal symbol must NOT be satisfied by a longer word: 'handle' must
+        # not be considered present just because 'handler_setup' appears.
+        a = self._write("a.ex", "def go(c), do: Other.handler_setup(c)\n")
+        b = self._write("helper.ex", "def handle(c), do: c\n")
+        enr = self._enr([{"label": "a", "file": a, "symbol": "go"},
+                         {"label": "b", "file": b, "symbol": "handle"}])
+        _errors, warnings = ve.validate(enr, self.dir)
+        self.assertTrue(any("does not reference" in w and "handle" in w
+                            for w in warnings))
+
 
 if __name__ == "__main__":
     unittest.main()

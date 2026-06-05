@@ -34,7 +34,7 @@ def _module_from_file(file: str) -> str:
     is Elixir-friendly; for files that aren't snake_case the result may simply
     not match, and the symbol-token check carries the verification instead."""
     stem = Path(file).stem
-    parts = [p for p in stem.split("_") if p]
+    parts = [p for p in re.split(r"[._]", stem) if p]
     return "".join(p[:1].upper() + p[1:] for p in parts)
 
 
@@ -45,6 +45,20 @@ def _read_capped(path: Path) -> str:
             return fh.read(_STEP_EDGE_READ_CAP)
     except OSError:
         return ""
+
+
+def _symbol_in(symbol: str, content: str) -> bool:
+    """Whole-identifier search for a step symbol in file content.
+
+    Anchors the left with a word boundary always; requires a right word
+    boundary only when the symbol ends in a word char. Elixir predicate/bang
+    names (``valid?``, ``save!``) end in ``\\W`` and could never satisfy a
+    trailing ``\\b``, so the right boundary is dropped for them (the ``?``/``!``
+    is its own terminator). For ordinary names the right ``\\b`` is kept so
+    ``handle`` does not match ``handler``."""
+    last = symbol[-1:]
+    right = r"\b" if (last.isalnum() or last == "_") else ""
+    return re.search(r"\b" + re.escape(symbol) + right, content) is not None
 
 
 def _verify_step_edges(flow: dict[str, Any], repo_root: Path) -> list[str]:
@@ -68,7 +82,7 @@ def _verify_step_edges(flow: dict[str, Any], repo_root: Path) -> list[str]:
         if not content:
             continue
         module = _module_from_file(cur.get("file") or "")
-        symbol_hit = re.search(r"\b" + re.escape(cur_symbol) + r"\b", content)
+        symbol_hit = _symbol_in(cur_symbol, content)
         module_hit = bool(module) and re.search(
             r"\b" + re.escape(module) + r"\b", content)
         if not symbol_hit and not module_hit:
