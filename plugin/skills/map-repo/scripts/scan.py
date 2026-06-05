@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import evidence
+import phoenix_router
 # Optional sibling module: when missing (e.g. scan.py deployed standalone),
 # extraction falls back to the built-in regexes exactly as when the ast-grep
 # binary is absent.
@@ -1683,6 +1684,12 @@ def _scan_endpoints_file(
                 method_u = "ANY"
             emit("Go router", method_u, path)
 
+    elif language == "Elixir":
+        # Only the Phoenix router declares routes; other .ex files contribute none.
+        if rel.replace("\\", "/").endswith("router.ex"):
+            for ep in phoenix_router.parse_router(text):
+                emit(ep["framework"], ep["method"], ep["path"])
+
     return (out, seen_fw)
 
 
@@ -1957,6 +1964,12 @@ def _detect_service_prefix(root: Path, service_id: str) -> dict[str, str]:
     return out
 
 
+SCANNABLE_LANGUAGES: frozenset[str] = frozenset({
+    "TypeScript", "JavaScript", "Python", "Go", "Ruby", "Java", "Kotlin", "PHP",
+    "Elixir",
+})
+
+
 def build_http_topology(
     root: Path, services: list[dict[str, Any]], modules: list[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -1980,19 +1993,12 @@ def build_http_topology(
 
     module_index = _build_module_index(modules, root)
 
-    # Languages we scan files for. We accept any of these regardless of
-    # whether the service was classified as backend / frontend / library —
-    # a "frontend" can definitely make HTTP calls, and we want those edges.
-    SCANNABLE = frozenset({
-        "TypeScript", "JavaScript", "Python", "Go", "Ruby", "Java", "Kotlin", "PHP",
-    })
-
     for f in iter_files(root):
         lang = detect_language(f)
         if not lang:
             continue
         lname = lang[0]
-        if lname not in SCANNABLE:
+        if lname not in SCANNABLE_LANGUAGES:
             continue
         if is_binary(f):
             continue
