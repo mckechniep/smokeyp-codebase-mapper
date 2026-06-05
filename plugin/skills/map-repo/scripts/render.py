@@ -16,6 +16,8 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+import validate_enrichment  # sibling module; drop_invalid_flows safety net
+
 
 # -------- CSS -----------------------------------------------------------
 
@@ -7704,6 +7706,28 @@ def render_key_flows(data: dict[str, Any], enrichment: dict[str, Any] | None = N
 
 # -------- page assembly ------------------------------------------------
 
+def clean_enrichment_for_render(enrichment: dict[str, Any] | None,
+                                data: dict[str, Any]) -> dict[str, Any] | None:
+    """Drop flows whose citations don't resolve, keyed off the repo root the
+    scanner recorded in the codemap (``project.root``).
+
+    This is the render-time safety net SKILL.md promises, sitting behind the
+    scan-time validator (the primary gate). It is deliberately best-effort: if
+    the recorded root is absent — no ``project.root``, or a moved/portable
+    codemap whose root no longer exists on disk — flows are left untouched so
+    the section is never silently emptied. Pure: returns a new enrichment dict,
+    never mutates the input."""
+    if not enrichment or not enrichment.get("flows"):
+        return enrichment
+    root = (data.get("project") or {}).get("root")
+    if not root:
+        return enrichment
+    root_path = Path(root)
+    if not root_path.is_dir():
+        return enrichment
+    return validate_enrichment.drop_invalid_flows(enrichment, root_path)
+
+
 def render_document(data: dict[str, Any], enrichment: dict[str, Any] | None = None) -> str:
     project_name = escape(data["project"]["name"])
     body = (
@@ -7782,6 +7806,7 @@ def main() -> int:
         else:
             print(f"warning: enrichment not found, rendering without it: {ep}", file=sys.stderr)
 
+    enrichment = clean_enrichment_for_render(enrichment, data)
     html = render_document(data, enrichment)
     out = Path(args.out).expanduser().resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
