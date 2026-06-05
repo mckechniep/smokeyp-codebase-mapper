@@ -7,6 +7,7 @@ exits non-zero on structural errors.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,61 @@ def _require(obj: dict, key: str, where: str, errors: list[str]) -> bool:
         errors.append(f"{where}: missing required '{key}'")
         return False
     return True
+
+
+_STEP_EDGE_READ_CAP = 256 * 1024
+
+
+def _module_from_file(file: str) -> str:
+    """Derive a PascalCase module name from a file path's basename.
+
+    ``lib/brevity/stripe_handler.ex`` -> ``StripeHandler``. snake_case -> Pascal
+    is Elixir-friendly; for files that aren't snake_case the result may simply
+    not match, and the symbol-token check carries the verification instead."""
+    stem = Path(file).stem
+    parts = [p for p in stem.split("_") if p]
+    return "".join(p[:1].upper() + p[1:] for p in parts)
+
+
+def _read_capped(path: Path) -> str:
+    """Read up to the cap; empty string on any failure (never raises)."""
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            return fh.read(_STEP_EDGE_READ_CAP)
+    except OSError:
+        return ""
+
+
+def _verify_step_edges(flow: dict[str, Any], repo_root: Path) -> list[str]:
+    """Warn when consecutive flow steps are not connected in code.
+
+    For each (prev, cur) pair, prev's file must textually reference cur — either
+    cur's ``symbol`` as a whole word, or the module name derived from cur's
+    file. If neither appears, the steps are merely co-located, not called, so a
+    warning is emitted. The first step has no predecessor and is skipped.
+    Warning, not error: indirect calls (message passing, Oban enqueue, pub/sub,
+    behaviour callbacks) legitimately won't match a textual reference."""
+    out: list[str] = []
+    steps = flow.get("steps") or []
+    for i in range(1, len(steps)):
+        prev, cur = steps[i - 1], steps[i]
+        prev_file = prev.get("file")
+        cur_symbol = (cur.get("symbol") or "").strip()
+        if not prev_file or not cur_symbol:
+            continue  # missing-citation errors are reported by the step loop
+        content = _read_capped(repo_root / prev_file)
+        if not content:
+            continue
+        module = _module_from_file(cur.get("file") or "")
+        symbol_hit = re.search(r"\b" + re.escape(cur_symbol) + r"\b", content)
+        module_hit = bool(module) and re.search(
+            r"\b" + re.escape(module) + r"\b", content)
+        if not symbol_hit and not module_hit:
+            out.append(
+                f"step {i}→{i + 1}: {prev_file} does not reference "
+                f"{cur_symbol!r} (co-location is not a call — verify the edge)"
+            )
+    return out
 
 
 def validate(enr: dict[str, Any], repo_root: Path,
@@ -79,6 +135,8 @@ def validate(enr: dict[str, Any], repo_root: Path,
             cited = s.get("file")
             if cited and not (repo_root / cited).is_file():
                 errors.append(f"{sw}: cited file not found: {cited}")
+        for w in _verify_step_edges(f, repo_root):
+            warnings.append(f"{where}: {w}")
     for i, e in enumerate(enr.get("http_edges", []) or []):
         where = f"http_edges[{i}]"
         for k in ("source_service", "target_service", "path"):

@@ -1,3 +1,5 @@
+import shutil
+import tempfile
 import unittest
 from pathlib import Path
 import sys
@@ -132,6 +134,83 @@ class ValidateTest(unittest.TestCase):
         errors, warnings = ve.validate(enr, FIXTURE, service_ids={"web"})
         self.assertEqual(errors, [])
         self.assertTrue(any("ghost" in w for w in warnings))
+
+
+class StepEdgeVerificationTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def _write(self, rel, text):
+        p = self.dir / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text)
+        return rel
+
+    def _enr(self, steps):
+        return {
+            "schema_version": 1,
+            "overview": {"what_it_is": "x", "what_it_does": "y",
+                         "how_it_works": "z", "confidence": "high"},
+            "classification": {"products": [], "vendored": []},
+            "flows": [{"name": "f", "kind": "request", "trigger": "t",
+                       "narration": "n", "terminates": "e", "steps": steps}],
+        }
+
+    def _edge_warnings(self, warnings):
+        return [w for w in warnings if "does not reference" in w]
+
+    def test_module_from_file(self):
+        self.assertEqual(ve._module_from_file("lib/brevity/stripe_handler.ex"),
+                         "StripeHandler")
+        self.assertEqual(ve._module_from_file("a/b/notifier.ex"), "Notifier")
+
+    def test_connected_by_module_call_no_warning(self):
+        a = self._write("a.ex", "def go(c), do: StripeHandler.handle(c)\n")
+        b = self._write("stripe_handler.ex", "def handle(c), do: c\n")
+        enr = self._enr([{"label": "a", "file": a, "symbol": "go"},
+                         {"label": "b", "file": b, "symbol": "handle"}])
+        errors, warnings = ve.validate(enr, self.dir)
+        self.assertEqual(errors, [])
+        self.assertEqual(self._edge_warnings(warnings), [])
+
+    def test_connected_by_symbol_no_warning(self):
+        a = self._write("a.ex", "def go(c), do: send_mail(c)\n")
+        b = self._write("mailer.ex", "def send_mail(c), do: c\n")
+        enr = self._enr([{"label": "a", "file": a, "symbol": "go"},
+                         {"label": "b", "file": b, "symbol": "send_mail"}])
+        errors, warnings = ve.validate(enr, self.dir)
+        self.assertEqual(errors, [])
+        self.assertEqual(self._edge_warnings(warnings), [])
+
+    def test_colocated_unconnected_warns(self):
+        # The fabrication shape: the controller's file never references the handler.
+        a = self._write("controller.ex", "def card_store(c), do: Repo.insert(pm)\n")
+        b = self._write("stripe_handler.ex", "def handle(c), do: c\n")
+        enr = self._enr([{"label": "a", "file": a, "symbol": "card_store"},
+                         {"label": "b", "file": b, "symbol": "handle"}])
+        errors, warnings = ve.validate(enr, self.dir)
+        self.assertEqual(errors, [])
+        self.assertTrue(any("does not reference" in w and "handle" in w
+                            for w in warnings))
+
+    def test_single_step_no_warning(self):
+        a = self._write("a.ex", "def go(c), do: 1\n")
+        enr = self._enr([{"label": "a", "file": a, "symbol": "go"}])
+        _errors, warnings = ve.validate(enr, self.dir)
+        self.assertEqual(self._edge_warnings(warnings), [])
+
+    def test_first_step_not_checked(self):
+        # Only the 1->2 edge is verified (step 1 has no predecessor); the prev
+        # file references the next, so there is no warning.
+        a = self._write("a.ex", "def go(c), do: Worker.run(c)\n")
+        b = self._write("worker.ex", "def run(c), do: c\n")
+        enr = self._enr([{"label": "a", "file": a, "symbol": "go"},
+                         {"label": "b", "file": b, "symbol": "run"}])
+        _errors, warnings = ve.validate(enr, self.dir)
+        self.assertEqual(self._edge_warnings(warnings), [])
 
 
 if __name__ == "__main__":
