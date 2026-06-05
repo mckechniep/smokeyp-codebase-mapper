@@ -1966,6 +1966,17 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 }
 .flow-lane-count { color: var(--muted); font-weight: 400; }
 .flow-lane-meaning { color: var(--ink-2); font-size: 0.86rem; margin-top: 2px; line-height: 1.45; }
+.flow-service-group { border-top: 1px solid var(--border-soft); }
+.flow-service-head {
+  font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-2);
+  padding: var(--space-2) var(--space-4); background: var(--bg);
+}
+.flow-service-count { color: var(--muted); }
+.flow-meta { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; margin-top: 4px; }
+.flow-epn { font-family: var(--font-mono); font-size: 0.7rem; color: var(--lane-color, var(--accent-deep)); white-space: nowrap; }
+.flows-coverage { color: var(--ink-2); font-size: 0.92rem; margin: 0 0 var(--space-3); }
+.flows-lane-btn { font-size: 0.62rem; padding: 2px 8px; margin-top: 6px; }
 
 .flow-card { border-top: 1px solid var(--border-soft); }
 .flow-card:first-of-type { border-top: none; }
@@ -7533,14 +7544,20 @@ def _render_flow_trace(flow: dict[str, Any]) -> str:
     )
 
 
-def _render_flow_card(flow: dict[str, Any], idx: int) -> str:
+def _render_flow_card(flow: dict[str, Any], idx: int,
+                      skel_by_id: dict[str, dict] | None = None) -> str:
     """One collapsible flow: an always-visible summary button (name + a
     'trigger → ends' preview + step count) that expands to the full trace."""
+    skel_by_id = skel_by_id or {}
     name = escape(flow.get("name", "") or "Flow")
     trigger = escape(flow.get("trigger", ""))
     ends = escape(flow.get("terminates", ""))
     nsteps = len(flow.get("steps", []))
     rid = f"flow-detail-{idx}"
+    sid = flow.get("skeleton_id")
+    ep = (skel_by_id.get(sid) or {}).get("endpoint_count") if sid else None
+    ep_badge = (f'<span class="flow-epn">{ep} endpoint{"" if ep == 1 else "s"}</span>'
+                if ep is not None else "")
     oneline = ""
     if trigger or ends:
         arrow = '<span class="flow-arrow">→</span>' if (trigger and ends) else ""
@@ -7550,7 +7567,7 @@ def _render_flow_card(flow: dict[str, Any], idx: int) -> str:
         f'<button class="flow-summary" type="button" aria-expanded="false" aria-controls="{rid}">'
         f'<span class="flow-caret" aria-hidden="true">▸</span>'
         f'<span class="flow-summary-main"><span class="flow-name">{name}</span>{oneline}</span>'
-        f'<span class="flow-stepn">{nsteps} step{"" if nsteps == 1 else "s"}</span>'
+        f'<span class="flow-meta">{ep_badge}<span class="flow-stepn">{nsteps} step{"" if nsteps == 1 else "s"}</span></span>'
         f'</button>'
         f'<div class="flow-detail" id="{rid}">{_render_flow_trace(flow)}</div>'
         f'</div>'
@@ -7576,10 +7593,18 @@ FLOWS_JS = """
       setOpen(card, !card.classList.contains('is-open'));
     });
   });
-  section.querySelectorAll('.flows-btn[data-flows-action]').forEach(function (b) {
+  section.querySelectorAll('.flows-toolbar .flows-btn[data-flows-action]').forEach(function (b) {
     b.addEventListener('click', function () {
       var open = b.getAttribute('data-flows-action') === 'expand';
       section.querySelectorAll('.flow-card').forEach(function (c) { setOpen(c, open); });
+    });
+  });
+  section.querySelectorAll('.flows-lane-btn').forEach(function (b) {
+    b.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var lane = b.closest('.flow-lane');
+      if (!lane) return;
+      lane.querySelectorAll('.flow-card').forEach(function (c) { setOpen(c, true); });
     });
   });
 })();
@@ -7594,6 +7619,9 @@ def render_key_flows(data: dict[str, Any], enrichment: dict[str, Any] | None = N
     if not flows:
         return ""
 
+    skeletons = data.get("flow_skeletons") or []
+    skel_by_id = {s["id"]: s for s in skeletons if s.get("id")}
+
     # Group by kind, preserving original order within each group.
     by_kind: dict[str, list[dict[str, Any]]] = {}
     for f in flows:
@@ -7602,29 +7630,67 @@ def render_key_flows(data: dict[str, Any], enrichment: dict[str, Any] | None = N
     ordered_kinds += [k for k in by_kind if k not in FLOW_KIND_ORDER]
 
     idx = 0
-    lanes = []
+    lanes: list[str] = []
     for kind in ordered_kinds:
         label, meaning, color = FLOW_KIND_META.get(kind, DEFAULT_FLOW_KIND)
         group = by_kind[kind]
-        cards = []
-        for f in group:
-            cards.append(_render_flow_card(f, idx))
-            idx += 1
+
+        if kind == "request" and len(group) > 1:
+            by_service: dict[str, list[dict[str, Any]]] = {}
+            for f in group:
+                svc = (skel_by_id.get(f.get("skeleton_id")) or {}).get("service") or "Other"
+                by_service.setdefault(svc, []).append(f)
+            svc_order = sorted(s for s in by_service if s != "Other") + (
+                ["Other"] if "Other" in by_service else [])
+            body_parts: list[str] = []
+            for svc in svc_order:
+                cards = []
+                for f in by_service[svc]:
+                    cards.append(_render_flow_card(f, idx, skel_by_id))
+                    idx += 1
+                body_parts.append(
+                    f'<div class="flow-service-group">'
+                    f'<div class="flow-service-head">{escape(svc)} '
+                    f'<span class="flow-service-count">· {len(by_service[svc])}</span></div>'
+                    f'{"".join(cards)}</div>'
+                )
+            body = "".join(body_parts)
+        else:
+            cards = []
+            for f in group:
+                cards.append(_render_flow_card(f, idx, skel_by_id))
+                idx += 1
+            body = "".join(cards)
+
         lanes.append(
             f'<div class="flow-lane" style="--lane-color: {color}">'
             f'<div class="flow-lane-head">'
             f'<div class="flow-lane-kind">{escape(label)} '
             f'<span class="flow-lane-count">· {len(group)}</span></div>'
             f'<div class="flow-lane-meaning">{escape(meaning)}</div>'
+            f'<button class="flows-btn flows-lane-btn" type="button" data-flows-action="expand">Expand</button>'
             f'</div>'
-            f'{"".join(cards)}'
+            f'{body}'
             f'</div>'
         )
     board = "".join(lanes)
+
+    covered = len({f.get("skeleton_id") for f in flows
+                   if f.get("skeleton_id") in skel_by_id})
+    total_groups = len(skel_by_id)
+    non_http = sum(1 for f in flows if not f.get("skeleton_id"))
+    coverage = ""
+    if total_groups:
+        nh = (f' + <strong>{non_http} non-HTTP</strong> flow{"" if non_http == 1 else "s"}'
+              if non_http else "")
+        coverage = (f'<p class="flows-coverage">Flows cover <strong>{covered} of '
+                    f'{total_groups}</strong> route group{"" if total_groups == 1 else "s"}{nh}.</p>')
+
     return f"""
 <section class="key-flows" id="codemap-key-flows">
   <h2>Key flows</h2>
   {section_intro("flows")}
+  {coverage}
   <p class="module-note">Each card is one way the system springs into action, grouped by what sets it off — startup, a request, a schedule, or background work. Click any flow to expand its full step-by-step trace.</p>
   <div class="flows-toolbar">
     <button class="flows-btn" type="button" data-flows-action="expand">Expand all</button>
