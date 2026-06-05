@@ -139,6 +139,28 @@ class InferredEdgeRenderTest(unittest.TestCase):
         html = render.render_system_map(self._synth(), None)
         self.assertIn("inferred by AI", html)
 
+    def test_legend_note_absent_when_no_inferred(self):
+        # A purely-deterministic map must NOT show the inferred legend note
+        # (guards against has_inferred being computed unconditionally).
+        data = self._synth()
+        data["http_topology"]["edges"][0].pop("inferred", None)
+        html = render.render_system_map(data, None)
+        self.assertNotIn("inferred by AI", html)
+
+    def test_deterministic_edge_not_flagged_inferred(self):
+        # With the inferred flag removed, the drawn http edge model must not be
+        # inferred and must not emit the distinct class.
+        data = self._synth()
+        data["http_topology"]["edges"][0].pop("inferred", None)
+        sel = render._sysmap_select(data, None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(data, layout)
+        https = [e for e in edges if e["kind"] == "http"]
+        self.assertTrue(https)
+        self.assertFalse(https[0].get("inferred"))
+        svg = render._sysmap_emit_svg(layout, edges, sel, None)
+        self.assertNotIn("sysmap-edge-http-inferred", svg)
+
 
 if __name__ == "__main__":
     unittest.main()
