@@ -29,6 +29,10 @@ try:
     import astgrep_imports
 except ImportError:
     astgrep_imports = None  # type: ignore[assignment]
+try:
+    import astgrep_handlers
+except ImportError:
+    astgrep_handlers = None  # type: ignore[assignment]
 
 TOOL_VERSION = "0.7.0"
 
@@ -2413,8 +2417,10 @@ def build_data_model(root: Path, depth: str) -> dict[str, Any]:
     # findable. These passes are independent of graph node selection.
     http_topology = build_http_topology(root, services, all_modules)
     data_lineage = build_data_lineage(root, services)
+    handler_symbols = astgrep_handlers.collect(root) if astgrep_handlers is not None else {}
     flow_skeletons = build_flow_skeletons(
         http_topology, module_graph, data_lineage, all_modules, depth,
+        handler_symbols=handler_symbols,
     )
     deps = find_dependencies(root, max_deps_per_eco)
     entry_points = detect_entry_points(root)
