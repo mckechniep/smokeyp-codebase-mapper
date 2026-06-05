@@ -904,6 +904,18 @@ class FocusCssTest(unittest.TestCase):
             svg, r'data-nid="api/auth"[^>]*data-orphan="1"')
 
 
+class ModgraphWidthTest(unittest.TestCase):
+    def _rule_body(self, css, selector):
+        import re as _re
+        m = _re.search(_re.escape(selector) + r"\s*\{([^}]*)\}", css)
+        return m.group(1) if m else ""
+
+    def test_modgraph_frame_uses_full_bleed_breakout(self):
+        body = self._rule_body(render.CSS, ".modgraph-frame")
+        self.assertIn("min(94vw, 1200px)", body)
+        self.assertIn("calc(50% - min(47vw, 600px))", body)
+
+
 class StoreEdgeClassTest(unittest.TestCase):
     """Carry-forward fix: store edge paths must carry a sysmap-edge-* class so
     the focus dim selector ([class^="sysmap-edge"]) catches them and they can be

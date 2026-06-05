@@ -498,13 +498,17 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   box-shadow: var(--shadow);
   padding: var(--space-5) var(--space-5) var(--space-4);
   margin-bottom: var(--space-4);
-  /* Escape past main's 780px text column on wider viewports so the
-     matrix can breathe. Collapses back to 0 on narrow screens. */
-  margin-left: -56px;
-  margin-right: -56px;
+  /* Escape past main's 780px text column on wider viewports to the same
+     full-bleed canvas the System Map uses, so the matrix breathes. main is
+     centered, so margin = 50% - halfWidth re-centers this wider child.
+     Collapses back to 0 on narrow screens (media query below). */
+  width: min(94vw, 1200px);
+  margin-left: calc(50% - min(47vw, 600px));
+  margin-right: calc(50% - min(47vw, 600px));
 }
 @media (max-width: 880px) {
   .modgraph-frame {
+    width: auto;
     margin-left: 0;
     margin-right: 0;
   }
