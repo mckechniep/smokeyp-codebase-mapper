@@ -71,5 +71,50 @@ class VerbAndScopeTest(unittest.TestCase):
         self.assertEqual(eps[0]["framework"], "Phoenix")
 
 
+class ResourcesTest(unittest.TestCase):
+    def test_base_resources_expands_to_seven_actions(self):
+        r = routes('resources "/users", UserController\n')
+        self.assertEqual(r, {
+            ("GET", "/users"), ("GET", "/users/new"), ("POST", "/users"),
+            ("GET", "/users/:id"), ("GET", "/users/:id/edit"),
+            ("PATCH", "/users/:id"), ("PUT", "/users/:id"),
+            ("DELETE", "/users/:id"),
+        })
+
+    def test_resources_only(self):
+        r = routes('resources "/users", UserController, only: [:index, :show]\n')
+        self.assertEqual(r, {("GET", "/users"), ("GET", "/users/:id")})
+
+    def test_resources_except(self):
+        r = routes('resources "/users", UserController, except: [:delete, :new, :edit]\n')
+        self.assertNotIn(("DELETE", "/users/:id"), r)
+        self.assertNotIn(("GET", "/users/new"), r)
+        self.assertIn(("GET", "/users"), r)
+
+    def test_resources_param(self):
+        r = routes('resources "/users", UserController, param: "uuid"\n')
+        self.assertIn(("GET", "/users/:uuid"), r)
+        self.assertNotIn(("GET", "/users/:id"), r)
+
+    def test_resources_singleton_drops_index_and_id(self):
+        r = routes('resources "/account", AccountController, singleton: true\n')
+        self.assertIn(("GET", "/account"), r)         # show, no :id
+        self.assertIn(("PATCH", "/account"), r)       # update, no :id
+        self.assertNotIn(("GET", "/account/:id"), r)
+        self.assertNotIn(("GET", "/account/:id/edit"), r)
+
+    def test_nested_resources_inject_parent_id(self):
+        text = ('resources "/users", UserController do\n'
+                '  resources "/posts", PostController, only: [:index]\n'
+                'end\n')
+        self.assertIn(("GET", "/users/:user_id/posts"), routes(text))
+
+    def test_resources_under_scope(self):
+        text = ('scope "/api" do\n'
+                '  resources "/widgets", WidgetController, only: [:index]\n'
+                'end\n')
+        self.assertIn(("GET", "/api/widgets"), routes(text))
+
+
 if __name__ == "__main__":
     unittest.main()
