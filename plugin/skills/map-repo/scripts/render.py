@@ -4166,7 +4166,7 @@ def render_system_map(
             f'full service-to-service wiring.</p>'
         )
 
-    inferred_note = ('<p class="sysmap-legend-inferred">Dotted HTTP arrows are '
+    inferred_note = ('\n    <p class="sysmap-legend-inferred">Dotted HTTP arrows are '
                      '<strong>inferred by AI</strong> from code it read, not '
                      'matched by the scanner.</p>') if has_inferred else ""
 
@@ -4204,8 +4204,7 @@ def render_system_map(
     <div class="sysmap-wrap">{svg}</div>
     {legend}
     {truncation_note}
-    {http_note}
-    {inferred_note}
+    {http_note}{inferred_note}
   </div>
   {observations_html}
   {bento_html}
