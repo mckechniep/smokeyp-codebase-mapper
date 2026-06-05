@@ -33,20 +33,23 @@ def _valid():
 
 class ValidateTest(unittest.TestCase):
     def test_valid_passes(self):
-        errors = ve.validate(_valid(), repo_root=FIXTURE)
+        errors, warnings = ve.validate(_valid(), repo_root=FIXTURE)
         self.assertEqual(errors, [])
 
     def test_missing_overview_field_fails(self):
         d = _valid(); del d["overview"]["what_it_is"]
-        self.assertTrue(any("what_it_is" in e for e in ve.validate(d, repo_root=FIXTURE)))
+        errors, warnings = ve.validate(d, repo_root=FIXTURE)
+        self.assertTrue(any("what_it_is" in e for e in errors))
 
     def test_flow_step_requires_file_and_symbol(self):
         d = _valid(); del d["flows"][0]["steps"][0]["symbol"]
-        self.assertTrue(any("symbol" in e for e in ve.validate(d, repo_root=FIXTURE)))
+        errors, warnings = ve.validate(d, repo_root=FIXTURE)
+        self.assertTrue(any("symbol" in e for e in errors))
 
     def test_broken_citation_detected(self):
         d = _valid(); d["flows"][0]["steps"][0]["file"] = "nope/missing.ts"
-        self.assertTrue(any("missing.ts" in e for e in ve.validate(d, repo_root=FIXTURE)))
+        errors, warnings = ve.validate(d, repo_root=FIXTURE)
+        self.assertTrue(any("missing.ts" in e for e in errors))
 
     def test_drop_invalid_flows_keeps_valid(self):
         d = _valid()
@@ -57,6 +60,32 @@ class ValidateTest(unittest.TestCase):
         cleaned = ve.drop_invalid_flows(d, repo_root=FIXTURE)
         self.assertEqual(len(cleaned["flows"]), 1)
         self.assertEqual(cleaned["flows"][0]["name"], "f")
+
+    def test_valid_enrichment_has_no_errors_or_warnings(self):
+        errors, warnings = ve.validate(_valid(), FIXTURE)
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+
+    def test_known_skeleton_id_ok(self):
+        enr = _valid()
+        enr["flows"][0]["skeleton_id"] = "apps/web"
+        errors, warnings = ve.validate(enr, FIXTURE, skeleton_ids={"apps/web"})
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+
+    def test_unknown_skeleton_id_warns_not_fails(self):
+        enr = _valid()
+        enr["flows"][0]["skeleton_id"] = "does/not/exist"
+        errors, warnings = ve.validate(enr, FIXTURE, skeleton_ids={"apps/web"})
+        self.assertEqual(errors, [])
+        self.assertTrue(any("does/not/exist" in w for w in warnings))
+
+    def test_no_skeleton_id_field_is_always_clean(self):
+        # A flow without skeleton_id (the _valid() fixture) never warns, even
+        # when a non-empty skeleton-id set is supplied — guards the `sid` truthy check.
+        errors, warnings = ve.validate(_valid(), FIXTURE, skeleton_ids={"apps/web"})
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
 
 
 if __name__ == "__main__":

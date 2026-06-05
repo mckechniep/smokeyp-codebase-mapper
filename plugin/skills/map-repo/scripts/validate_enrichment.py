@@ -22,9 +22,13 @@ def _require(obj: dict, key: str, where: str, errors: list[str]) -> bool:
     return True
 
 
-def validate(enr: dict[str, Any], repo_root: Path) -> list[str]:
-    """Return a list of structural + citation errors ([] means valid)."""
+def validate(enr: dict[str, Any], repo_root: Path,
+             skeleton_ids: set[str] | None = None) -> tuple[list[str], list[str]]:
+    """Return (errors, warnings). An empty errors list means structurally valid."""
     errors: list[str] = []
+    warnings: list[str] = []
+    skeleton_ids = skeleton_ids or set()
+
     if enr.get("schema_version") != 1:
         errors.append("schema_version must be 1")
 
@@ -47,6 +51,9 @@ def validate(enr: dict[str, Any], repo_root: Path) -> list[str]:
             _require(f, k, where, errors)
         if f.get("kind") not in FLOW_KINDS:
             errors.append(f"{where}: kind must be one of {sorted(FLOW_KINDS)}")
+        sid = f.get("skeleton_id")
+        if sid and skeleton_ids and sid not in skeleton_ids:  # "" sentinel never warns
+            warnings.append(f"{where}: unknown skeleton_id {sid!r} (not a route group in codemap.json)")
         steps = f.get("steps")
         if not isinstance(steps, list) or not steps:
             errors.append(f"{where}: must have a non-empty steps list")
@@ -58,7 +65,7 @@ def validate(enr: dict[str, Any], repo_root: Path) -> list[str]:
             cited = s.get("file")
             if cited and not (repo_root / cited).is_file():
                 errors.append(f"{sw}: cited file not found: {cited}")
-    return errors
+    return errors, warnings
 
 
 def drop_invalid_flows(enr: dict[str, Any], repo_root: Path) -> dict[str, Any]:
@@ -81,9 +88,20 @@ def main() -> int:
     p = argparse.ArgumentParser(description="Validate codemap.enrichment.json")
     p.add_argument("--enrichment", required=True)
     p.add_argument("--repo", required=True, help="Repo root for citation checks")
+    p.add_argument("--codemap", default=None,
+                   help="Path to codemap.json; enables skeleton_id warnings")
     args = p.parse_args()
     enr = json.loads(Path(args.enrichment).read_text(encoding="utf-8"))
-    errors = validate(enr, Path(args.repo).expanduser().resolve())
+    skeleton_ids: set[str] = set()
+    if args.codemap:
+        try:
+            cm = json.loads(Path(args.codemap).read_text(encoding="utf-8"))
+            skeleton_ids = {s.get("id") for s in cm.get("flow_skeletons", []) if s.get("id")}
+        except (OSError, ValueError):
+            pass
+    errors, warnings = validate(enr, Path(args.repo).expanduser().resolve(), skeleton_ids)
+    for w in warnings:
+        print(f"WARN: {w}", file=sys.stderr)
     if errors:
         for e in errors:
             print(f"INVALID: {e}", file=sys.stderr)
