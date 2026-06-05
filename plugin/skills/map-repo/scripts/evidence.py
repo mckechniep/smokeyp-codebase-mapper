@@ -133,6 +133,7 @@ def build_evidence_pack(
             "file_count": m.get("file_count"),
             "languages": m.get("languages", []),
             "current_description": m.get("description") or "",
+            "vendored_guess": bool(m.get("vendored_guess")),
         }
         for m in data.get("modules", [])
     ]

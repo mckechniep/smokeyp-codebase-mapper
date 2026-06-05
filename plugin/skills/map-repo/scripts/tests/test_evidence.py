@@ -44,6 +44,19 @@ class EvidencePackTest(unittest.TestCase):
         b = evidence.build_evidence_pack(FIXTURE, self.data, budget_bytes=200_000)
         self.assertEqual(json.dumps(a, sort_keys=True), json.dumps(b, sort_keys=True))
 
+    def test_pack_forwards_vendored_guess(self):
+        data = dict(self.data)
+        data["modules"] = [
+            {"path": "apps/web", "loc": 10, "file_count": 1, "languages": ["TypeScript"],
+             "description": "d", "vendored_guess": False},
+            {"path": "vendor/lib-master", "loc": 99, "file_count": 9, "languages": ["JavaScript"],
+             "description": "", "vendored_guess": True},
+        ]
+        pack = evidence.build_evidence_pack(FIXTURE, data)
+        by_path = {m["path"]: m for m in pack["modules"]}
+        self.assertFalse(by_path["apps/web"]["vendored_guess"])
+        self.assertTrue(by_path["vendor/lib-master"]["vendored_guess"])
+
 
 class EvidenceCliTest(unittest.TestCase):
     def test_cli_writes_evidence_when_requested(self):
