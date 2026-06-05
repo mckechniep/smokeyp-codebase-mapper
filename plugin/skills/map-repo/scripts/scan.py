@@ -34,7 +34,7 @@ try:
 except ImportError:
     astgrep_handlers = None  # type: ignore[assignment]
 
-TOOL_VERSION = "0.7.0"
+TOOL_VERSION = "0.8.0"
 
 # Language detection by extension. Color values are the GitHub linguist
 # palette so downstream charts feel familiar.
