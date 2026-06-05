@@ -359,6 +359,9 @@ BACKEND_FRAMEWORK_HINTS: tuple[str, ...] = (
     "laravel/", "symfony/",
     # Java
     "org.springframework.boot", "io.quarkus", "io.micronaut",
+    # Elixir / Erlang (BEAM) backends — matched as exact mix.exs deps tokens
+    "phoenix", "plug", "plug_cowboy", "bandit", "absinthe",
+    "ecto", "ecto_sql", "oban", "broadway",
 )
 
 

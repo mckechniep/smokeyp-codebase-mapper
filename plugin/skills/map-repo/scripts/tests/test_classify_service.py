@@ -85,6 +85,22 @@ class ClassifyServiceTest(unittest.TestCase):
         kind, _stack = scan._classify_service(self.dir)
         self.assertEqual(kind, "backend")
 
+    def test_phoenix_mix_exs_is_backend(self):
+        self._write("mix.exs",
+                    "defp deps do\n"
+                    "  [{:phoenix, \"~> 1.7\"}, {:absinthe, \"~> 1.7\"},\n"
+                    "   {:ecto_sql, \"~> 3.10\"}, {:oban, \"~> 2.17\"}]\n"
+                    "end\n")
+        kind, stack = scan._classify_service(self.dir)
+        self.assertEqual(kind, "backend")
+        self.assertIn("phoenix", stack)
+
+    def test_pure_elixir_library_is_library(self):
+        self._write("mix.exs",
+                    "defp deps do\n  [{:jason, \"~> 1.4\"}, {:telemetry, \"~> 1.2\"}]\nend\n")
+        kind, _stack = scan._classify_service(self.dir)
+        self.assertEqual(kind, "library")
+
 
 if __name__ == "__main__":
     unittest.main()
