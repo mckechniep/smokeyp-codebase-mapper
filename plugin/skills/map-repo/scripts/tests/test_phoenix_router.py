@@ -72,7 +72,7 @@ class VerbAndScopeTest(unittest.TestCase):
 
 
 class ResourcesTest(unittest.TestCase):
-    def test_base_resources_expands_to_seven_actions(self):
+    def test_base_resources_expands_to_eight_routes(self):
         r = routes('resources "/users", UserController\n')
         self.assertEqual(r, {
             ("GET", "/users"), ("GET", "/users/new"), ("POST", "/users"),
@@ -114,6 +114,22 @@ class ResourcesTest(unittest.TestCase):
                 '  resources "/widgets", WidgetController, only: [:index]\n'
                 'end\n')
         self.assertIn(("GET", "/api/widgets"), routes(text))
+
+    def test_scope_then_nested_resources_compose(self):
+        text = ('scope "/api" do\n'
+                '  resources "/users", UserController do\n'
+                '    resources "/posts", PostController, only: [:index]\n'
+                '  end\n'
+                'end\n')
+        self.assertIn(("GET", "/api/users/:user_id/posts"), routes(text))
+
+    def test_three_level_resource_nesting(self):
+        text = ('resources "/users", U do\n'
+                '  resources "/posts", P do\n'
+                '    resources "/comments", C, only: [:index]\n'
+                '  end\n'
+                'end\n')
+        self.assertIn(("GET", "/users/:user_id/posts/:post_id/comments"), routes(text))
 
 
 if __name__ == "__main__":

@@ -44,15 +44,18 @@ _SINGLETON_ROUTES = [  # singleton: no index, no :id segment
 
 
 def _singularize(base: str) -> str:
+    """Naive singular of the last path segment for a nested-resource id param
+    ('users' -> 'user'). Irregular plurals (categories, statuses) are not
+    handled — they yield a slightly malformed :id segment, never a crash."""
     name = base.strip("/").split("/")[-1]
     return name[:-1] if name.endswith("s") else name
 
 
-def _atoms(group: str) -> set:
+def _atoms(group: str) -> set[str]:
     return {a.strip().lstrip(":").strip() for a in group.split(",") if a.strip()}
 
 
-def _expand_resources(prefix: str, base: str, opts: str) -> list:
+def _expand_resources(prefix: str, base: str, opts: str) -> list[dict]:
     base_seg = _norm_seg(base)
     table = _SINGLETON_ROUTES if _SINGLETON_RE.search(opts) else _RESOURCE_ROUTES
     only = _ONLY_RE.search(opts)
@@ -62,7 +65,7 @@ def _expand_resources(prefix: str, base: str, opts: str) -> list:
     pm = _PARAM_RE.search(opts)
     id_seg = pm.group(1) if pm else "id"
 
-    out: list = []
+    out: list[dict] = []
     for method, suffix, action in table:
         if keep is not None and action not in keep:
             continue
@@ -143,7 +146,7 @@ def _parse(text: str, endpoints: list[dict]) -> None:
             if opens:  # nested resources: children get '/base/:singular_id'
                 frames.append(_norm_seg(base) + "/:" + _singularize(base) + "_id")
             continue
-        if line.startswith("resources ") and not m:  # log-don't-drop
+        if line.startswith("resources "):  # unparseable resources line - log, don't drop
             print(f"[phoenix_router] could not parse resources line: {line[:80]!r}",
                   file=sys.stderr)
 
