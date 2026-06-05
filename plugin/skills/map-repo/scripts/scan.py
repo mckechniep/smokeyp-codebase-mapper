@@ -16,6 +16,7 @@ import json
 import re
 import subprocess
 import sys
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -2263,6 +2264,101 @@ def build_data_lineage(
     }
 
 
+# -------- Flow skeleton builder ---------------------------------------
+
+
+def _longest_common_route_prefix(paths: list[str]) -> str:
+    """Longest shared leading path at segment ('/') boundaries.
+
+    ["/api/v1/workouts", "/api/v1/workouts/123"] -> "/api/v1/workouts/"
+    A single path returns itself with a trailing slash. Empty -> "/".
+    """
+    segs = [[s for s in p.split("/") if s != ""] for p in paths if p]
+    if not segs:
+        return "/"
+    common: list[str] = []
+    for tup in zip(*segs):
+        first = tup[0]
+        if all(s == first for s in tup):
+            common.append(first)
+        else:
+            break
+    return "/" + "/".join(common) + ("/" if common else "")
+
+
+def build_flow_skeletons(
+    http_topology: dict,
+    module_graph: dict,
+    data_lineage: dict,
+    modules: list,
+    depth: str,
+    handler_symbols: dict[str, list[str]] | None = None,
+) -> list[dict]:
+    """One flow skeleton per PRODUCT entry module, joined from data the scanner
+    already has. Deterministic. ``handler_symbols`` maps a file (rel path) to
+    handler names; absent -> empty symbol lists (the LLM fills them).
+    """
+    handler_symbols = handler_symbols or {}
+    endpoints = http_topology.get("endpoints") or []
+    entry_modules = http_topology.get("entry_modules") or []
+    edges = module_graph.get("edges") or []
+    lineage_edges = data_lineage.get("edges") or []
+
+    vendored = {m.get("path") for m in modules if m.get("vendored_guess")}
+
+    eps_by_key: dict[tuple, list] = {}
+    for ep in endpoints:
+        eps_by_key.setdefault((ep.get("service"), ep.get("module")), []).append(ep)
+    deps_by_module: dict[str, list] = {}
+    for e in edges:
+        deps_by_module.setdefault(e.get("source"), []).append(e)
+    stores_by_service: dict[str, set] = {}
+    for le in lineage_edges:
+        stores_by_service.setdefault(le.get("source_service"), set()).add(le.get("target_store"))
+
+    skeletons: list[dict] = []
+    for em in entry_modules:
+        module_id = em.get("module")
+        service = em.get("service")
+        if module_id in vendored:
+            continue
+        eps = eps_by_key.get((service, module_id), [])
+        if not eps:
+            continue
+        file_counts = Counter(ep.get("file") for ep in eps if ep.get("file"))
+        entry_file = file_counts.most_common(1)[0][0] if file_counts else None
+        # `or ""` so an explicit path=None maps to "" like an absent key (both
+        # are excluded from the prefix; n/trigger still count the endpoint).
+        prefix = _longest_common_route_prefix([ep.get("path") or "" for ep in eps])
+        method_counts = Counter(ep.get("method", "") for ep in eps)
+        method_str = ", ".join(f"{m}×{c}" for m, c in method_counts.most_common())
+        n = len(eps)
+        trigger = f"HTTP {prefix}* — {n} endpoint{'s' if n != 1 else ''} ({method_str})"
+        deps = sorted(deps_by_module.get(module_id, []), key=lambda e: -(e.get("weight") or 0))
+        key_deps = [
+            {"module": e.get("target"), "weight": e.get("weight") or 0}
+            for e in deps if e.get("target") not in vendored
+        ][:5]
+        stores = sorted(s for s in stores_by_service.get(service, set()) if s)
+        skeletons.append({
+            "id": module_id,
+            "service": service,
+            "kind_hint": "request",
+            "trigger": trigger,
+            "entry": {"module": module_id, "file": entry_file,
+                      "symbols": list(handler_symbols.get(entry_file, [])) if entry_file else []},
+            "key_deps": key_deps,
+            "stores": stores,
+            "endpoint_count": n,
+        })
+
+    skeletons.sort(key=lambda s: -s["endpoint_count"])
+    cap = DEPTH_TIERS.get(depth, DEPTH_TIERS["medium"]).get("max_flow_skeletons")
+    if cap is not None:
+        skeletons = skeletons[:cap]
+    return skeletons
+
+
 # -------- Top-level data assembly -------------------------------------
 
 # Depth tiers. medium is the new default — shallow truncates too
@@ -2275,18 +2371,21 @@ DEPTH_TIERS: dict[str, dict[str, int | None]] = {
         "max_modules_cards": 10,
         "max_graph_modules": 30,
         "max_deps_per_eco": 20,
+        "max_flow_skeletons": 10,
     },
     "medium": {
         "tree_depth": 4,
         "max_modules_cards": 25,
         "max_graph_modules": 80,
         "max_deps_per_eco": 40,
+        "max_flow_skeletons": 30,
     },
     "full": {
         "tree_depth": None,
         "max_modules_cards": None,
         "max_graph_modules": None,
         "max_deps_per_eco": None,
+        "max_flow_skeletons": None,
     },
 }
 
@@ -2314,6 +2413,9 @@ def build_data_model(root: Path, depth: str) -> dict[str, Any]:
     # findable. These passes are independent of graph node selection.
     http_topology = build_http_topology(root, services, all_modules)
     data_lineage = build_data_lineage(root, services)
+    flow_skeletons = build_flow_skeletons(
+        http_topology, module_graph, data_lineage, all_modules, depth,
+    )
     deps = find_dependencies(root, max_deps_per_eco)
     entry_points = detect_entry_points(root)
     readme = extract_readme(root)
@@ -2323,7 +2425,7 @@ def build_data_model(root: Path, depth: str) -> dict[str, Any]:
     primary = languages[0]["name"] if languages else None
 
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "tool_version": TOOL_VERSION,
         "scanned_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "scan_depth": depth,
@@ -2342,6 +2444,7 @@ def build_data_model(root: Path, depth: str) -> dict[str, Any]:
         "module_graph": module_graph,
         "http_topology": http_topology,
         "data_lineage": data_lineage,
+        "flow_skeletons": flow_skeletons,
         "deps": deps,
         "entry_points": entry_points,
         "readme": readme,
