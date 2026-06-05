@@ -371,6 +371,48 @@ def _read_manifest_text(container: Path) -> tuple[str, str] | None:
     return None
 
 
+_MANIFEST_TOKEN_RE = re.compile(r"[A-Za-z0-9_.@/-]+")
+_JSON_DEP_KEYS = ("dependencies", "devDependencies", "peerDependencies",
+                  "optionalDependencies", "require", "require-dev")
+
+
+def _manifest_tokens(name: str, text: str) -> set[str]:
+    """Identifier tokens to match framework hints against.
+
+    JSON manifests (package.json / deno.json / composer.json) are parsed and
+    only their dependency KEYS are returned — exact, no version strings or
+    script bodies. Every other manifest format (mix.exs, go.mod, Cargo.toml,
+    pyproject.toml, Gemfile, gradle, …) is tokenized on identifier boundaries,
+    so ``:phoenix`` -> ``phoenix`` and ``export_gql_schema`` stays one token
+    (it can never match the substring ``expo``)."""
+    if name in ("package.json", "deno.json", "composer.json"):
+        try:
+            data = json.loads(text)
+        except ValueError:
+            data = {}
+        toks: set[str] = set()
+        if isinstance(data, dict):
+            for k in _JSON_DEP_KEYS:
+                d = data.get(k)
+                if isinstance(d, dict):
+                    toks.update(d.keys())
+        return {t.lower() for t in toks}
+    return {t.lower() for t in _MANIFEST_TOKEN_RE.findall(text)}
+
+
+def _hit(hint: str, tokens: set[str]) -> bool:
+    """True if a framework hint matches the manifest's tokens.
+
+    ``"@nestjs/"`` (trailing slash) is a scope prefix -> any token starting
+    with it. Everything else — bare names (``react``) and full module ids
+    (``github.com/gin-gonic/gin``, kept whole by the tokenizer) — is an exact
+    token match."""
+    h = hint.lower()
+    if h.endswith("/"):
+        return any(t.startswith(h) for t in tokens)
+    return h in tokens
+
+
 def _classify_service(container: Path) -> tuple[str, list[str]]:
     """Return (kind, stack[]) for a service container.
 
@@ -380,16 +422,10 @@ def _classify_service(container: Path) -> tuple[str, list[str]]:
     manifest = _read_manifest_text(container)
     if not manifest:
         return ("unknown", [])
-    _name, text = manifest
-    lower = text.lower()
-    found_frontend: list[str] = []
-    found_backend: list[str] = []
-    for hint in FRONTEND_FRAMEWORK_HINTS:
-        if hint.lower() in lower:
-            found_frontend.append(hint)
-    for hint in BACKEND_FRAMEWORK_HINTS:
-        if hint.lower() in lower:
-            found_backend.append(hint)
+    name, text = manifest
+    tokens = _manifest_tokens(name, text)
+    found_frontend = [h for h in FRONTEND_FRAMEWORK_HINTS if _hit(h, tokens)]
+    found_backend = [h for h in BACKEND_FRAMEWORK_HINTS if _hit(h, tokens)]
     stack = sorted(set(found_frontend + found_backend))
 
     if found_backend and not found_frontend:
