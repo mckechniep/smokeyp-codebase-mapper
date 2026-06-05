@@ -52,6 +52,40 @@ class ApplyOverridesTest(unittest.TestCase):
         self.assertIs(render._apply_enrichment_overrides(data, None), data)
         self.assertIs(render._apply_enrichment_overrides(data, {}), data)
 
+    def test_kind_override_when_data_has_no_http_topology(self):
+        # kind-only override on data lacking http_topology must not crash and
+        # must not invent an http_topology key.
+        data = {"services": [{"id": "backend", "name": "backend", "kind": "frontend"}]}
+        enr = {"classification": {"services": [
+            {"service_id": "backend", "kind": "backend", "why": "x"}]}}
+        out = render._apply_enrichment_overrides(data, enr)
+        self.assertEqual(out["services"][0]["kind"], "backend")
+        self.assertNotIn("http_topology", out)
+
+    def test_unknown_service_id_override_is_noop(self):
+        enr = {"classification": {"services": [
+            {"service_id": "ghost", "kind": "backend", "why": "x"}]}}
+        out = render._apply_enrichment_overrides(_data(), enr)
+        # no service had id 'ghost'; every original kind is preserved
+        self.assertEqual({s["id"]: s["kind"] for s in out["services"]},
+                         {"backend": "frontend", "web": "frontend"})
+
+    def test_kind_override_and_edge_injection_together(self):
+        # The real brevity scenario: correct a service's band AND assert an edge.
+        enr = {
+            "classification": {"services": [
+                {"service_id": "backend", "kind": "backend", "why": "phoenix"}]},
+            "http_edges": [
+                {"source_service": "web", "target_service": "backend",
+                 "method": "POST", "path": "/api/graphql", "why": "apollo"}],
+        }
+        out = render._apply_enrichment_overrides(_data(), enr)
+        by_id = {s["id"]: s for s in out["services"]}
+        self.assertEqual(by_id["backend"]["kind"], "backend")
+        edges = out["http_topology"]["edges"]
+        self.assertEqual(len(edges), 2)
+        self.assertTrue(any(e.get("inferred") and e["path"] == "/api/graphql" for e in edges))
+
 
 if __name__ == "__main__":
     unittest.main()
