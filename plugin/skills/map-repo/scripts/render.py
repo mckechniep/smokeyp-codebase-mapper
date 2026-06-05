@@ -590,6 +590,8 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 }
 .sysmap-edge-import { stroke: oklch(60% 0.01 250 / 0.55); }
 .sysmap-edge-http { stroke: oklch(58% 0.14 250 / 0.8); stroke-dasharray: 5 4; }
+.sysmap-edge-http-inferred { stroke-dasharray: 1 4; stroke-opacity: 0.5; }
+.sysmap-legend-inferred { font-size: 0.82rem; color: var(--muted); margin: var(--space-3) 0 0; }
 .sysmap-legend {
   display: flex;
   gap: var(--space-4);
@@ -3198,6 +3200,7 @@ def _sysmap_edges(
 
     http_weight: dict[tuple[str, str], int] = {}
     http_cluster: dict[str, dict[str, Any]] = {}
+    http_inferred: dict[tuple[str, str], bool] = {}
     for e in topo.get("edges") or []:
         # Keying by (service, path) deliberately collapses methods: GET/POST
         # on the same path map to the same entry module. The diagram only
@@ -3216,6 +3219,8 @@ def _sysmap_edges(
         key = (e["source_service"], target_module)
         http_weight[key] = http_weight.get(key, 0) + (e.get("weight") or 1)
         http_cluster[e["source_service"]] = src_cluster
+        if e.get("inferred"):
+            http_inferred[key] = True
 
     # Cap by weight (heaviest routes win) so a large repo can't drown the map
     # in long cross-band lines; the C4 Service topology section below carries
@@ -3250,6 +3255,7 @@ def _sysmap_edges(
             # Carried so the bento can name this path ("web → auth").
             "source_service": src_service,
             "target_id": target_module,
+            "inferred": bool(http_inferred.get((src_service, target_module))),
         })
 
     # ---- store edges: service cluster → store cylinder
@@ -3375,9 +3381,12 @@ def _sysmap_emit_svg(
                 midy = (y1 + y2) / 2
                 hpath = (f'M{x1:.1f},{y1:.1f} C{x1:.1f},{midy:.1f} '
                          f'{x2:.1f},{midy:.1f} {x2:.1f},{y2:.1f}')
+            http_cls = "sysmap-edge-http"
+            if e.get("inferred"):
+                http_cls += " sysmap-edge-http-inferred"
             parts.append(
                 f'<path d="{hpath}" '
-                f'class="sysmap-edge-http" data-kind="http" '
+                f'class="{http_cls}" data-kind="http" '
                 f'data-src-svc="{escape(e.get("source_service") or "")}" '
                 f'data-tgt="{escape(e.get("target_id") or "")}" '
                 f'stroke-width="{w:.1f}" fill="none" '
@@ -4135,6 +4144,7 @@ def render_system_map(
         return ""
     layout = _sysmap_layout(sel)
     edges = _sysmap_edges(data, layout)
+    has_inferred = any(e.get("kind") == "http" and e.get("inferred") for e in edges)
     svg = _sysmap_emit_svg(layout, edges, sel, enrichment)
     headline = _sysmap_headline(sel, edges)
 
@@ -4155,6 +4165,10 @@ def render_system_map(
             f'<a href="#codemap-topov2-section">Service topology</a> below for the '
             f'full service-to-service wiring.</p>'
         )
+
+    inferred_note = ('<p class="sysmap-legend-inferred">Dotted HTTP arrows are '
+                     '<strong>inferred by AI</strong> from code it read, not '
+                     'matched by the scanner.</p>') if has_inferred else ""
 
     legend = (
         '<div class="sysmap-legend">'
@@ -4191,6 +4205,7 @@ def render_system_map(
     {legend}
     {truncation_note}
     {http_note}
+    {inferred_note}
   </div>
   {observations_html}
   {bento_html}

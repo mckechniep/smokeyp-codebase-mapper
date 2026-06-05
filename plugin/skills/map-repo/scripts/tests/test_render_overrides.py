@@ -87,5 +87,58 @@ class ApplyOverridesTest(unittest.TestCase):
         self.assertTrue(any(e.get("inferred") and e["path"] == "/api/graphql" for e in edges))
 
 
+class InferredEdgeRenderTest(unittest.TestCase):
+    def _synth(self):
+        return {
+            "scan_depth": "medium", "project": {"name": "synth"},
+            "services": [
+                {"id": "web", "name": "web", "kind": "frontend", "loc": 1000,
+                 "file_count": 10, "color": "#292929", "primary_language": "TypeScript"},
+                {"id": "api", "name": "api", "kind": "backend", "loc": 5000,
+                 "file_count": 50, "color": "#3178c6", "primary_language": "TypeScript"}],
+            "modules": [],
+            "module_graph": {"nodes": [
+                {"id": "web/pages", "name": "pages", "service": "web", "loc": 600,
+                 "files": 6, "primary_language": "TypeScript", "color": "#3178c6",
+                 "vendored_guess": False},
+                {"id": "api/auth", "name": "auth", "service": "api", "loc": 2000,
+                 "files": 20, "primary_language": "TypeScript", "color": "#3178c6",
+                 "vendored_guess": False}],
+                "edges": []},
+            "http_topology": {
+                "entry_modules": [{"service": "api", "module": "api/auth", "endpoint_count": 1}],
+                "endpoints": [{"service": "api", "module": "api/auth", "file": "api/auth/c.ts",
+                               "framework": "NestJS", "method": "POST", "path": "/api/login"}],
+                "edges": [{"source_service": "web", "target_service": "api",
+                           "method": "POST", "path": "/api/login", "weight": 4,
+                           "inferred": True}]},
+            "data_lineage": {"stores": [], "models": [], "edges": []},
+        }
+
+    def test_inferred_flag_carried_through_edge_model(self):
+        data = self._synth()
+        sel = render._sysmap_select(data, None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(data, layout)
+        https = [e for e in edges if e["kind"] == "http"]
+        self.assertTrue(https)
+        self.assertTrue(https[0].get("inferred"))
+
+    def test_inferred_edge_emits_distinct_class(self):
+        data = self._synth()
+        sel = render._sysmap_select(data, None)
+        layout = render._sysmap_layout(sel)
+        edges = render._sysmap_edges(data, layout)
+        svg = render._sysmap_emit_svg(layout, edges, sel, None)
+        self.assertIn("sysmap-edge-http-inferred", svg)
+
+    def test_inferred_css_rule_present(self):
+        self.assertIn(".sysmap-edge-http-inferred", render.CSS)
+
+    def test_legend_note_when_inferred_present(self):
+        html = render.render_system_map(self._synth(), None)
+        self.assertIn("inferred by AI", html)
+
+
 if __name__ == "__main__":
     unittest.main()
