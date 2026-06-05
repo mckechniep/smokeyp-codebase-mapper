@@ -57,6 +57,19 @@ class VerbAndScopeTest(unittest.TestCase):
         self.assertEqual(phoenix_router.parse_router("@#$%^ not elixir {{{"), [])
         self.assertEqual(phoenix_router.parse_router(""), [])
 
+    def test_end_with_trailing_paren_does_not_corrupt_stack(self):
+        text = ('scope "/api" do\n'
+                '  get "/a", Ctrl, :a\n'
+                'end)\n'
+                'get "/b", Ctrl, :b\n')
+        r = routes(text)
+        self.assertIn(("GET", "/b"), r)        # must NOT be /api/b
+        self.assertIn(("GET", "/api/a"), r)
+
+    def test_forward_non_absinthe_plug_is_phoenix(self):
+        eps = phoenix_router.parse_router('forward "/uploads", UploadPlug\n')
+        self.assertEqual(eps[0]["framework"], "Phoenix")
+
 
 if __name__ == "__main__":
     unittest.main()

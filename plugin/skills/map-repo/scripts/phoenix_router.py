@@ -6,18 +6,22 @@ of HTTP endpoints: ``{"framework", "method", "path"}``. Handles verb macros,
 ``resources`` expansion. Anything it cannot cleanly expand emits the base
 route(s) it can and logs to stderr — it never silently drops, and on any
 internal error it returns the routes collected so far rather than raising.
+Known limitation: a ``scope`` whose head is split across lines (path on one
+line, ``do`` on the next) loses its path prefix (degrades to a neutral frame)
+rather than composing it.
 """
 from __future__ import annotations
 
 import re
 import sys
 
-_VERB_RE = re.compile(r'^(get|post|put|patch|delete|head|options)\s+"([^"]*)"', re.I)
+_VERB_RE = re.compile(r'^(get|post|put|patch|delete|head|options)\s+"([^"]*)"')
 _FORWARD_RE = re.compile(r'^forward\s+"([^"]*)"\s*,\s*([A-Za-z0-9_.]+)')
 _LIVE_RE = re.compile(r'^live\s+"([^"]*)"')
 _SCOPE_RE = re.compile(r'^scope\b')
 _SCOPE_PATH_RE = re.compile(r'"(/[^"]*)"')
 _OPENS_BLOCK_RE = re.compile(r'\bdo\s*$')
+_END_RE = re.compile(r'^end\b')
 
 
 def _norm_seg(p: str) -> str:
@@ -87,7 +91,7 @@ def _parse(text: str, endpoints: list[dict]) -> None:
             frames.append("")
             continue
 
-        if line == "end" or line.startswith("end "):
+        if _END_RE.match(line):
             if frames:
                 frames.pop()
             continue
