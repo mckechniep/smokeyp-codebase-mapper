@@ -48,7 +48,7 @@ If `python3` is not available, fall back to `python`. If neither is available, s
 
 ### Step 1.5 — LLM evaluation (skip if `--no-llm`)
 
-Read `<out-dir>/codemap.evidence.json`. It contains the module list and truncated contents of high-signal files (entry points, manifests, READMEs, route/schema files). You may additionally `Read`/`Grep` up to ~20 more files in the target repo to confirm flows and citations — **do not read the whole repo**.
+Read `<out-dir>/codemap.evidence.json`. It contains the module list (each with a `vendored_guess` flag), the truncated contents of high-signal files (entry points, manifests, READMEs, route/schema files), and a `flow_skeletons` array — one pre-computed skeleton per HTTP route group, with its trigger, entry file, key dependencies, and data stores already located. Treat `vendored_guess` as the starting classification (override it only with evidence). You may additionally `Read`/`Grep` about **one file per skeleton you narrate, plus ~10 more** for the non-HTTP flows you discover — **do not read the whole repo**.
 
 #### Semantic retrieval (warm index by default; building is opt-in)
 
@@ -97,14 +97,19 @@ Write a `codemap.enrichment.json` to `<out-dir>/` with this shape (the authorita
 - **`overview`**: `what_it_is` / `what_it_does` / `how_it_works` (plain English, grounded in the code you actually read — **NOT** the README), `primary_stack` (array), `confidence` (`high`|`medium`|`low`), `caveats` (array — call out a misleading or roadmap-style README here).
 - **`classification`**: `products` and `vendored` arrays. Treat as **vendored** any module that is a dependency or reference clone: paths under `vendor/` or `node_modules/`, directory names ending `-master`/`-develop`/`-main` (git-archive clones), a third-party `LICENSE` or repo URL in its `package.json`, or a path-dependency. Everything that is the actual product is a **product** (each with a `role` and a one-line `why`). Use the module `path` as `module_id`.
 - **`module_descriptions`**: for each PRODUCT module, an accurate one-line `description` (fill gaps the scanner left empty — e.g. Elixir modules with no `package.json`). Include `is_product: true`.
-- **`flows`**: 3 flows at `--depth medium`, up to 6 at `--depth full`. Each is an end-to-end story (signup, a domain state machine, a scheduled job, a data pipeline, app bootstrap) with `name`, `kind` (`request`|`background`|`scheduled`|`state-machine`|`pipeline`|`bootstrap`), `trigger`, `narration`, `terminates`, and `steps`. **Every step must cite a real `file` + `symbol` you actually saw** (optional `line`, `note`). No uncited steps.
+- **`flows`**: full coverage, in two parts.
+  1. **Narrate every skeleton.** For each entry in the evidence pack's `flow_skeletons`, emit one flow that carries `skeleton_id` set to the skeleton's `id`. Give it a human `name` ("Workout tracking", not "workouts module"), `kind: "request"`, a plain-English `trigger` and `terminates`, a `narration` of what actually happens end to end, and `steps` that cite the skeleton's `entry.file` + a handler `symbol`, its `key_deps`, and its `stores`. The skeleton already locates the flow — you may open `entry.file` to sharpen the symbol/notes, but you do **not** need to hunt for it.
+  2. **Add what only you can see.** Bootstrap, background workers, scheduled jobs, webhook consumers, state machines, data pipelines — anything with no HTTP entry point. These have no `skeleton_id`. Pick the right `kind` (`background`|`scheduled`|`state-machine`|`pipeline`|`bootstrap`; a webhook is `request`).
+
+  Every flow keeps the shape `name`, `kind` (`request`|`background`|`scheduled`|`state-machine`|`pipeline`|`bootstrap`), `trigger`, `narration`, `terminates`, `steps` (+ optional `skeleton_id`). **Every step must cite a real `file` + `symbol` you actually saw** (optional `line`, `note`). No uncited steps. There is no flow cap — coverage is the goal, the citation requirement is the quality gate.
 
 Then validate before rendering:
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/map-repo/scripts/validate_enrichment.py" \
   --enrichment "<out-dir>/codemap.enrichment.json" \
-  --repo "<resolved-path>"
+  --repo "<resolved-path>" \
+  --codemap "<out-dir>/codemap.json"
 ```
 
 If it reports structural errors, fix the JSON and re-validate. (Flows with broken citations are dropped automatically at render time, but fix them if you can.) If you cannot produce valid enrichment, skip it and render the deterministic-only report.
