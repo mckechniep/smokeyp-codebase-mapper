@@ -7732,7 +7732,51 @@ def clean_enrichment_for_render(enrichment: dict[str, Any] | None,
     return validate_enrichment.drop_invalid_flows(enrichment, root_path)
 
 
+def _apply_enrichment_overrides(data: dict[str, Any],
+                                enrichment: dict[str, Any] | None) -> dict[str, Any]:
+    """Apply the LLM's service-tier corrections and asserted HTTP edges onto a
+    copy of the codemap, before any section renders.
+
+    Pure (no filesystem): kind overrides re-tier services so every consumer
+    (System Map bands, Topology chips) sees the corrected value from one place;
+    http_edges are appended to the HTTP layer flagged ``inferred`` so the
+    renderer can draw them distinctly. Returns the input unchanged when there
+    is nothing to apply."""
+    if not enrichment:
+        return data
+    cls = enrichment.get("classification") or {}
+    kind_by_svc = {s.get("service_id"): s.get("kind")
+                   for s in (cls.get("services") or [])
+                   if s.get("service_id") and s.get("kind")}
+    inject = enrichment.get("http_edges") or []
+    if not kind_by_svc and not inject:
+        return data
+
+    new = dict(data)
+    if kind_by_svc:
+        new["services"] = [
+            {**svc, "kind": kind_by_svc.get(svc.get("id"), svc.get("kind"))}
+            for svc in data.get("services", [])
+        ]
+    if inject:
+        topo = dict(data.get("http_topology") or {})
+        edges = list(topo.get("edges") or [])
+        for e in inject:
+            edges.append({
+                "source_service": e.get("source_service"),
+                "target_service": e.get("target_service"),
+                "method": (e.get("method") or "ALL").upper(),
+                "path": e.get("path") or "/",
+                "weight": 1,
+                "inferred": True,
+            })
+        topo["edges"] = edges
+        new["http_topology"] = topo
+    return new
+
+
 def render_document(data: dict[str, Any], enrichment: dict[str, Any] | None = None) -> str:
+    data = _apply_enrichment_overrides(data, enrichment)
     project_name = escape(data["project"]["name"])
     body = (
         render_cover(data)
