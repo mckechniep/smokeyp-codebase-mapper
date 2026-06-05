@@ -101,6 +101,13 @@ class ClassifyServiceTest(unittest.TestCase):
         kind, _stack = scan._classify_service(self.dir)
         self.assertEqual(kind, "library")
 
+    def test_python_lib_with_bandit_linter_is_not_backend(self):
+        # 'bandit' is the Python security linter; a Python utility lib that uses
+        # it must NOT be misread as a backend (the Elixir Bandit server collision).
+        self._write("requirements.txt", "pydantic==2.5.0\nbandit==1.7.5\n")
+        kind, _stack = scan._classify_service(self.dir)
+        self.assertNotEqual(kind, "backend")
+
 
 if __name__ == "__main__":
     unittest.main()
