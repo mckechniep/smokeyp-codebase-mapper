@@ -143,8 +143,10 @@ def build_evidence_pack(
         "project": data.get("project", {}),
         "modules": modules,
         "files": files,
+        "flow_skeletons": data.get("flow_skeletons", []),
         "signals_in_codemap": [
             "module_graph", "http_topology", "data_lineage", "deps", "services",
+            "flow_skeletons",
         ],
         "budget": {
             "budget_bytes": budget_bytes,

@@ -57,6 +57,18 @@ class EvidencePackTest(unittest.TestCase):
         self.assertFalse(by_path["apps/web"]["vendored_guess"])
         self.assertTrue(by_path["vendor/lib-master"]["vendored_guess"])
 
+    def test_pack_carries_flow_skeletons(self):
+        data = dict(self.data)
+        data["flow_skeletons"] = [
+            {"id": "api/workouts", "service": "api", "kind_hint": "request",
+             "trigger": "HTTP /api/workouts/* — 3 endpoints (GET×2, POST×1)",
+             "entry": {"module": "api/workouts", "file": "f.ts", "symbols": []},
+             "key_deps": [], "stores": ["postgres"], "endpoint_count": 3},
+        ]
+        pack = evidence.build_evidence_pack(FIXTURE, data)
+        self.assertEqual(pack["flow_skeletons"], data["flow_skeletons"])
+        self.assertIn("flow_skeletons", pack["signals_in_codemap"])
+
 
 class EvidenceCliTest(unittest.TestCase):
     def test_cli_writes_evidence_when_requested(self):
