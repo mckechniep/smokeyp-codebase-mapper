@@ -372,20 +372,27 @@ def _read_manifest_text(container: Path) -> tuple[str, str] | None:
 
 
 _MANIFEST_TOKEN_RE = re.compile(r"[A-Za-z0-9_.@/-]+")
-_JSON_DEP_KEYS = ("dependencies", "devDependencies", "peerDependencies",
-                  "optionalDependencies", "require", "require-dev")
+_JSON_DEP_KEYS = (
+    # npm / package.json
+    "dependencies", "devDependencies", "peerDependencies", "optionalDependencies",
+    # composer.json (PHP)
+    "require", "require-dev",
+)
 
 
 def _manifest_tokens(name: str, text: str) -> set[str]:
     """Identifier tokens to match framework hints against.
 
-    JSON manifests (package.json / deno.json / composer.json) are parsed and
-    only their dependency KEYS are returned — exact, no version strings or
-    script bodies. Every other manifest format (mix.exs, go.mod, Cargo.toml,
-    pyproject.toml, Gemfile, gradle, …) is tokenized on identifier boundaries,
-    so ``:phoenix`` -> ``phoenix`` and ``export_gql_schema`` stays one token
+    JSON manifests (package.json / composer.json) are parsed and only their
+    dependency KEYS are returned — exact, no version strings or script bodies.
+    deno.json uses an import-map schema (``{"imports": {...}}``) rather than
+    npm-style dep keys, so it falls through to the regex tokenizer below where
+    the import keys (``hono``, ``@std/path``) appear as bare tokens.
+    Every other manifest format (mix.exs, go.mod, Cargo.toml, pyproject.toml,
+    Gemfile, gradle, …) is likewise tokenized on identifier boundaries, so
+    ``:phoenix`` -> ``phoenix`` and ``export_gql_schema`` stays one token
     (it can never match the substring ``expo``)."""
-    if name in ("package.json", "deno.json", "composer.json"):
+    if name in ("package.json", "composer.json"):
         try:
             data = json.loads(text)
         except ValueError:
@@ -404,13 +411,17 @@ def _hit(hint: str, tokens: set[str]) -> bool:
     """True if a framework hint matches the manifest's tokens.
 
     ``"@nestjs/"`` (trailing slash) is a scope prefix -> any token starting
-    with it. Everything else — bare names (``react``) and full module ids
-    (``github.com/gin-gonic/gin``, kept whole by the tokenizer) — is an exact
-    token match."""
+    with it. A bare name (``react``) is an exact token match. A full module id
+    (``github.com/labstack/echo``) matches exactly OR as a path prefix, so a
+    go.mod major-version suffix (``echo/v4``, ``chi/v5``) still resolves."""
     h = hint.lower()
     if h.endswith("/"):
         return any(t.startswith(h) for t in tokens)
-    return h in tokens
+    if h in tokens:
+        return True
+    if "/" in h:  # full module id: tolerate a /vN major-version suffix
+        return any(t.startswith(h + "/") for t in tokens)
+    return False
 
 
 def _classify_service(container: Path) -> tuple[str, list[str]]:

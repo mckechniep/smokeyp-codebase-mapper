@@ -44,6 +44,12 @@ class HitTest(unittest.TestCase):
         self.assertTrue(scan._hit("github.com/gin-gonic/gin",
                                   {"github.com/gin-gonic/gin"}))
 
+    def test_full_module_id_tolerates_version_suffix(self):
+        self.assertTrue(scan._hit("github.com/labstack/echo",
+                                  {"github.com/labstack/echo/v4"}))
+        self.assertFalse(scan._hit("github.com/labstack/echo",
+                                   {"github.com/labstack/echotest"}))  # not a /-boundary
+
 
 class ClassifyServiceTest(unittest.TestCase):
     def setUp(self):
@@ -66,6 +72,18 @@ class ClassifyServiceTest(unittest.TestCase):
         self._write("package.json", '{"dependencies": {"react": "^18", "react-dom": "^18"}}')
         kind, _stack = scan._classify_service(self.dir)
         self.assertEqual(kind, "frontend")
+
+    def test_go_mod_versioned_module_is_backend(self):
+        self._write("go.mod",
+                    "module example.com/app\n\nrequire (\n"
+                    "\tgithub.com/labstack/echo/v4 v4.11.0\n)\n")
+        kind, _stack = scan._classify_service(self.dir)
+        self.assertEqual(kind, "backend")
+
+    def test_deno_json_imports_detected_as_backend(self):
+        self._write("deno.json", '{"imports": {"hono": "npm:hono@^4.0"}}')
+        kind, _stack = scan._classify_service(self.dir)
+        self.assertEqual(kind, "backend")
 
 
 if __name__ == "__main__":
