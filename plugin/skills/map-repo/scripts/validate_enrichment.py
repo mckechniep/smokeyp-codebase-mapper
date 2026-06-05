@@ -13,6 +13,7 @@ from typing import Any
 
 CONFIDENCE = {"high", "medium", "low"}
 FLOW_KINDS = {"request", "background", "scheduled", "state-machine", "pipeline", "bootstrap"}
+SERVICE_KINDS = {"frontend", "backend", "library", "service"}
 
 
 def _require(obj: dict, key: str, where: str, errors: list[str]) -> bool:
@@ -23,11 +24,13 @@ def _require(obj: dict, key: str, where: str, errors: list[str]) -> bool:
 
 
 def validate(enr: dict[str, Any], repo_root: Path,
-             skeleton_ids: set[str] | None = None) -> tuple[list[str], list[str]]:
+             skeleton_ids: set[str] | None = None,
+             service_ids: set[str] | None = None) -> tuple[list[str], list[str]]:
     """Return (errors, warnings). An empty errors list means structurally valid."""
     errors: list[str] = []
     warnings: list[str] = []
     skeleton_ids = skeleton_ids or set()
+    service_ids = service_ids or set()
 
     if enr.get("schema_version") != 1:
         errors.append("schema_version must be 1")
@@ -44,6 +47,17 @@ def validate(enr: dict[str, Any], repo_root: Path,
     cls = enr.get("classification", {})
     if not isinstance(cls, dict):
         errors.append("classification: missing or not an object")
+
+    if isinstance(cls, dict):
+        for i, s in enumerate(cls.get("services", []) or []):
+            where = f"classification.services[{i}]"
+            _require(s, "service_id", where, errors)
+            if s.get("kind") not in SERVICE_KINDS:
+                errors.append(f"{where}: kind must be one of {sorted(SERVICE_KINDS)}")
+            sid = s.get("service_id")
+            if sid and service_ids and sid not in service_ids:
+                warnings.append(f"{where}: unknown service_id {sid!r} "
+                                "(not a service in codemap.json)")
 
     for i, f in enumerate(enr.get("flows", [])):
         where = f"flows[{i}]"
@@ -65,6 +79,16 @@ def validate(enr: dict[str, Any], repo_root: Path,
             cited = s.get("file")
             if cited and not (repo_root / cited).is_file():
                 errors.append(f"{sw}: cited file not found: {cited}")
+    for i, e in enumerate(enr.get("http_edges", []) or []):
+        where = f"http_edges[{i}]"
+        for k in ("source_service", "target_service", "path"):
+            _require(e, k, where, errors)
+        for endpoint_key in ("source_service", "target_service"):
+            v = e.get(endpoint_key)
+            if v and service_ids and v not in service_ids:
+                warnings.append(f"{where}: unknown {endpoint_key} {v!r} "
+                                "(not a service in codemap.json)")
+
     return errors, warnings
 
 
@@ -93,13 +117,16 @@ def main() -> int:
     args = p.parse_args()
     enr = json.loads(Path(args.enrichment).read_text(encoding="utf-8"))
     skeleton_ids: set[str] = set()
+    service_ids: set[str] = set()
     if args.codemap:
         try:
             cm = json.loads(Path(args.codemap).read_text(encoding="utf-8"))
             skeleton_ids = {s.get("id") for s in cm.get("flow_skeletons", []) if s.get("id")}
+            service_ids = {s.get("id") for s in cm.get("services", []) if s.get("id")}
         except (OSError, ValueError):
             pass
-    errors, warnings = validate(enr, Path(args.repo).expanduser().resolve(), skeleton_ids)
+    errors, warnings = validate(enr, Path(args.repo).expanduser().resolve(),
+                                skeleton_ids, service_ids)
     for w in warnings:
         print(f"WARN: {w}", file=sys.stderr)
     if errors:

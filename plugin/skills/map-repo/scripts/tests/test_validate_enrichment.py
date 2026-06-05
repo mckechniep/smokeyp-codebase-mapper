@@ -87,6 +87,52 @@ class ValidateTest(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(warnings, [])
 
+    def test_service_kind_override_ok(self):
+        enr = _valid()
+        enr["classification"]["services"] = [
+            {"service_id": "backend", "kind": "backend", "why": "phoenix"}]
+        errors, warnings = ve.validate(enr, FIXTURE, service_ids={"backend"})
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+
+    def test_service_kind_override_bad_kind_errors(self):
+        enr = _valid()
+        enr["classification"]["services"] = [
+            {"service_id": "backend", "kind": "wizard", "why": "x"}]
+        errors, _w = ve.validate(enr, FIXTURE, service_ids={"backend"})
+        self.assertTrue(any("kind" in e for e in errors))
+
+    def test_unknown_service_id_warns(self):
+        enr = _valid()
+        enr["classification"]["services"] = [
+            {"service_id": "ghost", "kind": "backend", "why": "x"}]
+        errors, warnings = ve.validate(enr, FIXTURE, service_ids={"backend"})
+        self.assertEqual(errors, [])
+        self.assertTrue(any("ghost" in w for w in warnings))
+
+    def test_http_edge_ok(self):
+        enr = _valid()
+        enr["http_edges"] = [
+            {"source_service": "web", "target_service": "backend",
+             "method": "POST", "path": "/api/graphql", "why": "apollo"}]
+        errors, warnings = ve.validate(enr, FIXTURE, service_ids={"web", "backend"})
+        self.assertEqual(errors, [])
+        self.assertEqual(warnings, [])
+
+    def test_http_edge_missing_target_errors(self):
+        enr = _valid()
+        enr["http_edges"] = [{"source_service": "web", "path": "/x"}]
+        errors, _w = ve.validate(enr, FIXTURE, service_ids={"web"})
+        self.assertTrue(any("target_service" in e for e in errors))
+
+    def test_http_edge_unknown_endpoint_warns(self):
+        enr = _valid()
+        enr["http_edges"] = [
+            {"source_service": "web", "target_service": "ghost", "path": "/x"}]
+        errors, warnings = ve.validate(enr, FIXTURE, service_ids={"web"})
+        self.assertEqual(errors, [])
+        self.assertTrue(any("ghost" in w for w in warnings))
+
 
 if __name__ == "__main__":
     unittest.main()
