@@ -2517,6 +2517,16 @@ def render_cover(data: dict[str, Any]) -> str:
     lede_parts.append(f"<strong>{fmt_num(p['total_loc'])}</strong> lines of code")
     lede = " · ".join(lede_parts)
 
+    total_files_all = p.get("total_files_all")
+    total_loc_all = p.get("total_loc_all")
+    has_incl = total_loc_all is not None and (
+        total_loc_all != p.get("total_loc") or total_files_all != p.get("total_files"))
+    incl_line = (
+        f'<p class="lede-secondary" style="color: var(--muted); margin-top: var(--space-2);">'
+        f'incl. dependencies: <strong>{fmt_num(total_loc_all)}</strong> lines across '
+        f'<strong>{fmt_num(total_files_all)}</strong> files</p>'
+    ) if has_incl else ""
+
     scanned_at = data.get("scanned_at", "")
     depth = data.get("scan_depth", "shallow")
 
@@ -2525,9 +2535,10 @@ def render_cover(data: dict[str, Any]) -> str:
   <div class="eyebrow">Codebase Architecture Report</div>
   <h1>{escape(p['name'])}</h1>
   <p class="lede">{lede}.</p>
+  {incl_line}
   <div class="stats">
     <div class="stat">
-      <div class="label">Files</div>
+      <div class="label">Code files</div>
       <div class="value">{fmt_num(p['total_files'])}</div>
     </div>
     <div class="stat">
@@ -2602,11 +2613,22 @@ def render_languages(data: dict[str, Any]) -> str:
         'where it usually runs, and the role it tends to play in a codebase.</p>'
         if any_expandable else ""
     )
+    langs_all = data.get("languages_all") or []
+    incl_aside = ""
+    if langs_all and langs_all != langs:
+        loc_all = sum(l["loc"] for l in langs_all)
+        incl_aside = (
+            f'<p class="module-note" style="color: var(--muted);">'
+            f'Bars and table show product code. incl. dependencies: '
+            f'<strong>{fmt_num(loc_all)}</strong> lines across '
+            f'<strong>{len(langs_all)}</strong> languages.</p>'
+        )
     return f"""
 <section id="codemap-languages">
   <h2>Languages</h2>
   {section_intro("languages")}
   {hint}
+  {incl_aside}
   <div class="lang-bar">{bar}</div>
   <table class="lang-table">
     <thead><tr><th>Language</th><th>Files</th><th>Lines</th><th>Share</th></tr></thead>
@@ -7392,16 +7414,28 @@ def render_deps(data: dict[str, Any]) -> str:
         p.get("version", "*") == "*" for eco in deps for p in eco.get("packages", [])
     )
     star_note = (
-        '<p class="diagram-note">A version shown as <code>*</code> means the manifest '
+        '<p class=”diagram-note”>A version shown as <code>*</code> means the manifest '
         'doesn’t pin one — an unspecified “any version” entry, or a path / git dependency '
         'that carries no version number (not necessarily the latest release).</p>'
         if has_star else ""
     )
+    deps_all = data.get("deps_all") or []
+    incl_note = ""
+    if deps_all and deps_all != deps:
+        prod_count = sum(e.get("count", 0) for e in deps)
+        all_count = sum(e.get("count", 0) for e in deps_all)
+        if all_count != prod_count:
+            incl_note = (
+                f'<p class="diagram-note" style="color: var(--muted);">'
+                f'Showing <strong>{fmt_num(prod_count)}</strong> product dependencies. '
+                f'incl. dependencies (vendored clones): <strong>{fmt_num(all_count)}</strong> repo-wide.</p>'
+            )
     return f"""
 <section>
   <h2>External dependencies</h2>
   {section_intro("deps")}
   {star_note}
+  {incl_note}
   {''.join(blocks)}
 </section>
 """
