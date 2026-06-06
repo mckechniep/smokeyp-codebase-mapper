@@ -471,20 +471,26 @@ def _is_service_container(dir_path: Path) -> bool:
     return False
 
 
-def _measure_dir(d: Path) -> tuple[int, int, set[str]]:
-    """Roll up file_count, loc, and language set under a directory."""
+def _measure_dir(d: Path) -> tuple[int, int, set[str], dict[str, dict[str, int]]]:
+    """Roll up file_count, loc, language set, and per-language {files, loc}."""
     fc = 0
     loc = 0
     langs: set[str] = set()
+    lang_stats: dict[str, dict[str, int]] = {}
     for f in iter_files(d):
         if is_binary(f):
             continue
+        n = count_lines(f)
         fc += 1
-        loc += count_lines(f)
+        loc += n
         lang = detect_language(f)
         if lang:
-            langs.add(lang[0])
-    return (fc, loc, langs)
+            name = lang[0]
+            langs.add(name)
+            st = lang_stats.setdefault(name, {"files": 0, "loc": 0})
+            st["files"] += 1
+            st["loc"] += n
+    return (fc, loc, langs, lang_stats)
 
 
 def _modules_within(container: Path, root: Path, service_id: str | None) -> list[dict[str, Any]]:
@@ -510,7 +516,7 @@ def _modules_within(container: Path, root: Path, service_id: str | None) -> list
         if d in seen:
             return
         seen.add(d)
-        fc, loc, langs = _measure_dir(d)
+        fc, loc, langs, lang_stats = _measure_dir(d)
         if fc == 0:
             return
         out.append({
@@ -520,6 +526,7 @@ def _modules_within(container: Path, root: Path, service_id: str | None) -> list
             "file_count": fc,
             "loc": loc,
             "languages": sorted(langs),
+            "lang_stats": lang_stats,
             "description": guess_module_description(d),
             "vendored_guess": _vendored_guess(d, str(d.relative_to(root)), root.name),
         })
@@ -608,7 +615,7 @@ def detect_services_and_modules(
         for container in container_dirs:
             service_id = str(container.relative_to(root))
             kind, stack = _classify_service(container)
-            fc, loc, langs = _measure_dir(container)
+            fc, loc, langs, _ls = _measure_dir(container)
             if fc == 0:
                 continue
             primary_lang_name = None
@@ -663,7 +670,7 @@ def detect_services_and_modules(
         # etc.) are recursed with _modules_within so their children become
         # individual modules; other loose dirs are emitted as flat entries.
         for loose in loose_dirs:
-            fc, loc, langs = _measure_dir(loose)
+            fc, loc, langs, lang_stats = _measure_dir(loose)
             if fc == 0:
                 continue
             if loose.name in SOURCE_ROOTS:
@@ -678,6 +685,7 @@ def detect_services_and_modules(
                 "file_count": fc,
                 "loc": loc,
                 "languages": sorted(langs),
+                "lang_stats": lang_stats,
                 "description": guess_module_description(loose),
                 "vendored_guess": _vendored_guess(loose, str(loose.relative_to(root)), root.name),
             })
@@ -685,7 +693,7 @@ def detect_services_and_modules(
         # Single-service repo. Root itself is the service.
         service_id = root.name or "."
         kind, stack = _classify_service(root)
-        fc, loc, _ = _measure_dir(root)
+        fc, loc, _langs, _ls = _measure_dir(root)
         by_lang: dict[str, tuple[str, int]] = {}
         for f in iter_files(root):
             lang = detect_language(f)
