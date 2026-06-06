@@ -2152,6 +2152,7 @@ def build_http_topology(
 STORE_PATTERNS: tuple[tuple[str, str, str], ...] = (
     # (regex pattern, store kind label, default display name)
     (r"\bpostgres(?:ql)?\b", "postgres", "PostgreSQL"),
+    (r"\bpostgrex\b", "postgres", "PostgreSQL"),
     (r"\bmysql\b|\bmariadb\b", "mysql", "MySQL"),
     (r"\bredis\b", "redis", "Redis"),
     (r"\bmongo(?:db)?\b", "mongodb", "MongoDB"),
@@ -2188,7 +2189,8 @@ def _detect_stores(root: Path) -> list[dict[str, Any]]:
         p = root / name
         if p.is_file():
             sources.append(("docker-compose", safe_read(p, limit=128 * 1024)))
-    for name in (".env", ".env.example", ".env.local", "config/database.yml"):
+    for name in (".env", ".env.example", ".env.local", "config/database.yml",
+                 "config/config.exs", "config/dev.exs", "config/runtime.exs"):
         p = root / name
         if p.is_file():
             sources.append((name, safe_read(p, limit=64 * 1024)))
@@ -2196,7 +2198,8 @@ def _detect_stores(root: Path) -> list[dict[str, Any]]:
     # Also look at top-level env files in service containers
     for d in root.iterdir() if root.is_dir() else []:
         if d.is_dir() and d.name not in SKIP_DIRS and not d.name.startswith("."):
-            for name in (".env", ".env.example"):
+            for name in (".env", ".env.example",
+                         "config/config.exs", "config/dev.exs", "config/runtime.exs"):
                 p = d / name
                 if p.is_file():
                     sources.append((f"{d.name}/{name}", safe_read(p, limit=64 * 1024)))

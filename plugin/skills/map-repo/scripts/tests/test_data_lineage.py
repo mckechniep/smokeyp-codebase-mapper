@@ -123,3 +123,36 @@ class LineageVendoredFilterTest(unittest.TestCase):
         names = {m["model"] for m in lin["models"]}
         self.assertIn("Account", names)
         self.assertNotIn("User", names)  # vendored (-main) prisma excluded
+
+
+class StoreFromConfigTest(unittest.TestCase):
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def _write(self, rel, text):
+        p = self.root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text)
+        return p
+
+    def test_postgres_from_root_config_exs(self):
+        self._write(
+            "config/config.exs",
+            'config :app, App.Repo,\n  adapter: Ecto.Adapters.Postgres\n')
+        stores = scan._detect_stores(self.root)
+        self.assertTrue(any(s["kind"] == "postgres" for s in stores))
+
+    def test_postgres_from_service_config_exs(self):
+        self._write(
+            "backend/config/runtime.exs",
+            'config :brevity, Brevity.Repo, adapter: Ecto.Adapters.Postgres\n')
+        stores = scan._detect_stores(self.root)
+        self.assertTrue(any(s["kind"] == "postgres" for s in stores))
+
+    def test_postgrex_dep_maps_to_postgres(self):
+        self._write("config/dev.exs", 'config :app, deps: [:postgrex]\n')
+        stores = scan._detect_stores(self.root)
+        self.assertTrue(any(s["kind"] == "postgres" for s in stores))
