@@ -7433,8 +7433,8 @@ def render_deps(data: dict[str, Any]) -> str:
         if all_count != prod_count:
             incl_note = (
                 f'<p class="diagram-note" style="color: var(--muted);">'
-                f'Showing <strong>{fmt_num(prod_count)}</strong> product dependencies. '
-                f'incl. dependencies (vendored clones): <strong>{fmt_num(all_count)}</strong> repo-wide.</p>'
+                f'Showing <strong>{fmt_num(prod_count)}</strong> product dependencies · '
+                f'<strong>{fmt_num(all_count)}</strong> incl. vendored clones.</p>'
             )
     return f"""
 <section>

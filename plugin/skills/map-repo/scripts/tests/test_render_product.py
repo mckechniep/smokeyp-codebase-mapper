@@ -40,13 +40,13 @@ class ProductLeadTest(unittest.TestCase):
         d["deps_all"] = d["deps"]
         self.assertNotIn("incl. dependencies", render.render_cover(d))
         self.assertNotIn("incl. dependencies", render.render_languages(d))
-        self.assertNotIn("incl. dependencies", render.render_deps(d))
+        self.assertNotIn("incl. vendored clones", render.render_deps(d))
 
     def test_deps_secondary_appears_then_hidden(self):
         d = _data()                         # product hex count 1, repo-wide 119
-        self.assertIn("incl. dependencies", render.render_deps(d))
+        self.assertIn("incl. vendored clones", render.render_deps(d))
         d["deps_all"] = d["deps"]           # now equal
-        self.assertNotIn("incl. dependencies", render.render_deps(d))
+        self.assertNotIn("incl. vendored clones", render.render_deps(d))
 
 
 if __name__ == "__main__":
