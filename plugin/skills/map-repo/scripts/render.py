@@ -316,8 +316,8 @@ pre code { background: transparent; padding: 0; }
 .tree .file .meta { float: right; color: var(--muted); font-size: 0.8em; }
 .tree .empty { color: var(--muted); padding-left: 22px; font-style: italic; }
 .tree .truncated { color: var(--muted); padding-left: 22px; font-style: italic; }
-.tree-vendored { color: var(--muted, #6b7280); font-family: ui-monospace, monospace; margin: 2px 0; }
-.tree-vendored-tag { font-style: italic; opacity: 0.8; }
+.tree .tree-vendored { color: var(--muted, #6b7280); font-family: ui-monospace, monospace; margin: 2px 0; padding-left: 22px; }
+.tree .tree-vendored-tag { font-style: italic; opacity: 0.8; }
 
 /* ---- Deps table ---- */
 .deps-eco { margin: var(--space-4) 0 var(--space-5); }

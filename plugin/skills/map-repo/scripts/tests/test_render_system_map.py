@@ -1232,6 +1232,8 @@ class TreeCollapseTest(unittest.TestCase):
         self.assertIn("vendored", html)              # the collapse marker
         self.assertNotIn(">x.ex<", html)             # vendored child not expanded
         self.assertIn("app.ex", html)                # product child still shown
+        self.assertIn("190 files", html)
+        self.assertIn("98,000 LOC", html)
 
 
 if __name__ == "__main__":
