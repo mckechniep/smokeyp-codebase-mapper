@@ -1178,6 +1178,8 @@ class TierExclusionTest(unittest.TestCase):
         sel = render._sysmap_select(data, None)
         backend_ids = {n["id"] for n in sel["bands"]["backend"]}
         self.assertNotIn("docs/guide", backend_ids)
+        frontend_ids = {n["id"] for n in sel["bands"]["frontend"]}
+        self.assertNotIn("docs/guide", frontend_ids)
 
 
 class TopologyFocusTest(unittest.TestCase):

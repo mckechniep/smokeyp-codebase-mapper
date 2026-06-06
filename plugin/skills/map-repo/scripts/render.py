@@ -2765,9 +2765,11 @@ _INFRA_DOCS_SEGMENTS = frozenset({
 
 
 def _is_infra_or_docs(path: str) -> bool:
-    """A module path that is documentation or infrastructure, not a service tier."""
+    """A module that roots under a documentation or infrastructure directory,
+    not a service tier. Matches only the FIRST path segment, so a real product
+    module like ``services/ci`` or ``backend/deploy`` is never mis-excluded."""
     parts = [p.lower() for p in path.split("/") if p]
-    return any(p in _INFRA_DOCS_SEGMENTS for p in parts)
+    return bool(parts) and parts[0] in _INFRA_DOCS_SEGMENTS
 
 SYSMAP_W = 1120                 # SVG viewBox width
 SYSMAP_MARGIN_X = 20
@@ -2883,6 +2885,10 @@ def _sysmap_select(
     # Band assignment by the owning service's kind.
     bands: dict[str, list[dict[str, Any]]] = {"frontend": [], "backend": []}
     for n in visible:
+        # NOTE: infra/docs nodes are skipped from band assignment here, so they
+        # render in no band. They were ranked into visible[] earlier, so a
+        # high-ranking docs node can still consume a cap slot and nudge the
+        # `truncated` count; acceptable since docs/infra modules rank low.
         if _is_infra_or_docs(n.get("id", "")):
             continue
         svc = services.get(n.get("service")) or {}
