@@ -2309,7 +2309,7 @@ def build_data_lineage(
         if not lang or is_binary(f):
             continue
         lname = lang[0]
-        if lname not in ("TypeScript", "JavaScript", "Python", "Ruby", "Java", "Kotlin"):
+        if lname not in ("TypeScript", "JavaScript", "Python", "Ruby", "Java", "Kotlin", "Elixir"):
             continue
         service_id = _file_to_service_id(f, root, services)
         raw_models.extend(_scan_data_models_file(f, lname, service_id))

@@ -53,3 +53,35 @@ class EctoModelScanTest(unittest.TestCase):
 
     def test_ecto_default_store_is_postgres(self):
         self.assertEqual(scan.ORM_DEFAULT_STORE.get("Ecto"), "postgres")
+
+
+class BuildDataLineageEctoTest(unittest.TestCase):
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def _write(self, rel, text):
+        p = self.root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text)
+        return p
+
+    def test_ecto_models_appear_in_lineage(self):
+        self._write(
+            "backend/lib/brevity_schemas/trip.ex",
+            'defmodule BrevitySchemas.Trip do\n'
+            '  schema "trips" do\n'
+            '    field :name, :string\n'
+            '  end\n'
+            'end\n',
+        )
+        services = [{"id": "backend", "name": "backend", "kind": "backend"}]
+        lin = scan.build_data_lineage(self.root, services)
+        ecto = {m["model"] for m in lin["models"] if m["framework"] == "Ecto"}
+        self.assertIn("Trip", ecto)
+        self.assertTrue(any(s["kind"] == "postgres" for s in lin["stores"]))
+        self.assertTrue(any(
+            e["target_store"] == "postgres" and "Trip" in e["models"]
+            for e in lin["edges"]))
