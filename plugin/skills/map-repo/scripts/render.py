@@ -7868,9 +7868,12 @@ def _apply_enrichment_overrides(data: dict[str, Any],
         topo["edges"] = edges
         new["http_topology"] = topo
     modules = data.get("modules") or []
-    languages_all = data.get("languages_all") or data.get("languages") or []
+    languages_all = data.get("languages_all") or []
     if (vendored_ids or product_ids) and modules and languages_all:
-        def is_vendored(m):
+        def is_vendored(m: dict[str, Any]) -> bool:
+            # If the LLM lists a module as BOTH product and vendored
+            # (self-contradiction), product wins — prefer inclusion over
+            # exclusion so product code is never undercounted.
             mid = m.get("path")
             if mid in product_ids:
                 return False          # LLM rescue beats heuristic

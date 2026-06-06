@@ -211,6 +211,39 @@ class ProductRefinementTest(unittest.TestCase):
         out = render._apply_enrichment_overrides(d, None)
         self.assertEqual(out["project"]["total_loc"], 1700)
 
+    def test_enrichment_product_rescue_keeps_module_in_product(self):
+        # Heuristic flags 'actually-product-master' vendored (vendored_guess=True);
+        # the LLM rescues it as product, so nothing is subtracted.
+        data = {
+            "project": {"name": "p", "total_files": 10, "total_loc": 1700,
+                        "total_files_all": 10, "total_loc_all": 1700,
+                        "primary_language": "Elixir"},
+            "languages": [{"name": "Elixir", "color": "#6e4a7e", "files": 10, "loc": 1700}],
+            "languages_all": [{"name": "Elixir", "color": "#6e4a7e", "files": 10, "loc": 1700}],
+            "modules": [
+                {"path": "backend", "vendored_guess": False,
+                 "lang_stats": {"Elixir": {"files": 3, "loc": 200}}},
+                {"path": "actually-product-master", "vendored_guess": True,
+                 "lang_stats": {"Elixir": {"files": 7, "loc": 1500}}},
+            ],
+        }
+        enr = {"classification": {
+            "products": [{"module_id": "actually-product-master", "role": "backend", "why": "w"}],
+            "vendored": []}}
+        out = render._apply_enrichment_overrides(data, enr)
+        elixir = next(l for l in out["languages"] if l["name"] == "Elixir")
+        self.assertEqual(elixir["loc"], 1700)   # rescued -> nothing subtracted
+        self.assertEqual(out["project"]["total_loc"], 1700)
+
+    def test_enrichment_only_http_edges_leaves_product_untouched(self):
+        d = self._data()
+        enr = {"http_edges": [{"source_service": "a", "target_service": "b"}]}
+        out = render._apply_enrichment_overrides(d, enr)
+        # No classification -> no product refinement; product stays deterministic.
+        self.assertEqual(out["project"]["total_loc"], 1700)
+        elixir = next(l for l in out["languages"] if l["name"] == "Elixir")
+        self.assertEqual(elixir["loc"], 1700)
+
 
 if __name__ == "__main__":
     unittest.main()
