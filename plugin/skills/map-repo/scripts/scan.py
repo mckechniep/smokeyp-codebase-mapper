@@ -96,6 +96,7 @@ SKIP_DIRS: frozenset[str] = frozenset({
     ".codemap",
     ".idea", ".vscode", ".gradle",
     "vendor",
+    "deps", "_build", "_checkouts",   # Elixir hex cache + build artifacts
 })
 
 # Conventional source roots — we look here first for top-level modules.

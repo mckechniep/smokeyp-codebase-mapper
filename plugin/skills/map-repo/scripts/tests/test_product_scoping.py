@@ -76,3 +76,24 @@ class FlatServiceContainerTest(unittest.TestCase):
             mod["loc"],
             "Per-language loc must sum to module loc",
         )
+
+
+class SkipDirsTest(unittest.TestCase):
+    def test_dependency_caches_are_skipped(self):
+        for name in ("deps", "_build", "_checkouts"):
+            self.assertIn(name, scan.SKIP_DIRS)
+
+    def test_deps_dir_excluded_from_languages(self):
+        d = Path(tempfile.mkdtemp())
+        try:
+            (d / "lib").mkdir()
+            (d / "lib" / "app.ex").write_text("defmodule App do\nend\n")
+            (d / "deps").mkdir()
+            (d / "deps" / "phoenix").mkdir()
+            (d / "deps" / "phoenix" / "lib.ex").write_text("x\n" * 500)
+            langs = scan.aggregate_languages(d)
+            elixir = next((l for l in langs if l["name"] == "Elixir"), None)
+            self.assertIsNotNone(elixir)
+            self.assertEqual(elixir["files"], 1)  # only lib/app.ex, not deps/
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
