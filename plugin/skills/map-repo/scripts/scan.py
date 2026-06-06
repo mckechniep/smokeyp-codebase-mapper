@@ -256,6 +256,7 @@ def walk_tree(root: Path, max_depth: int | None) -> dict[str, Any]:
             "type": "dir",
             "file_count": 0,
             "loc": 0,
+            "vendored": _vendored_path(str(node_path.relative_to(root))),
         }
 
         if max_depth is not None and depth >= max_depth:

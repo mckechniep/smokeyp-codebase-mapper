@@ -1217,5 +1217,22 @@ class TopologyFocusTest(unittest.TestCase):
                         "kind chip must sit entirely above the title baseline")
 
 
+class TreeCollapseTest(unittest.TestCase):
+    def test_vendored_subtree_collapses_to_summary(self):
+        data = {"tree": {"name": "root", "type": "dir", "file_count": 200,
+                         "loc": 100000, "children": [
+            {"name": "backend", "type": "dir", "file_count": 10, "loc": 2000,
+             "children": [{"name": "app.ex", "type": "file", "language": "Elixir",
+                           "loc": 50}]},
+            {"name": "google_ads-master", "type": "dir", "file_count": 190,
+             "loc": 98000, "vendored": True, "children": [
+                {"name": "x.ex", "type": "file", "language": "Elixir", "loc": 500}]},
+        ]}}
+        html = render.render_tree(data)
+        self.assertIn("vendored", html)              # the collapse marker
+        self.assertNotIn(">x.ex<", html)             # vendored child not expanded
+        self.assertIn("app.ex", html)                # product child still shown
+
+
 if __name__ == "__main__":
     unittest.main()

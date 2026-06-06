@@ -316,6 +316,8 @@ pre code { background: transparent; padding: 0; }
 .tree .file .meta { float: right; color: var(--muted); font-size: 0.8em; }
 .tree .empty { color: var(--muted); padding-left: 22px; font-style: italic; }
 .tree .truncated { color: var(--muted); padding-left: 22px; font-style: italic; }
+.tree-vendored { color: var(--muted, #6b7280); font-family: ui-monospace, monospace; margin: 2px 0; }
+.tree-vendored-tag { font-style: italic; opacity: 0.8; }
 
 /* ---- Deps table ---- */
 .deps-eco { margin: var(--space-4) 0 var(--space-5); }
@@ -2635,6 +2637,13 @@ def _tree_node(node: dict[str, Any], is_root: bool = False) -> str:
         lang = node.get("language") or ""
         meta = f"{lang} · {fmt_num(loc)}" if lang else f"{fmt_num(loc)}"
         return f'<span class="file">{escape(node["name"])}<span class="meta">{escape(meta)}</span></span>'
+
+    if node.get("type") == "dir" and node.get("vendored"):
+        fc = node.get("file_count", 0)
+        loc = node.get("loc", 0)
+        return (f'<div class="tree-vendored">▸ {escape(node["name"])}/ — '
+                f'{fmt_num(fc)} files · {fmt_num(loc)} LOC · '
+                f'<span class="tree-vendored-tag">vendored (hidden)</span></div>')
 
     name = escape(node["name"])
     fcount = node.get("file_count", 0)

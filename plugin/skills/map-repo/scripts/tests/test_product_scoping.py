@@ -171,3 +171,19 @@ class DepsScopingTest(unittest.TestCase):
             self.assertIn("grpc", all_names)            # present repo-wide
         finally:
             shutil.rmtree(d, ignore_errors=True)
+
+
+class TreeVendoredTest(unittest.TestCase):
+    def test_walk_tree_tags_vendored_dirs(self):
+        d = Path(tempfile.mkdtemp())
+        try:
+            (d / "backend").mkdir()
+            (d / "backend" / "app.ex").write_text("x\n")
+            (d / "google_ads-master").mkdir()
+            (d / "google_ads-master" / "x.ex").write_text("y\n" * 100)
+            tree = scan.walk_tree(d, None)
+            kids = {c["name"]: c for c in tree["children"]}
+            self.assertTrue(kids["google_ads-master"].get("vendored"))
+            self.assertFalse(kids["backend"].get("vendored", False))
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
