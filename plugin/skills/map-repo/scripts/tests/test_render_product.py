@@ -1,4 +1,5 @@
-import sys, unittest
+import sys
+import unittest
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import render
@@ -30,6 +31,22 @@ class ProductLeadTest(unittest.TestCase):
         html = render.render_languages(_data())
         self.assertIn("Elixir", html)
         self.assertIn("incl. dependencies", html)
+
+    def test_secondary_hidden_when_product_equals_repo_wide(self):
+        d = _data()
+        d["project"]["total_files_all"] = d["project"]["total_files"]
+        d["project"]["total_loc_all"] = d["project"]["total_loc"]
+        d["languages_all"] = d["languages"]
+        d["deps_all"] = d["deps"]
+        self.assertNotIn("incl. dependencies", render.render_cover(d))
+        self.assertNotIn("incl. dependencies", render.render_languages(d))
+        self.assertNotIn("incl. dependencies", render.render_deps(d))
+
+    def test_deps_secondary_appears_then_hidden(self):
+        d = _data()                         # product hex count 1, repo-wide 119
+        self.assertIn("incl. dependencies", render.render_deps(d))
+        d["deps_all"] = d["deps"]           # now equal
+        self.assertNotIn("incl. dependencies", render.render_deps(d))
 
 
 if __name__ == "__main__":

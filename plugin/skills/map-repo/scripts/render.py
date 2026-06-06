@@ -2519,8 +2519,11 @@ def render_cover(data: dict[str, Any]) -> str:
 
     total_files_all = p.get("total_files_all")
     total_loc_all = p.get("total_loc_all")
-    has_incl = total_loc_all is not None and (
-        total_loc_all != p.get("total_loc") or total_files_all != p.get("total_files"))
+    has_incl = (
+        total_loc_all is not None
+        and total_files_all is not None
+        and (total_loc_all != p.get("total_loc") or total_files_all != p.get("total_files"))
+    )
     incl_line = (
         f'<p class="lede-secondary" style="color: var(--muted); margin-top: var(--space-2);">'
         f'incl. dependencies: <strong>{fmt_num(total_loc_all)}</strong> lines across '
@@ -2615,14 +2618,16 @@ def render_languages(data: dict[str, Any]) -> str:
     )
     langs_all = data.get("languages_all") or []
     incl_aside = ""
-    if langs_all and langs_all != langs:
+    if langs_all:
         loc_all = sum(l["loc"] for l in langs_all)
-        incl_aside = (
-            f'<p class="module-note" style="color: var(--muted);">'
-            f'Bars and table show product code. incl. dependencies: '
-            f'<strong>{fmt_num(loc_all)}</strong> lines across '
-            f'<strong>{len(langs_all)}</strong> languages.</p>'
-        )
+        loc_prod = sum(l["loc"] for l in langs)
+        if loc_all != loc_prod:
+            incl_aside = (
+                f'<p class="module-note" style="color: var(--muted);">'
+                f'Bars and table show product code. incl. dependencies: '
+                f'<strong>{fmt_num(loc_all)}</strong> lines across '
+                f'<strong>{len(langs_all)}</strong> languages.</p>'
+            )
     return f"""
 <section id="codemap-languages">
   <h2>Languages</h2>
@@ -7421,7 +7426,7 @@ def render_deps(data: dict[str, Any]) -> str:
     )
     deps_all = data.get("deps_all") or []
     incl_note = ""
-    if deps_all and deps_all != deps:
+    if deps_all:
         prod_count = sum(e.get("count", 0) for e in deps)
         all_count = sum(e.get("count", 0) for e in deps_all)
         if all_count != prod_count:
