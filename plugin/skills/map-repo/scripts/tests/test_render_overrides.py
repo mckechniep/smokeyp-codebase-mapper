@@ -180,66 +180,70 @@ class InferredEdgeRenderTest(unittest.TestCase):
 
 
 class ProductRefinementTest(unittest.TestCase):
-    def _data(self):
+    def _base(self, languages, modules):
         return {
-            "project": {"name": "p", "total_files": 10, "total_loc": 1700,
+            "project": {"name": "p",
+                        "total_files": sum(l["files"] for l in languages),
+                        "total_loc": sum(l["loc"] for l in languages),
                         "total_files_all": 10, "total_loc_all": 1700,
                         "primary_language": "Elixir"},
-            "languages": [{"name": "Elixir", "color": "#6e4a7e", "files": 10, "loc": 1700}],
+            "languages": languages,   # the scan PATH-BASED product
             "languages_all": [{"name": "Elixir", "color": "#6e4a7e", "files": 10, "loc": 1700}],
-            "modules": [
+            "modules": modules,
+        }
+
+    def test_enrichment_vendored_catch_shrinks_product(self):
+        # copied-lib is NOT path-vendored -> IN the path-based product (1700).
+        # LLM catches it as vendored -> subtract its 1500 -> 200.
+        data = self._base(
+            languages=[{"name": "Elixir", "color": "#6e4a7e", "files": 10, "loc": 1700}],
+            modules=[
                 {"path": "backend", "vendored_guess": False,
                  "lang_stats": {"Elixir": {"files": 3, "loc": 200}}},
                 {"path": "copied-lib", "vendored_guess": False,
                  "lang_stats": {"Elixir": {"files": 7, "loc": 1500}}},
-            ],
-        }
-
-    def test_enrichment_vendored_reclassification_shrinks_product(self):
-        # The LLM marks 'copied-lib' vendored (the heuristic missed it).
+            ])
         enr = {"classification": {"products": [],
                "vendored": [{"module_id": "copied-lib", "kind": "vendored-lib",
                              "source": "x", "why": "y"}]}}
-        out = render._apply_enrichment_overrides(self._data(), enr)
-        # product Elixir loc drops from 1700 to 200 (copied-lib subtracted)
+        out = render._apply_enrichment_overrides(data, enr)
         elixir = next(l for l in out["languages"] if l["name"] == "Elixir")
         self.assertEqual(elixir["loc"], 200)
         self.assertEqual(out["project"]["total_loc"], 200)
 
-    def test_no_enrichment_leaves_deterministic_product(self):
-        d = self._data()
-        out = render._apply_enrichment_overrides(d, None)
-        self.assertEqual(out["project"]["total_loc"], 1700)
-
-    def test_enrichment_product_rescue_keeps_module_in_product(self):
-        # Heuristic flags 'actually-product-master' vendored (vendored_guess=True);
-        # the LLM rescues it as product, so nothing is subtracted.
-        data = {
-            "project": {"name": "p", "total_files": 10, "total_loc": 1700,
-                        "total_files_all": 10, "total_loc_all": 1700,
-                        "primary_language": "Elixir"},
-            "languages": [{"name": "Elixir", "color": "#6e4a7e", "files": 10, "loc": 1700}],
-            "languages_all": [{"name": "Elixir", "color": "#6e4a7e", "files": 10, "loc": 1700}],
-            "modules": [
+    def test_enrichment_product_rescue_grows_product(self):
+        # actually-product-master IS path-vendored -> EXCLUDED from the path-based
+        # product (so it's only backend's 200). LLM rescues it -> add 1500 -> 1700.
+        data = self._base(
+            languages=[{"name": "Elixir", "color": "#6e4a7e", "files": 3, "loc": 200}],
+            modules=[
                 {"path": "backend", "vendored_guess": False,
                  "lang_stats": {"Elixir": {"files": 3, "loc": 200}}},
                 {"path": "actually-product-master", "vendored_guess": True,
                  "lang_stats": {"Elixir": {"files": 7, "loc": 1500}}},
-            ],
-        }
+            ])
         enr = {"classification": {
             "products": [{"module_id": "actually-product-master", "role": "backend", "why": "w"}],
             "vendored": []}}
         out = render._apply_enrichment_overrides(data, enr)
         elixir = next(l for l in out["languages"] if l["name"] == "Elixir")
-        self.assertEqual(elixir["loc"], 1700)   # rescued -> nothing subtracted
+        self.assertEqual(elixir["loc"], 1700)
         self.assertEqual(out["project"]["total_loc"], 1700)
 
-    def test_enrichment_only_http_edges_leaves_product_untouched(self):
-        d = self._data()
+    def test_no_enrichment_leaves_deterministic_product(self):
+        data = self._base(
+            languages=[{"name": "Elixir", "color": "#6e4a7e", "files": 10, "loc": 1700}],
+            modules=[])
+        out = render._apply_enrichment_overrides(data, None)
+        self.assertEqual(out["project"]["total_loc"], 1700)
+
+    def test_only_http_edges_leaves_product_untouched(self):
+        data = self._base(
+            languages=[{"name": "Elixir", "color": "#6e4a7e", "files": 10, "loc": 1700}],
+            modules=[{"path": "backend", "vendored_guess": False,
+                      "lang_stats": {"Elixir": {"files": 10, "loc": 1700}}}])
         enr = {"http_edges": [{"source_service": "a", "target_service": "b"}]}
-        out = render._apply_enrichment_overrides(d, enr)
-        # No classification -> no product refinement; product stays deterministic.
+        out = render._apply_enrichment_overrides(data, enr)
         self.assertEqual(out["project"]["total_loc"], 1700)
         elixir = next(l for l in out["languages"] if l["name"] == "Elixir")
         self.assertEqual(elixir["loc"], 1700)

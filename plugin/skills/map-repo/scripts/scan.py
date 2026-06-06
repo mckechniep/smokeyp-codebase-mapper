@@ -19,7 +19,7 @@ import sys
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import evidence
 import phoenix_router
@@ -354,43 +354,6 @@ def aggregate_languages_split(
 def aggregate_languages(root: Path) -> list[dict[str, Any]]:
     """Roll up file count + LOC per language (repo-wide)."""
     return aggregate_languages_split(root)[1]
-
-
-def _is_under(child: str, parent: str) -> bool:
-    """True if child path is strictly inside parent path."""
-    return child != parent and (child + "/").startswith(parent.rstrip("/") + "/")
-
-
-def build_language_breakdown(
-    languages_all: list[dict[str, Any]],
-    modules: list[dict[str, Any]],
-    is_vendored: Callable[[dict[str, Any]], bool],
-) -> list[dict[str, Any]]:
-    """Product per-language list = repo-wide minus the vendored modules' stats.
-
-    Subtracts each TOP-LEVEL vendored module's per-language {files, loc} from the
-    complete file-based ``languages_all`` (nested vendored modules are skipped so
-    their measurements aren't double-subtracted). A language reduced to nothing
-    is dropped. Pure: ``is_vendored(module) -> bool`` is the only classification
-    input, so render can pass an enrichment-refined predicate."""
-    vendored = [m for m in modules if is_vendored(m)]
-    top = [m for m in vendored
-           if not any(o is not m and _is_under(m.get("path", ""), o.get("path", ""))
-                      for o in vendored)]
-    sub: dict[str, dict[str, int]] = {}
-    for m in top:
-        for lang, st in (m.get("lang_stats") or {}).items():
-            agg = sub.setdefault(lang, {"files": 0, "loc": 0})
-            agg["files"] += st.get("files", 0)
-            agg["loc"] += st.get("loc", 0)
-    out = []
-    for lang in languages_all:
-        s = sub.get(lang["name"], {})
-        files = max(0, lang["files"] - s.get("files", 0))
-        loc = max(0, lang["loc"] - s.get("loc", 0))
-        if files > 0 or loc > 0:
-            out.append({**lang, "files": files, "loc": loc})
-    return sorted(out, key=lambda b: b["loc"], reverse=True)
 
 
 # -------- Service / container detection (monorepo-aware) ------------

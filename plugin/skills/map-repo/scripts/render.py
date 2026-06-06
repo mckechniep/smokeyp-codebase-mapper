@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import validate_enrichment  # sibling module; drop_invalid_flows safety net
-from scan import build_language_breakdown
+from scan import _vendored_path
 
 
 # -------- CSS -----------------------------------------------------------
@@ -7868,24 +7868,46 @@ def _apply_enrichment_overrides(data: dict[str, Any],
         topo["edges"] = edges
         new["http_topology"] = topo
     modules = data.get("modules") or []
-    languages_all = data.get("languages_all") or []
-    if (vendored_ids or product_ids) and modules and languages_all:
-        def is_vendored(m: dict[str, Any]) -> bool:
-            # If the LLM lists a module as BOTH product and vendored
-            # (self-contradiction), product wins — prefer inclusion over
-            # exclusion so product code is never undercounted.
-            mid = m.get("path")
-            if mid in product_ids:
-                return False          # LLM rescue beats heuristic
-            if mid in vendored_ids:
-                return True           # LLM catch beats heuristic
-            return bool(m.get("vendored_guess"))
-        new_langs = build_language_breakdown(languages_all, modules, is_vendored)
-        new["languages"] = new_langs
-        proj = dict(new.get("project") or {})
-        proj["total_files"] = sum(l["files"] for l in new_langs)
-        proj["total_loc"] = sum(l["loc"] for l in new_langs)
-        new["project"] = proj
+    base_product = data.get("languages") or []
+    if (vendored_ids or product_ids) and modules and base_product:
+        # The path-based product is already in data["languages"]. Adjust it
+        # by the LLM's per-module reclassifications: re-include a module the
+        # LLM rescued as product that the path heuristic had excluded, and
+        # drop a module the LLM caught as vendored that the path heuristic
+        # had kept.
+        delta: dict[str, dict[str, int]] = {}
+        for m in modules:
+            mid = m.get("path") or ""
+            path_vendored = _vendored_path(mid)
+            if path_vendored and mid in product_ids:
+                sign = 1            # rescued: add its files back
+            elif (not path_vendored) and mid in vendored_ids:
+                sign = -1           # caught: subtract its files
+            else:
+                continue
+            for lang, st in (m.get("lang_stats") or {}).items():
+                dd = delta.setdefault(lang, {"files": 0, "loc": 0})
+                dd["files"] += sign * st.get("files", 0)
+                dd["loc"] += sign * st.get("loc", 0)
+        if delta:
+            color_by = {l["name"]: l.get("color", "#888888")
+                        for l in (data.get("languages_all") or [])}
+            by = {l["name"]: dict(l) for l in base_product}
+            for lang, dd in delta.items():
+                cur = dict(by.get(lang) or {"name": lang,
+                                            "color": color_by.get(lang, "#888888"),
+                                            "files": 0, "loc": 0})
+                cur["files"] = max(0, cur.get("files", 0) + dd["files"])
+                cur["loc"] = max(0, cur.get("loc", 0) + dd["loc"])
+                by[lang] = cur
+            new_langs = sorted(
+                (l for l in by.values() if l["files"] > 0 or l["loc"] > 0),
+                key=lambda b: b["loc"], reverse=True)
+            new["languages"] = new_langs
+            proj = dict(new.get("project") or {})
+            proj["total_files"] = sum(l["files"] for l in new_langs)
+            proj["total_loc"] = sum(l["loc"] for l in new_langs)
+            new["project"] = proj
     return new
 
 
