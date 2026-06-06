@@ -146,3 +146,26 @@ class LanguageBreakdownTest(unittest.TestCase):
         self.assertNotIn("Go", names)              # orphaned vendored language ignored
         self.assertEqual(prod, [{"name": "Python", "color": "#3572A5",
                                  "files": 4, "loc": 400}])  # Python untouched
+
+
+class DepsScopingTest(unittest.TestCase):
+    def test_vendored_manifest_excluded_from_product_deps(self):
+        d = Path(tempfile.mkdtemp())
+        try:
+            (d / "backend").mkdir()
+            (d / "backend" / "mix.exs").write_text(
+                'defp deps do\n  [{:phoenix, "~> 1.6"}]\nend\n')
+            (d / "google_ads-master").mkdir()
+            (d / "google_ads-master" / "mix.exs").write_text(
+                'defp deps do\n  [{:grpc, "~> 0.5"}, {:google_protos, "~> 0.1"}]\nend\n')
+            product = scan.find_dependencies(d, None, product_only=True)
+            repo_wide = scan.find_dependencies(d, None, product_only=False)
+            hex_product = next((e for e in product if e["ecosystem"] == "hex"), None)
+            hex_all = next((e for e in repo_wide if e["ecosystem"] == "hex"), None)
+            prod_names = {p["name"] for p in hex_product["packages"]}
+            all_names = {p["name"] for p in hex_all["packages"]}
+            self.assertIn("phoenix", prod_names)
+            self.assertNotIn("grpc", prod_names)       # vendored manifest excluded
+            self.assertIn("grpc", all_names)            # present repo-wide
+        finally:
+            shutil.rmtree(d, ignore_errors=True)

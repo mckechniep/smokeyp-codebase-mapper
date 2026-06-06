@@ -887,7 +887,8 @@ def first_paragraph(text: str) -> str:
     return ""
 
 
-def find_dependencies(root: Path, max_per_ecosystem: int | None) -> list[dict[str, Any]]:
+def find_dependencies(root: Path, max_per_ecosystem: int | None,
+                      product_only: bool = False) -> list[dict[str, Any]]:
     """Discover manifest files anywhere under root and aggregate per ecosystem.
 
     Monorepos keep manifests in subdirectories (apps/api/package.json, a backend
@@ -902,10 +903,13 @@ def find_dependencies(root: Path, max_per_ecosystem: int | None) -> list[dict[st
         ecosystem = manifest_map.get(f.name)
         if ecosystem is None:
             continue
+        rel = str(f.relative_to(root))
+        if product_only and _vendored_path(rel):
+            continue
         b = buckets.setdefault(
             ecosystem, {"basenames": [], "rel_files": [], "packages": {}})
         b["basenames"].append(f.name)
-        b["rel_files"].append(str(f.relative_to(root)))
+        b["rel_files"].append(rel)
         for pkg in parse_manifest(f, ecosystem):
             # Dedupe by name; keep the first non-"*" version we encounter.
             existing = b["packages"].get(pkg["name"])
@@ -2540,7 +2544,8 @@ def build_data_model(root: Path, depth: str) -> dict[str, Any]:
         http_topology, module_graph, data_lineage, all_modules, depth,
         handler_symbols=handler_symbols,
     )
-    deps = find_dependencies(root, max_deps_per_eco)
+    deps = find_dependencies(root, max_deps_per_eco, product_only=True)
+    deps_all = find_dependencies(root, max_deps_per_eco, product_only=False)
     entry_points = detect_entry_points(root)
     readme = extract_readme(root)
 
@@ -2575,6 +2580,7 @@ def build_data_model(root: Path, depth: str) -> dict[str, Any]:
         "data_lineage": data_lineage,
         "flow_skeletons": flow_skeletons,
         "deps": deps,
+        "deps_all": deps_all,
         "entry_points": entry_points,
         "readme": readme,
     }
