@@ -317,9 +317,18 @@ def iter_files(root: Path):
         yield entry
 
 
-def aggregate_languages(root: Path) -> list[dict[str, Any]]:
-    """Roll up file count + LOC per language."""
-    totals: dict[str, dict[str, Any]] = {}
+def aggregate_languages_split(
+    root: Path,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Per-language breakdown split into (product, repo_wide) in ONE walk.
+
+    ``repo_wide`` counts every file (== the historical aggregate_languages).
+    ``product`` excludes files whose path is vendored (``_vendored_path``:
+    *-master/*-develop/*-main clones, vendor/, third_party/, …), so generated
+    docs or build output inside a vendored clone are dropped from the product
+    even when they live outside any detected module. Both sorted by LOC desc."""
+    all_t: dict[str, dict[str, Any]] = {}
+    prod_t: dict[str, dict[str, Any]] = {}
     for f in iter_files(root):
         lang = detect_language(f)
         if not lang:
@@ -328,10 +337,23 @@ def aggregate_languages(root: Path) -> list[dict[str, Any]]:
         if is_binary(f):
             continue
         loc = count_lines(f)
-        bucket = totals.setdefault(name, {"name": name, "color": color, "files": 0, "loc": 0})
-        bucket["files"] += 1
-        bucket["loc"] += loc
-    return sorted(totals.values(), key=lambda b: b["loc"], reverse=True)
+        a = all_t.setdefault(name, {"name": name, "color": color, "files": 0, "loc": 0})
+        a["files"] += 1
+        a["loc"] += loc
+        if not _vendored_path(str(f.relative_to(root))):
+            p = prod_t.setdefault(name, {"name": name, "color": color, "files": 0, "loc": 0})
+            p["files"] += 1
+            p["loc"] += loc
+
+    def _sorted(t: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+        return sorted(t.values(), key=lambda b: b["loc"], reverse=True)
+
+    return _sorted(prod_t), _sorted(all_t)
+
+
+def aggregate_languages(root: Path) -> list[dict[str, Any]]:
+    """Roll up file count + LOC per language (repo-wide)."""
+    return aggregate_languages_split(root)[1]
 
 
 def _is_under(child: str, parent: str) -> bool:
@@ -2520,16 +2542,11 @@ def build_data_model(root: Path, depth: str) -> dict[str, Any]:
     max_deps_per_eco = tier["max_deps_per_eco"]
 
     tree = walk_tree(root, max_tree_depth)
-    languages_all = aggregate_languages(root)
+    languages, languages_all = aggregate_languages_split(root)
     # Compute the full service + module set once. Display caps and graph
     # caps are applied as slices afterward so we never drop edges to a
     # node that gets shown elsewhere in the report.
     services, all_modules = detect_services_and_modules(root)
-    # Product language breakdown = repo-wide minus the TOP-LEVEL vendored
-    # modules' per-language stats. Uses all_modules (not the truncated
-    # display slice) so modules past the display cap still get subtracted.
-    languages = build_language_breakdown(languages_all, all_modules,
-                                         lambda m: bool(m.get("vendored_guess")))
     modules = all_modules[:max_cards] if max_cards is not None else all_modules
     graph_modules = (
         all_modules[:max_graph] if max_graph is not None else all_modules

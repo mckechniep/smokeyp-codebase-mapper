@@ -187,3 +187,38 @@ class TreeVendoredTest(unittest.TestCase):
             self.assertFalse(kids["backend"].get("vendored", False))
         finally:
             shutil.rmtree(d, ignore_errors=True)
+
+
+class AggregateLanguagesSplitTest(unittest.TestCase):
+    def test_split_excludes_vendored_path_files_from_product(self):
+        d = Path(tempfile.mkdtemp())
+        try:
+            # product code
+            (d / "backend").mkdir()
+            (d / "backend" / "app.ex").write_text("x\n" * 50)            # Elixir 50
+            # vendored clone with generated docs OUTSIDE any package module
+            (d / "g.frame-develop").mkdir()
+            (d / "g.frame-develop" / "docs").mkdir()
+            (d / "g.frame-develop" / "docs" / "api.html").write_text("<p>x</p>\n" * 1000)  # HTML 1000, vendored path
+            product, all_ = scan.aggregate_languages_split(d)
+            prod = {l["name"]: l for l in product}
+            allb = {l["name"]: l for l in all_}
+            # product: only the Elixir, the vendored HTML is excluded
+            self.assertIn("Elixir", prod)
+            self.assertNotIn("HTML", prod)
+            self.assertEqual(prod["Elixir"]["loc"], 50)
+            # repo-wide: both present
+            self.assertEqual(allb["Elixir"]["loc"], 50)
+            self.assertEqual(allb["HTML"]["loc"], 1000)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_aggregate_languages_unchanged_equals_split_all(self):
+        d = Path(tempfile.mkdtemp())
+        try:
+            (d / "a.py").write_text("x = 1\n")
+            (d / "vendor-master").mkdir()
+            (d / "vendor-master" / "b.py").write_text("y = 2\ny = 3\n")
+            self.assertEqual(scan.aggregate_languages(d), scan.aggregate_languages_split(d)[1])
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
