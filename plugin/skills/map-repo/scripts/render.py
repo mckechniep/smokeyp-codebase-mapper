@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import validate_enrichment  # sibling module; drop_invalid_flows safety net
+from scan import build_language_breakdown
 
 
 # -------- CSS -----------------------------------------------------------
@@ -7841,7 +7842,9 @@ def _apply_enrichment_overrides(data: dict[str, Any],
                    for s in (cls.get("services") or [])
                    if s.get("service_id") and s.get("kind")}
     inject = enrichment.get("http_edges") or []
-    if not kind_by_svc and not inject:
+    vendored_ids = {v.get("module_id") for v in (cls.get("vendored") or []) if v.get("module_id")}
+    product_ids = {p.get("module_id") for p in (cls.get("products") or []) if p.get("module_id")}
+    if not kind_by_svc and not inject and not vendored_ids and not product_ids:
         return data
 
     new = dict(data)
@@ -7864,6 +7867,22 @@ def _apply_enrichment_overrides(data: dict[str, Any],
             })
         topo["edges"] = edges
         new["http_topology"] = topo
+    modules = data.get("modules") or []
+    languages_all = data.get("languages_all") or data.get("languages") or []
+    if (vendored_ids or product_ids) and modules and languages_all:
+        def is_vendored(m):
+            mid = m.get("path")
+            if mid in product_ids:
+                return False          # LLM rescue beats heuristic
+            if mid in vendored_ids:
+                return True           # LLM catch beats heuristic
+            return bool(m.get("vendored_guess"))
+        new_langs = build_language_breakdown(languages_all, modules, is_vendored)
+        new["languages"] = new_langs
+        proj = dict(new.get("project") or {})
+        proj["total_files"] = sum(l["files"] for l in new_langs)
+        proj["total_loc"] = sum(l["loc"] for l in new_langs)
+        new["project"] = proj
     return new
 
 

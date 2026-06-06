@@ -179,5 +179,38 @@ class InferredEdgeRenderTest(unittest.TestCase):
         self.assertNotIn("sysmap-edge-http-inferred", svg)
 
 
+class ProductRefinementTest(unittest.TestCase):
+    def _data(self):
+        return {
+            "project": {"name": "p", "total_files": 10, "total_loc": 1700,
+                        "total_files_all": 10, "total_loc_all": 1700,
+                        "primary_language": "Elixir"},
+            "languages": [{"name": "Elixir", "color": "#6e4a7e", "files": 10, "loc": 1700}],
+            "languages_all": [{"name": "Elixir", "color": "#6e4a7e", "files": 10, "loc": 1700}],
+            "modules": [
+                {"path": "backend", "vendored_guess": False,
+                 "lang_stats": {"Elixir": {"files": 3, "loc": 200}}},
+                {"path": "copied-lib", "vendored_guess": False,
+                 "lang_stats": {"Elixir": {"files": 7, "loc": 1500}}},
+            ],
+        }
+
+    def test_enrichment_vendored_reclassification_shrinks_product(self):
+        # The LLM marks 'copied-lib' vendored (the heuristic missed it).
+        enr = {"classification": {"products": [],
+               "vendored": [{"module_id": "copied-lib", "kind": "vendored-lib",
+                             "source": "x", "why": "y"}]}}
+        out = render._apply_enrichment_overrides(self._data(), enr)
+        # product Elixir loc drops from 1700 to 200 (copied-lib subtracted)
+        elixir = next(l for l in out["languages"] if l["name"] == "Elixir")
+        self.assertEqual(elixir["loc"], 200)
+        self.assertEqual(out["project"]["total_loc"], 200)
+
+    def test_no_enrichment_leaves_deterministic_product(self):
+        d = self._data()
+        out = render._apply_enrichment_overrides(d, None)
+        self.assertEqual(out["project"]["total_loc"], 1700)
+
+
 if __name__ == "__main__":
     unittest.main()
