@@ -1,0 +1,55 @@
+import shutil
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import scan
+
+
+class EctoModelScanTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def _write(self, rel, text):
+        p = self.dir / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text)
+        return p
+
+    def test_ecto_schema_named_by_module_last_segment(self):
+        p = self._write(
+            "recommendation.ex",
+            'defmodule BrevitySchemas.Recommendation do\n'
+            '  use BrevitySchemas.Base\n'
+            '  schema "recommendations" do\n'
+            '    field :history_lesson, :string\n'
+            '    belongs_to :trip, Trip\n'
+            '  end\n'
+            'end\n',
+        )
+        out = scan._scan_data_models_file(p, "Elixir", "backend")
+        self.assertEqual(
+            out, [{"service": "backend", "framework": "Ecto", "model": "Recommendation"}])
+
+    def test_ecto_schema_without_module_falls_back_to_table(self):
+        p = self._write(
+            "orphan.ex", 'schema "widgets" do\n  field :x, :string\nend\n')
+        out = scan._scan_data_models_file(p, "Elixir", "backend")
+        self.assertEqual(
+            out, [{"service": "backend", "framework": "Ecto", "model": "widgets"}])
+
+    def test_embedded_schema_not_matched(self):
+        p = self._write(
+            "addr.ex",
+            'defmodule App.Address do\n  embedded_schema do\n    field :zip, :string\n  end\nend\n',
+        )
+        out = scan._scan_data_models_file(p, "Elixir", "backend")
+        self.assertEqual(out, [])
+
+    def test_ecto_default_store_is_postgres(self):
+        self.assertEqual(scan.ORM_DEFAULT_STORE.get("Ecto"), "postgres")

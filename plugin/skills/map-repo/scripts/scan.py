@@ -2176,6 +2176,7 @@ DJANGO_MODEL_RE = re.compile(r"^\s*class\s+(\w+)\s*\([^)]*\bmodels\.Model\b[^)]*
 DJANGO_QUERY_RE = re.compile(r"\b([A-Z]\w*)\.objects\.\w+")
 ACTIVERECORD_RE = re.compile(r"^\s*class\s+(\w+)\s*<\s*ApplicationRecord", re.MULTILINE)
 JPA_ENTITY_RE = re.compile(r"@Entity[^\w]*?(?:public\s+)?class\s+(\w+)", re.DOTALL)
+ECTO_SCHEMA_RE = re.compile(r"^\s*schema\s+\"([^\"]+)\"\s+do", re.MULTILINE)
 
 
 def _detect_stores(root: Path) -> list[dict[str, Any]]:
@@ -2260,6 +2261,19 @@ def _scan_data_models_file(
     elif language in ("Java", "Kotlin"):
         for m in JPA_ENTITY_RE.finditer(text):
             emit("Spring Data JPA", m.group(1))
+    elif language == "Elixir":
+        # Ecto schemas: `schema "table" do`. Name each model after the
+        # enclosing module's last segment (BrevitySchemas.Recommendation ->
+        # "Recommendation"); fall back to the table name if no defmodule.
+        defmods = [(m.start(), m.group(1)) for m in ELIXIR_DEFMODULE_RE.finditer(text)]
+        for sm in ECTO_SCHEMA_RE.finditer(text):
+            mod = None
+            for start, name in defmods:
+                if start < sm.start():
+                    mod = name
+                else:
+                    break
+            emit("Ecto", mod.split(".")[-1] if mod else sm.group(1))
 
     return out
 
@@ -2274,6 +2288,7 @@ ORM_DEFAULT_STORE: dict[str, str] = {
     "Django ORM": "postgres",
     "ActiveRecord": "postgres",
     "Spring Data JPA": "postgres",
+    "Ecto": "postgres",
 }
 
 
