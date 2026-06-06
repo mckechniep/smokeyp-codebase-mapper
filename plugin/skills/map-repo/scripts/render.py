@@ -7414,7 +7414,7 @@ def render_deps(data: dict[str, Any]) -> str:
         p.get("version", "*") == "*" for eco in deps for p in eco.get("packages", [])
     )
     star_note = (
-        '<p class=”diagram-note”>A version shown as <code>*</code> means the manifest '
+        '<p class="diagram-note">A version shown as <code>*</code> means the manifest '
         'doesn’t pin one — an unspecified “any version” entry, or a path / git dependency '
         'that carries no version number (not necessarily the latest release).</p>'
         if has_star else ""
