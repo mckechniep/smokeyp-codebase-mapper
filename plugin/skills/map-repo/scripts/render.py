@@ -2758,6 +2758,17 @@ def render_modules(data: dict[str, Any], enrichment: dict[str, Any] | None = Non
 
 SYSMAP_FRONTEND_KINDS = frozenset({"frontend", "mobile"})
 
+_INFRA_DOCS_SEGMENTS = frozenset({
+    "docs", "doc", "documentation", "infra", "infrastructure",
+    "ops", "deploy", "deployment", "ci", ".github",
+})
+
+
+def _is_infra_or_docs(path: str) -> bool:
+    """A module path that is documentation or infrastructure, not a service tier."""
+    parts = [p.lower() for p in path.split("/") if p]
+    return any(p in _INFRA_DOCS_SEGMENTS for p in parts)
+
 SYSMAP_W = 1120                 # SVG viewBox width
 SYSMAP_MARGIN_X = 20
 SYSMAP_MARGIN_TOP = 10          # top viewBox gutter so a focused top-row card's
@@ -2872,6 +2883,8 @@ def _sysmap_select(
     # Band assignment by the owning service's kind.
     bands: dict[str, list[dict[str, Any]]] = {"frontend": [], "backend": []}
     for n in visible:
+        if _is_infra_or_docs(n.get("id", "")):
+            continue
         svc = services.get(n.get("service")) or {}
         kind = (svc.get("kind") or "unknown").lower()
         key = "frontend" if kind in SYSMAP_FRONTEND_KINDS else "backend"

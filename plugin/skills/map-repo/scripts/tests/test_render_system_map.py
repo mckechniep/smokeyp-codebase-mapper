@@ -1160,6 +1160,26 @@ class SystemMapPolishTest(unittest.TestCase):
                            "backend label should be in the lower half of the card")
 
 
+class TierExclusionTest(unittest.TestCase):
+    def test_is_infra_or_docs(self):
+        for p in ("docs", "docs/guide", "infra/terraform", ".github/workflows", "ops"):
+            self.assertTrue(render._is_infra_or_docs(p), p)
+        for p in ("backend/lib", "apps/web", "services/api"):
+            self.assertFalse(render._is_infra_or_docs(p), p)
+
+    def test_docs_module_not_counted_as_backend(self):
+        data = synthetic_data()
+        # add a docs module/service with no real code role
+        data["services"].append({"id": "docs", "name": "docs", "kind": "unknown",
+            "loc": 200, "file_count": 5, "color": "#888", "primary_language": "Markdown"})
+        data["module_graph"]["nodes"].append({"id": "docs/guide", "name": "guide",
+            "service": "docs", "loc": 200, "files": 5, "primary_language": "Markdown",
+            "color": "#888", "vendored_guess": False})
+        sel = render._sysmap_select(data, None)
+        backend_ids = {n["id"] for n in sel["bands"]["backend"]}
+        self.assertNotIn("docs/guide", backend_ids)
+
+
 class TopologyFocusTest(unittest.TestCase):
     def test_topology_groups_and_focus_wired(self):
         """Service cards and flows are focusable groups carrying identity hooks,
