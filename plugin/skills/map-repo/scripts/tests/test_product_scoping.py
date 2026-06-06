@@ -133,3 +133,16 @@ class LanguageBreakdownTest(unittest.TestCase):
         prod = scan.build_language_breakdown(languages_all, modules,
                                              lambda m: m["vendored_guess"])
         self.assertEqual(prod, [])  # JS fully vendored, dropped (not negative)
+
+    def test_vendored_only_language_is_ignored(self):
+        languages_all = [{"name": "Python", "color": "#3572A5", "files": 4, "loc": 400}]
+        modules = [
+            self._mod("vendored-master", True,
+                      {"Go": {"files": 9, "loc": 900}}),  # Go not in languages_all
+        ]
+        prod = scan.build_language_breakdown(languages_all, modules,
+                                             lambda m: m["vendored_guess"])
+        names = {l["name"] for l in prod}
+        self.assertNotIn("Go", names)              # orphaned vendored language ignored
+        self.assertEqual(prod, [{"name": "Python", "color": "#3572A5",
+                                 "files": 4, "loc": 400}])  # Python untouched

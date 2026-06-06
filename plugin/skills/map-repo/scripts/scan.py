@@ -19,7 +19,7 @@ import sys
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import evidence
 import phoenix_router
@@ -338,7 +338,11 @@ def _is_under(child: str, parent: str) -> bool:
     return child != parent and (child + "/").startswith(parent.rstrip("/") + "/")
 
 
-def build_language_breakdown(languages_all, modules, is_vendored):
+def build_language_breakdown(
+    languages_all: list[dict[str, Any]],
+    modules: list[dict[str, Any]],
+    is_vendored: Callable[[dict[str, Any]], bool],
+) -> list[dict[str, Any]]:
     """Product per-language list = repo-wide minus the vendored modules' stats.
 
     Subtracts each TOP-LEVEL vendored module's per-language {files, loc} from the
@@ -359,8 +363,8 @@ def build_language_breakdown(languages_all, modules, is_vendored):
     out = []
     for lang in languages_all:
         s = sub.get(lang["name"], {})
-        files = lang["files"] - s.get("files", 0)
-        loc = lang["loc"] - s.get("loc", 0)
+        files = max(0, lang["files"] - s.get("files", 0))
+        loc = max(0, lang["loc"] - s.get("loc", 0))
         if files > 0 or loc > 0:
             out.append({**lang, "files": files, "loc": loc})
     return sorted(out, key=lambda b: b["loc"], reverse=True)
