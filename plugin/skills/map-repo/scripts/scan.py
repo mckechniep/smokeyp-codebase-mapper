@@ -125,6 +125,18 @@ VENDORED_PATH_SEGMENTS: frozenset[str] = frozenset({
 })
 
 
+def _vendored_path(rel_path: str) -> bool:
+    """Path-only vendored signal: a git-archive clone suffix on any segment, or
+    a conventional vendor segment. The cheap half of _vendored_guess, reusable
+    where only a path is available (deps manifests, tree nodes)."""
+    parts = [p.lower() for p in Path(rel_path).parts]
+    if any(p in VENDORED_PATH_SEGMENTS for p in parts):
+        return True
+    if any(p.endswith(VENDORED_DIR_SUFFIXES) for p in parts):
+        return True
+    return False
+
+
 def _vendored_guess(module_dir: Path, rel_path: str, root_name: str) -> bool:
     """Heuristic: does this module look like vendored third-party code?
 
@@ -133,10 +145,7 @@ def _vendored_guess(module_dir: Path, rel_path: str, root_name: str) -> bool:
       2. A git-archive clone suffix (-master/-develop/-main) on any segment.
       3. A package.json whose repository URL doesn't reference this repo.
     """
-    parts = [p.lower() for p in Path(rel_path).parts]
-    if any(p in VENDORED_PATH_SEGMENTS for p in parts):
-        return True
-    if any(p.endswith(VENDORED_DIR_SUFFIXES) for p in parts):
+    if _vendored_path(rel_path):
         return True
     pkg = module_dir / "package.json"
     if pkg.is_file():
@@ -322,6 +331,39 @@ def aggregate_languages(root: Path) -> list[dict[str, Any]]:
         bucket["files"] += 1
         bucket["loc"] += loc
     return sorted(totals.values(), key=lambda b: b["loc"], reverse=True)
+
+
+def _is_under(child: str, parent: str) -> bool:
+    """True if child path is strictly inside parent path."""
+    return child != parent and (child + "/").startswith(parent.rstrip("/") + "/")
+
+
+def build_language_breakdown(languages_all, modules, is_vendored):
+    """Product per-language list = repo-wide minus the vendored modules' stats.
+
+    Subtracts each TOP-LEVEL vendored module's per-language {files, loc} from the
+    complete file-based ``languages_all`` (nested vendored modules are skipped so
+    their measurements aren't double-subtracted). A language reduced to nothing
+    is dropped. Pure: ``is_vendored(module) -> bool`` is the only classification
+    input, so render can pass an enrichment-refined predicate."""
+    vendored = [m for m in modules if is_vendored(m)]
+    top = [m for m in vendored
+           if not any(o is not m and _is_under(m.get("path", ""), o.get("path", ""))
+                      for o in vendored)]
+    sub: dict[str, dict[str, int]] = {}
+    for m in top:
+        for lang, st in (m.get("lang_stats") or {}).items():
+            agg = sub.setdefault(lang, {"files": 0, "loc": 0})
+            agg["files"] += st.get("files", 0)
+            agg["loc"] += st.get("loc", 0)
+    out = []
+    for lang in languages_all:
+        s = sub.get(lang["name"], {})
+        files = lang["files"] - s.get("files", 0)
+        loc = lang["loc"] - s.get("loc", 0)
+        if files > 0 or loc > 0:
+            out.append({**lang, "files": files, "loc": loc})
+    return sorted(out, key=lambda b: b["loc"], reverse=True)
 
 
 # -------- Service / container detection (monorepo-aware) ------------
@@ -2469,11 +2511,16 @@ def build_data_model(root: Path, depth: str) -> dict[str, Any]:
     max_deps_per_eco = tier["max_deps_per_eco"]
 
     tree = walk_tree(root, max_tree_depth)
-    languages = aggregate_languages(root)
+    languages_all = aggregate_languages(root)
     # Compute the full service + module set once. Display caps and graph
     # caps are applied as slices afterward so we never drop edges to a
     # node that gets shown elsewhere in the report.
     services, all_modules = detect_services_and_modules(root)
+    # Product language breakdown = repo-wide minus the TOP-LEVEL vendored
+    # modules' per-language stats. Uses all_modules (not the truncated
+    # display slice) so modules past the display cap still get subtracted.
+    languages = build_language_breakdown(languages_all, all_modules,
+                                         lambda m: bool(m.get("vendored_guess")))
     modules = all_modules[:max_cards] if max_cards is not None else all_modules
     graph_modules = (
         all_modules[:max_graph] if max_graph is not None else all_modules
@@ -2496,6 +2543,8 @@ def build_data_model(root: Path, depth: str) -> dict[str, Any]:
     total_files = sum(lang["files"] for lang in languages)
     total_loc = sum(lang["loc"] for lang in languages)
     primary = languages[0]["name"] if languages else None
+    total_files_all = sum(lang["files"] for lang in languages_all)
+    total_loc_all = sum(lang["loc"] for lang in languages_all)
 
     return {
         "schema_version": 4,
@@ -2507,10 +2556,13 @@ def build_data_model(root: Path, depth: str) -> dict[str, Any]:
             "root": str(root),
             "total_files": total_files,
             "total_loc": total_loc,
+            "total_files_all": total_files_all,
+            "total_loc_all": total_loc_all,
             "primary_language": primary,
             "is_monorepo": len(services) > 1,
         },
         "languages": languages,
+        "languages_all": languages_all,
         "services": services,
         "tree": tree,
         "modules": modules,

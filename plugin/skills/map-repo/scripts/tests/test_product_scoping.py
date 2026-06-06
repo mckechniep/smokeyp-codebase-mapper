@@ -97,3 +97,39 @@ class SkipDirsTest(unittest.TestCase):
             self.assertEqual(elixir["files"], 1)  # only lib/app.ex, not deps/
         finally:
             shutil.rmtree(d, ignore_errors=True)
+
+
+class LanguageBreakdownTest(unittest.TestCase):
+    def _mod(self, path, vendored, stats):
+        return {"path": path, "vendored_guess": vendored, "lang_stats": stats}
+
+    def test_vendored_path(self):
+        self.assertTrue(scan._vendored_path("google_ads-master/lib/x.ex"))
+        self.assertTrue(scan._vendored_path("a/third_party/b.py"))
+        self.assertFalse(scan._vendored_path("backend/lib/app.ex"))
+
+    def test_product_is_all_minus_vendored(self):
+        languages_all = [
+            {"name": "Elixir", "color": "#6e4a7e", "files": 10, "loc": 1000},
+            {"name": "HTML", "color": "#e34c26", "files": 5, "loc": 700},
+        ]
+        modules = [
+            self._mod("backend", False, {"Elixir": {"files": 8, "loc": 800}}),
+            self._mod("g.frame-develop", True, {"HTML": {"files": 5, "loc": 700}}),
+        ]
+        prod = scan.build_language_breakdown(languages_all, modules,
+                                             lambda m: m["vendored_guess"])
+        by = {l["name"]: l for l in prod}
+        self.assertNotIn("HTML", by)
+        self.assertEqual(by["Elixir"], {"name": "Elixir", "color": "#6e4a7e",
+                                        "files": 10, "loc": 1000})
+
+    def test_nested_vendored_not_double_subtracted(self):
+        languages_all = [{"name": "JS", "color": "#f1e05a", "files": 10, "loc": 1000}]
+        modules = [
+            self._mod("ads-master", True, {"JS": {"files": 10, "loc": 1000}}),
+            self._mod("ads-master/sub-master", True, {"JS": {"files": 4, "loc": 400}}),
+        ]
+        prod = scan.build_language_breakdown(languages_all, modules,
+                                             lambda m: m["vendored_guess"])
+        self.assertEqual(prod, [])  # JS fully vendored, dropped (not negative)
