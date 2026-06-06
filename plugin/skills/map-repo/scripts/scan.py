@@ -615,7 +615,7 @@ def detect_services_and_modules(
         for container in container_dirs:
             service_id = str(container.relative_to(root))
             kind, stack = _classify_service(container)
-            fc, loc, langs, _ls = _measure_dir(container)
+            fc, loc, langs, lang_stats = _measure_dir(container)
             if fc == 0:
                 continue
             primary_lang_name = None
@@ -658,6 +658,7 @@ def detect_services_and_modules(
                     "file_count": fc,
                     "loc": loc,
                     "languages": sorted(langs),
+                    "lang_stats": lang_stats,
                     "description": guess_module_description(container),
                     "vendored_guess": _vendored_guess(
                         container, service_id, root.name
