@@ -248,6 +248,25 @@ class ProductRefinementTest(unittest.TestCase):
         elixir = next(l for l in out["languages"] if l["name"] == "Elixir")
         self.assertEqual(elixir["loc"], 1700)
 
+    def test_self_contradiction_product_wins(self):
+        # A NON-path-vendored module the LLM lists in BOTH products and vendored.
+        # Product wins: it stays in the path-based product (not subtracted).
+        data = self._base(
+            languages=[{"name": "Elixir", "color": "#6e4a7e", "files": 10, "loc": 1700}],
+            modules=[
+                {"path": "backend", "vendored_guess": False,
+                 "lang_stats": {"Elixir": {"files": 3, "loc": 200}}},
+                {"path": "disputed-lib", "vendored_guess": False,
+                 "lang_stats": {"Elixir": {"files": 7, "loc": 1500}}},
+            ])
+        enr = {"classification": {
+            "products": [{"module_id": "disputed-lib", "role": "x", "why": "y"}],
+            "vendored": [{"module_id": "disputed-lib", "kind": "v", "source": "s", "why": "w"}]}}
+        out = render._apply_enrichment_overrides(data, enr)
+        elixir = next(l for l in out["languages"] if l["name"] == "Elixir")
+        self.assertEqual(elixir["loc"], 1700)   # product wins: NOT subtracted
+        self.assertEqual(out["project"]["total_loc"], 1700)
+
 
 if __name__ == "__main__":
     unittest.main()

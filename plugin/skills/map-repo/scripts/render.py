@@ -7879,10 +7879,20 @@ def _apply_enrichment_overrides(data: dict[str, Any],
         for m in modules:
             mid = m.get("path") or ""
             path_vendored = _vendored_path(mid)
-            if path_vendored and mid in product_ids:
-                sign = 1            # rescued: add its files back
-            elif (not path_vendored) and mid in vendored_ids:
-                sign = -1           # caught: subtract its files
+            if mid in product_ids:
+                # LLM rescued this as product (rescue beats catch on a
+                # self-contradiction — never undercount product code). Add it
+                # back only if the path heuristic had excluded it; otherwise
+                # it is already in the base product.
+                if not path_vendored:
+                    continue
+                sign = 1
+            elif mid in vendored_ids:
+                # LLM caught this as vendored. Subtract only if the path
+                # heuristic had kept it; otherwise it is already excluded.
+                if path_vendored:
+                    continue
+                sign = -1
             else:
                 continue
             for lang, st in (m.get("lang_stats") or {}).items():
