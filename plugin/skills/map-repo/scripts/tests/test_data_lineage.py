@@ -85,3 +85,41 @@ class BuildDataLineageEctoTest(unittest.TestCase):
         self.assertTrue(any(
             e["target_store"] == "postgres" and "Trip" in e["models"]
             for e in lin["edges"]))
+
+
+class LineageVendoredFilterTest(unittest.TestCase):
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def _write(self, rel, text):
+        p = self.root / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text)
+        return p
+
+    def test_vendored_ecto_schema_excluded(self):
+        self._write(
+            "backend/lib/trip.ex",
+            'defmodule App.Trip do\n  schema "trips" do\n    field :x, :string\n  end\nend\n')
+        self._write(
+            "g.frame-develop/lib/foo.ex",
+            'defmodule Foo do\n  schema "foos" do\n    field :y, :string\n  end\nend\n')
+        services = [{"id": "backend", "name": "backend", "kind": "backend"}]
+        lin = scan.build_data_lineage(self.root, services)
+        names = {m["model"] for m in lin["models"]}
+        self.assertIn("Trip", names)
+        self.assertNotIn("Foo", names)  # vendored (-develop) excluded
+
+    def test_vendored_prisma_schema_excluded(self):
+        self._write(
+            "app/prisma/schema.prisma", 'model Account {\n  id Int @id\n}\n')
+        self._write(
+            "blues-stack-main/prisma/schema.prisma", 'model User {\n  id Int @id\n}\n')
+        services = [{"id": "app", "name": "app", "kind": "backend"}]
+        lin = scan.build_data_lineage(self.root, services)
+        names = {m["model"] for m in lin["models"]}
+        self.assertIn("Account", names)
+        self.assertNotIn("User", names)  # vendored (-main) prisma excluded

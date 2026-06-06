@@ -2311,6 +2311,8 @@ def build_data_lineage(
         lname = lang[0]
         if lname not in ("TypeScript", "JavaScript", "Python", "Ruby", "Java", "Kotlin", "Elixir"):
             continue
+        if _vendored_path(str(f.relative_to(root))):
+            continue
         service_id = _file_to_service_id(f, root, services)
         raw_models.extend(_scan_data_models_file(f, lname, service_id))
 
@@ -2319,6 +2321,8 @@ def build_data_lineage(
     # references that came from .ts files.
     for f in root.rglob("schema.prisma"):
         if any(part in SKIP_DIRS for part in f.parts):
+            continue
+        if _vendored_path(str(f.relative_to(root))):
             continue
         text = safe_read(f, limit=64 * 1024)
         if not text:
