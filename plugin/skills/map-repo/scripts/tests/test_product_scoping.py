@@ -162,6 +162,8 @@ class DepsScopingTest(unittest.TestCase):
             repo_wide = scan.find_dependencies(d, None, product_only=False)
             hex_product = next((e for e in product if e["ecosystem"] == "hex"), None)
             hex_all = next((e for e in repo_wide if e["ecosystem"] == "hex"), None)
+            self.assertIsNotNone(hex_product, "hex ecosystem missing from product deps")
+            self.assertIsNotNone(hex_all, "hex ecosystem missing from repo-wide deps")
             prod_names = {p["name"] for p in hex_product["packages"]}
             all_names = {p["name"] for p in hex_all["packages"]}
             self.assertIn("phoenix", prod_names)
