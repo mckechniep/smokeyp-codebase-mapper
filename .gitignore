@@ -26,3 +26,4 @@ Thumbs.db
 
 # Local preview/scratch renders (generated during iteration, never committed)
 preview*.html
+preview/

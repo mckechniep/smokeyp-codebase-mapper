@@ -16,6 +16,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
+import theme_assets  # sibling module; inlined fonts + crest data URI
 import validate_enrichment  # sibling module; drop_invalid_flows safety net
 from scan import _vendored_path
 
@@ -23,23 +24,54 @@ from scan import _vendored_path
 # -------- CSS -----------------------------------------------------------
 
 CSS = r"""
+/* ====================================================================
+   THEME TOKENS  —  SmokeyP Labs "Workshop"
+   The report ships Workshop Light by default (print/PDF-safe); pass
+   --theme dark to the renderer to emit <html data-theme="dark"> and the
+   near-black variant below. Both are a pure palette swap of one design.
+   ==================================================================== */
 :root {
-  --bg:           oklch(99% 0.006 60);
-  --surface:      oklch(100% 0 0);
-  --ink:          oklch(20% 0.012 250);
-  --ink-2:        oklch(38% 0.012 250);
-  --muted:        oklch(60% 0.008 250);
-  --accent:       oklch(58% 0.20 30);
-  --accent-deep:  oklch(45% 0.20 30);
-  --accent-soft:  oklch(96% 0.04 30);
-  --border:       oklch(93% 0.006 60);
-  --border-soft:  oklch(96% 0.004 60);
-  --code-bg:      oklch(96% 0.005 60);
-  --shadow:       0 1px 2px oklch(20% 0.01 250 / 0.04), 0 8px 32px oklch(20% 0.01 250 / 0.04);
+  /* --- Workshop Light : warm cream paper (default / print) --- */
+  --bg:        #f1ebdf;   /* page base, warm cream paper     */
+  --bg-elev:   #faf6ec;   /* raised panels (lift off paper)  */
+  --bg-sink:   #e6dccb;   /* inset wells / code blocks       */
+  --ink:       #211a10;   /* primary text, warm espresso     */
+  --ink-dim:   #6b6150;   /* muted / labels                  */
+  --ink-faint: #a89d86;   /* hairline annotations            */
+  --gold:      #9c6a15;   /* primary accent, deep amber      */
+  --gold-deep: #6f4a0e;   /* darker gold for borders/idx     */
+  --rust:      #a8421d;   /* secondary accent (the ember)    */
+  --line:      #dcd3bf;   /* hairlines / borders             */
+  --ok:        #5e7a30;   /* status: good                    */
+  --warn:      #a9741a;   /* status: caution                 */
+  --stop:      #b0411f;   /* status: blocked                 */
 
-  --font-serif: "Iowan Old Style", "Apple Garamond", Baskerville, "Times New Roman", "Droid Serif", Times, "Source Serif Pro", serif;
-  --font-sans:  ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono:  ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", "Roboto Mono", Consolas, "Liberation Mono", monospace;
+  /* --- Compatibility aliases: the report's component + diagram CSS was
+         written against these names. Re-pointing them at the Workshop
+         palette re-skins every existing element (cards, tables, tree,
+         deps, all diagram SVG fills) without touching their rules. --- */
+  --surface:      var(--bg-elev);
+  --ink-2:        var(--ink-dim);
+  --muted:        var(--ink-faint);
+  --accent:       var(--gold);
+  --accent-deep:  var(--gold-deep);
+  --accent-soft:  #efe1c6;   /* soft gold wash behind accent text */
+  --border:       var(--line);
+  --border-soft:  #e7ddc9;
+  --code-bg:      var(--bg-sink);
+  --shadow:       0 1px 2px rgba(33,26,16,.05), 0 10px 30px rgba(33,26,16,.07);
+
+  /* --- Type: Saira Condensed display, Saira body, JetBrains Mono.
+         Faces are inlined (theme_assets.FONTS_CSS) so the look is
+         identical offline and in print. --font-serif kept as an alias so
+         existing prose/quote rules stay legible (Saira, not condensed);
+         real headings are promoted to the display face explicitly. --- */
+  --f-display: "Saira Condensed", "Arial Narrow", sans-serif;
+  --f-body:    "Saira", system-ui, sans-serif;
+  --f-mono:    "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  --font-serif: var(--f-body);
+  --font-sans:  var(--f-body);
+  --font-mono:  var(--f-mono);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -50,7 +82,32 @@ CSS = r"""
   --space-7: 48px;
   --space-8: 64px;
 
-  --radius: 10px;
+  /* --- geometry: machined / sharp --- */
+  --radius: 3px;
+  --tick:   9px;          /* corner-bracket length */
+  --maxw:   980px;
+}
+
+/* --- Workshop Dark : near-black workshop (emitted with --theme dark) --- */
+:root[data-theme="dark"] {
+  --bg:        #0c0b0a;
+  --bg-elev:   #16130e;
+  --bg-sink:   #080706;
+  --ink:       #e9e2d2;
+  --ink-dim:   #938b79;
+  --ink-faint: #736b58;  /* lifted from the template's #5a5446: the report reuses
+                            --muted (→ this) for readable metadata, not just hairlines,
+                            so it needs ~3.7:1 on near-black, not 2.6:1. */
+  --gold:      #d9a441;
+  --gold-deep: #ad7e2c;
+  --rust:      #c05a2b;
+  --line:      #2a2519;
+  --ok:        #8aa45a;
+  --warn:      #d98f3a;
+  --stop:      #c0492b;
+  --accent-soft: #221b0e;
+  --border-soft: #211c13;
+  --shadow:      0 1px 2px rgba(0,0,0,.5), 0 12px 34px rgba(0,0,0,.55);
 }
 
 * { box-sizing: border-box; }
@@ -60,112 +117,215 @@ html, body {
   padding: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: var(--font-sans);
-  font-size: 15.5px;
-  line-height: 1.55;
+  font-family: var(--f-body);
+  font-size: 16px;
+  line-height: 1.58;
   -webkit-font-smoothing: antialiased;
 }
 
+body { position: relative; min-height: 100vh; }
+
+/* Atmosphere: vignette + faint circuit grid + grain. Fixed, behind the
+   content (main is z-index 2). Stripped in print so the PDF stays clean. */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% -10%, rgba(217,164,65,.06), transparent 55%),
+    radial-gradient(140% 120% at 50% 110%, rgba(192,90,43,.05), transparent 55%),
+    linear-gradient(var(--line) 1px, transparent 1px) 0 0/100% 64px,
+    linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0/64px 100%;
+  opacity: .32;
+  mask-image: radial-gradient(100% 80% at 50% 0%, #000 45%, transparent 100%);
+}
+body::after {
+  content: ""; position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@media print { body::before, body::after { display: none !important; } }
+
 main {
-  max-width: 780px;
+  position: relative;
+  z-index: 2;
+  max-width: var(--maxw);
   margin: 0 auto;
   padding: var(--space-7) var(--space-5) var(--space-8);
+  counter-reset: section;
 }
 
 h1, h2, h3, h4 {
-  font-family: var(--font-serif);
-  font-weight: 600;
-  letter-spacing: -0.012em;
+  font-family: var(--f-display);
+  font-weight: 700;
+  letter-spacing: 0.01em;
   color: var(--ink);
 }
 
 h1 {
-  font-size: clamp(2.4rem, 1.8rem + 2.2vw, 3.2rem);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  font-size: clamp(2.2rem, 1.6rem + 2.4vw, 3.4rem);
   margin: 0 0 var(--space-3);
-  line-height: 1.05;
+  line-height: 0.98;
 }
 
+/* Section heads become the template's numbered "block-head": a leading
+   two-digit index, the uppercase title, then a rule that runs to the edge.
+   The index is a CSS counter, so no per-section markup changes are needed. */
+main > section { counter-increment: section; }
+
 h2 {
-  font-size: 1.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: clamp(1.3rem, 1.05rem + 1vw, 1.65rem);
   margin: var(--space-8) 0 var(--space-4);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+main > section > h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+main > section > h2::before {
+  content: counter(section, decimal-leading-zero);
+  flex: 0 0 auto;
+  font-weight: 800;
+  font-size: 0.82em;
+  color: var(--gold-deep);
+  opacity: 0.95;
+}
+main > section > h2::after {
+  content: "";
+  flex: 1 1 auto;
+  align-self: center;
+  height: 1px;
+  background: linear-gradient(90deg, var(--line), transparent);
 }
 
 h3 {
-  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-size: 1.12rem;
   margin: var(--space-5) 0 var(--space-2);
 }
 
 p, ul, ol { margin: 0 0 var(--space-4); }
 ul, ol { padding-left: 1.4em; }
 
-a { color: var(--accent-deep); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
-a:hover { color: var(--accent); }
+a { color: var(--gold-deep); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { color: var(--gold); }
 
-code, pre, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+code, pre, .mono { font-family: var(--f-mono); font-size: 0.9em; }
 code { background: var(--code-bg); padding: 0.15em 0.4em; border-radius: 4px; }
 pre { background: var(--code-bg); padding: var(--space-3) var(--space-4); border-radius: var(--radius); overflow-x: auto; }
 pre code { background: transparent; padding: 0; }
 
-/* ---- Cover ---- */
-.cover {
-  background: linear-gradient(180deg, var(--surface) 0%, var(--accent-soft) 100%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-7) var(--space-6);
-  box-shadow: var(--shadow);
-  margin-bottom: var(--space-6);
+/* Shared corner-bracket detail (machined look) — opt in with class="bracket" */
+.bracket { position: relative; }
+.bracket::before, .bracket::after {
+  content: ""; position: absolute; width: var(--tick); height: var(--tick);
+  border-color: var(--gold); border-style: solid; opacity: 0.6; pointer-events: none;
 }
-.cover .eyebrow {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent-deep);
-  margin-bottom: var(--space-3);
+.bracket::before { top: -1px; left: -1px; border-width: 1.5px 0 0 1.5px; }
+.bracket::after { bottom: -1px; right: -1px; border-width: 0 1.5px 1.5px 0; }
+
+/* ---- Masthead (cover) ---- */
+.masthead {
+  display: flex;
+  gap: 26px;
+  align-items: center;
+  padding-bottom: 24px;
+  margin-bottom: var(--space-5);
+  border-bottom: 1px solid var(--line);
 }
-.cover h1 { margin-bottom: var(--space-4); }
-.cover .lede {
-  color: var(--ink-2);
-  font-size: 1.05rem;
+.crest {
+  flex: 0 0 auto; width: 340px; height: 272px;
+}
+/* Border/radius/clip + the drop-shadow live on the img, not .crest, so the
+   corner brackets stay crisp (unshadowed) and aren't clipped. */
+.crest img {
+  width: 100%; height: 100%; display: block; object-fit: cover;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  filter: drop-shadow(0 6px 20px rgba(0,0,0,.32));
+}
+/* Signature detail: bold gold viewfinder brackets on the masthead photo,
+   pulled outside the frame so they read as a deliberate design mark — not a
+   hairline. Scoped to .crest so the generic .bracket utility stays subtle. */
+.crest.bracket::before, .crest.bracket::after { width: 30px; height: 30px; opacity: 1; }
+.crest.bracket::before { top: -7px; left: -7px; border-width: 4px 0 0 4px; }
+.crest.bracket::after { bottom: -7px; right: -7px; border-width: 0 4px 4px 0; }
+.head-text { flex: 1 1 auto; min-width: 0; }
+.kicker {
+  font-family: var(--f-mono); font-size: 14px; font-weight: 500; letter-spacing: 0.3em;
+  text-transform: uppercase; color: var(--gold); margin-bottom: 12px;
+}
+.kicker .dot { color: var(--rust); }
+.masthead .title {
+  font-family: var(--f-display); font-weight: 800; line-height: 0.96;
+  font-size: clamp(34px, 6vw, 60px); letter-spacing: 0.005em;
+  text-transform: uppercase; color: var(--ink); margin: 0;
+}
+.subtitle {
+  font-family: var(--f-body); color: var(--ink-dim);
+  font-size: 15px; margin: 8px 0 0; max-width: 60ch;
+}
+/* status pill + scan-time badge, stacked under the subtitle */
+.masthead-badges {
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 10px; margin-top: 16px;
+}
+.status {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--f-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; padding: 6px 12px; border: 1px solid var(--gold);
+  border-radius: 100px; color: var(--gold);
+}
+.status .led {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--ok);
+  box-shadow: 0 0 8px var(--ok); animation: led-pulse 2.4s ease-in-out infinite;
+}
+@keyframes led-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .status .led { animation: none; } }
+/* scan timestamp readout box (moved out of the meta-strip) */
+.masthead-scanned {
+  display: inline-flex; align-items: baseline; gap: 8px;
+  padding: 6px 12px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--bg-elev);
+  font-family: var(--f-mono);
+}
+.masthead-scanned .lbl {
+  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim);
+}
+.masthead-scanned .val { font-size: 12px; color: var(--ink); letter-spacing: 0.03em; }
+
+/* ---- Metadata readout strip ---- */
+.meta-strip {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1px; background: var(--line); border: 1px solid var(--line);
+  margin: 0 0 var(--space-3); border-radius: var(--radius); overflow: hidden;
+}
+/* Scoped to .meta-strip — `.meta` is also used by the tree, cards, and
+   lineage list, so these MUST NOT be bare `.meta` selectors. */
+.meta-strip .meta { background: var(--bg-elev); padding: 12px 14px; }
+.meta-strip .meta .lbl {
+  font-family: var(--f-mono); font-size: 10px; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--ink-dim);
+}
+.meta-strip .meta .val {
+  font-family: var(--f-mono); font-size: 14px; font-weight: 500;
+  color: var(--ink); margin-top: 4px; overflow-wrap: anywhere;
+}
+.meta-strip .meta .val .accent { color: var(--gold); }
+.meta-strip-note {
+  font-family: var(--f-mono); font-size: 11px; color: var(--ink-dim);
   margin: 0 0 var(--space-5);
-  max-width: 56ch;
 }
 
-/* ---- Stats row ---- */
-.stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: var(--space-4);
-  margin-top: var(--space-5);
-}
-.stat {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-4);
-}
-.stat .label {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: var(--space-2);
-}
-.stat .value {
-  font-family: var(--font-serif);
-  font-size: 1.8rem;
-  font-weight: 600;
-  line-height: 1.1;
-  color: var(--ink);
-}
-.stat .unit {
-  font-family: var(--font-sans);
-  font-size: 0.85rem;
-  color: var(--muted);
-  margin-left: 4px;
+@media (max-width: 640px) {
+  .masthead { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .crest { width: 100%; max-width: 320px; height: auto; aspect-ratio: 5 / 4; }
+  .crest img { height: auto; aspect-ratio: 5 / 4; }
 }
 
 /* ---- Language bar ---- */
@@ -293,7 +453,21 @@ pre code { background: transparent; padding: 0; }
 }
 
 /* ---- Tree ---- */
-.tree { font-family: var(--font-mono); font-size: 0.88rem; line-height: 1.6; }
+/* The tree is the one bare, sparse section with no panel of its own, so the
+   fixed atmosphere grid would otherwise bleed through its gaps. Seat it in a
+   sink "well" (opaque) — reads as an intentional file-listing panel and hides
+   the grid. A gold left edge ties it to the workshop code-block treatment. */
+.tree {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  line-height: 1.6;
+  background: var(--bg-sink);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-5);
+  overflow-x: auto;
+}
 .tree details { padding-left: 14px; }
 .tree summary {
   cursor: pointer;
@@ -473,16 +647,34 @@ pre code { background: transparent; padding: 0; }
 }
 
 /* ---- Footer ---- */
-footer {
+footer.foot {
   margin-top: var(--space-8);
   padding-top: var(--space-5);
-  border-top: 1px solid var(--border);
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--muted);
-  text-align: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
 }
-footer .brand { color: var(--accent-deep); font-weight: 600; }
+footer.foot .slogan {
+  font-family: var(--f-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: clamp(18px, 3vw, 24px);
+  color: var(--ink);
+}
+footer.foot .slogan .x { color: var(--rust); }
+footer.foot .est {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: right;
+}
+footer.foot .est .brand { color: var(--gold); font-weight: 700; }
 
 /* ---- Diagram ---- */
 .diagram-note {
@@ -568,7 +760,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 .sysmap-cluster-kind { font-weight: 400; opacity: 0.7; font-size: 10px; }
 .sysmap-node-rect {
   fill: var(--surface);
-  stroke: oklch(70% 0.01 250);
+  stroke: var(--ink-faint);
   stroke-width: 1.25;
 }
 .sysmap-node.is-entry .sysmap-node-rect {
@@ -591,7 +783,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   font-size: 11px;
   fill: var(--ink-2);
 }
-.sysmap-edge-import { stroke: oklch(60% 0.01 250 / 0.55); }
+.sysmap-edge-import { stroke: var(--ink-2); stroke-opacity: 0.65; }  /* --ink-faint is too pale on cream (1.7:1); --ink-2 reads on both, stays under HTTP/store */
 .sysmap-edge-http { stroke: oklch(58% 0.14 250 / 0.8); stroke-dasharray: 5 4; }
 .sysmap-edge-http-inferred { stroke: var(--accent); stroke-dasharray: 6 4; stroke-opacity: 0.95; stroke-width: 2.5 !important; }
 .sysmap-legend-inferred { font-size: 0.82rem; color: var(--muted); margin: var(--space-3) 0 0; }
@@ -609,7 +801,7 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
   display: inline-block; width: 26px; height: 0;
 }
 .sysmap-leg-http { border-top: 2px dashed oklch(58% 0.14 250 / 0.8); }
-.sysmap-leg-import { border-top: 2px solid oklch(60% 0.01 250 / 0.55); }
+.sysmap-leg-import { border-top: 2px solid var(--ink-2); opacity: 0.65; }
 .sysmap-leg-store { border-top: 2px solid #336791; }
 .sysmap-note { font-size: 0.85rem; color: var(--muted); margin-top: var(--space-3); }
 
@@ -1001,12 +1193,15 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 .topov2-edge {
   fill: none;
   stroke: var(--ink-2);
-  stroke-opacity: 0.55;
+  stroke-opacity: 0.8;   /* 0.55 dissolved on the dark canvas (~2.5:1); 0.8 reads on both (~4.0 dark / 3.4 light) */
   stroke-linejoin: round;
   stroke-linecap: round;
   transition: stroke-opacity 0.15s ease;
 }
 .topov2-edge:hover { stroke-opacity: 0.95; }
+/* Arrowhead inherits the edge tone via a token (theme-adaptive) instead of a
+   hardcoded dark fill, which was invisible on the near-black dark canvas. */
+.topov2-arrowhead { fill: var(--ink-2); }
 .topov2-edge-label-bg {
   fill: var(--surface);
   stroke: var(--border);
@@ -1759,15 +1954,18 @@ footer .brand { color: var(--accent-deep); font-weight: 600; }
 }
 
 @media print {
-  html, body { background: white; }
+  /* Paint the chosen theme's paper + panel/diagram backgrounds into the PDF.
+     Light (default) prints warm cream; dark prints near-black if opted in. */
+  body, body * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { background: var(--bg); }
   main { padding: 0; max-width: none; }
-  .cover, .card, .stat { box-shadow: none; }
+  .masthead, .card { box-shadow: none; }
   details { padding-left: 14px; }
   details > summary::before { content: "•"; transform: none !important; }
   details > * { display: block !important; }
   details:not([open]) > *:not(summary) { display: block !important; }
   h2 { page-break-before: auto; break-before: auto; }
-  .cover { page-break-after: avoid; }
+  .masthead { page-break-after: avoid; }
   .card, .deps-eco, .entries li { page-break-inside: avoid; break-inside: avoid; }
 
   /* Each hero section starts a fresh landscape page. */
@@ -2509,59 +2707,61 @@ def section_intro(key: str) -> str:
 
 def render_cover(data: dict[str, Any]) -> str:
     p = data["project"]
-    lede_parts = []
-    if p.get("primary_language"):
-        lede_parts.append(f"Primary language <strong>{escape(p['primary_language'])}</strong>")
-    if data.get("languages"):
-        lede_parts.append(f"<strong>{len(data['languages'])}</strong> languages detected")
-    lede_parts.append(f"<strong>{fmt_num(p['total_files'])}</strong> source files")
-    lede_parts.append(f"<strong>{fmt_num(p['total_loc'])}</strong> lines of code")
-    lede = " · ".join(lede_parts)
+    name = escape(p["name"])
+    primary = escape(p.get("primary_language") or "—")
+    n_langs = len(data.get("languages", []))
+    n_mods = len(data.get("modules", []))
+    scanned_at = escape(data.get("scanned_at", ""))
+    depth = escape(data.get("scan_depth", "shallow"))
 
+    # Optional "incl. dependencies" caption when the product-scoped headline
+    # totals differ from the full scan (vendored code excluded up top).
     total_files_all = p.get("total_files_all")
     total_loc_all = p.get("total_loc_all")
-    has_incl = (
-        total_loc_all is not None
-        and total_files_all is not None
-        and (total_loc_all != p.get("total_loc") or total_files_all != p.get("total_files"))
-    )
-    incl_line = (
-        f'<p class="lede-secondary" style="color: var(--muted); margin-top: var(--space-2);">'
-        f'incl. dependencies: <strong>{fmt_num(total_loc_all)}</strong> lines across '
-        f'<strong>{fmt_num(total_files_all)}</strong> files</p>'
-    ) if has_incl else ""
+    incl_line = ""
+    if (total_loc_all is not None and total_files_all is not None
+            and (total_loc_all != p.get("total_loc")
+                 or total_files_all != p.get("total_files"))):
+        incl_line = (
+            f'<p class="meta-strip-note">incl. dependencies: '
+            f'<strong>{fmt_num(int(total_loc_all))}</strong> lines across '
+            f'<strong>{fmt_num(int(total_files_all))}</strong> files</p>'
+        )
 
-    scanned_at = data.get("scanned_at", "")
-    depth = data.get("scan_depth", "shallow")
+    # Scan timestamp → its own badge under the status pill (dropped from the
+    # meta-strip). ISO "...T10:15:25+00:00" → "2026-05-27 · 10:15".
+    scanned_box = ""
+    if scanned_at:
+        date_part, sep, time_part = scanned_at.partition("T")
+        disp = f"{date_part} &middot; {time_part[:5]}" if sep else date_part
+        scanned_box = (
+            f'<div class="masthead-scanned"><span class="lbl">Scanned</span>'
+            f'<span class="val">{disp}</span></div>'
+        )
 
     return f"""
-<section class="cover">
-  <div class="eyebrow">Codebase Architecture Report</div>
-  <h1>{escape(p['name'])}</h1>
-  <p class="lede">{lede}.</p>
-  {incl_line}
-  <div class="stats">
-    <div class="stat">
-      <div class="label">Code files</div>
-      <div class="value">{fmt_num(p['total_files'])}</div>
-    </div>
-    <div class="stat">
-      <div class="label">Lines of code</div>
-      <div class="value">{fmt_num(p['total_loc'])}</div>
-    </div>
-    <div class="stat">
-      <div class="label">Languages</div>
-      <div class="value">{len(data.get('languages', []))}</div>
-    </div>
-    <div class="stat">
-      <div class="label">Modules</div>
-      <div class="value">{len(data.get('modules', []))}</div>
+<header class="masthead">
+  <div class="crest bracket"><img src="{theme_assets.MAPPER_URI}" alt="GPT_SmokeyP charting a codebase map" width="340" height="272"></div>
+  <div class="head-text">
+    <div class="kicker">SmokeyP Labs <span class="dot">//</span> Codebase Map</div>
+    <h1 class="title">{name}</h1>
+    <p class="subtitle">A map of how this system fits together — every service, module, and store, read straight from the source.</p>
+    <div class="masthead-badges">
+      <span class="status"><span class="led"></span>{depth} scan</span>
+      {scanned_box}
     </div>
   </div>
-  <div class="eyebrow" style="margin-top: var(--space-5); color: var(--muted);">
-    Scanned {escape(scanned_at)} · depth: {escape(depth)}
-  </div>
-</section>
+</header>
+
+<div class="meta-strip">
+  <div class="meta"><div class="lbl">Primary</div><div class="val"><span class="accent">{primary}</span></div></div>
+  <div class="meta"><div class="lbl">Code files</div><div class="val">{fmt_num(p['total_files'])}</div></div>
+  <div class="meta"><div class="lbl">Lines</div><div class="val">{fmt_num(p['total_loc'])}</div></div>
+  <div class="meta"><div class="lbl">Languages</div><div class="val">{n_langs}</div></div>
+  <div class="meta"><div class="lbl">Modules</div><div class="val">{n_mods}</div></div>
+</div>
+{incl_line}
+
 <aside class="report-explainer">
   {REPORT_EXPLAINER}
 </aside>
@@ -5637,7 +5837,7 @@ def render_service_topology_v2(data: dict[str, Any]) -> str:
         '<marker id="topov2-arrow" viewBox="0 -5 10 10" '
         'refX="9" refY="0" markerWidth="7" markerHeight="7" '
         'orient="auto" markerUnits="userSpaceOnUse">'
-        '<path d="M0,-5L10,0L0,5" fill="oklch(38% 0.012 250 / 0.7)"/>'
+        '<path d="M0,-5L10,0L0,5" class="topov2-arrowhead"/>'
         '</marker>'
         '</defs>'
     )
@@ -7582,9 +7782,11 @@ def render_glossary(data: dict[str, Any], enrichment: dict[str, Any] | None = No
 
 
 def render_footer(data: dict[str, Any]) -> str:
+    ver = escape(data.get("tool_version", "0.1.0"))
     return f"""
-<footer>
-  Generated by <span class="brand">smokeyp-codebase-mapper</span> v{escape(data.get('tool_version', '0.1.0'))}
+<footer class="foot">
+  <div class="slogan">Read straight from the source<span class="x">.</span></div>
+  <div class="est">Generated by <span class="brand">smokeyp-codebase-mapper</span> v{ver}<br>SmokeyP Labs &middot; Est. 2024</div>
 </footer>
 """
 
@@ -7921,7 +8123,8 @@ def _apply_enrichment_overrides(data: dict[str, Any],
     return new
 
 
-def render_document(data: dict[str, Any], enrichment: dict[str, Any] | None = None) -> str:
+def render_document(data: dict[str, Any], enrichment: dict[str, Any] | None = None,
+                    theme: str = "light") -> str:
     data = _apply_enrichment_overrides(data, enrichment)
     project_name = escape(data["project"]["name"])
     body = (
@@ -7953,13 +8156,14 @@ def render_document(data: dict[str, Any], enrichment: dict[str, Any] | None = No
         + render_glossary(data, enrichment)
         + render_footer(data)
     )
+    theme_attr = ' data-theme="dark"' if theme == "dark" else ""
     return f"""<!doctype html>
-<html lang="en">
+<html lang="en"{theme_attr}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{project_name} — Codebase Map</title>
-<style>{CSS}</style>
+<style>{theme_assets.FONTS_CSS}{CSS}</style>
 </head>
 <body>
 <main>
@@ -7977,6 +8181,9 @@ def main() -> int:
     parser.add_argument("--in", dest="inp", required=True, help="Path to codemap.json")
     parser.add_argument("--out", required=True, help="Path to output HTML file")
     parser.add_argument("--enrichment", default=None, help="Optional codemap.enrichment.json")
+    parser.add_argument("--theme", choices=("light", "dark"), default="light",
+                        help="Report theme: 'light' (warm cream, default, print-safe) "
+                             "or 'dark' (near-black workshop).")
     args = parser.parse_args()
 
     inp = Path(args.inp).expanduser().resolve()
@@ -8001,7 +8208,7 @@ def main() -> int:
             print(f"warning: enrichment not found, rendering without it: {ep}", file=sys.stderr)
 
     enrichment = clean_enrichment_for_render(enrichment, data)
-    html = render_document(data, enrichment)
+    html = render_document(data, enrichment, theme=args.theme)
     out = Path(args.out).expanduser().resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html, encoding="utf-8")

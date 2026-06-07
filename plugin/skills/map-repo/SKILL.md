@@ -1,7 +1,7 @@
 ---
 name: map-repo
 description: Slash command. Use this skill ONLY when the user explicitly invokes the /smokeyp-codebase-mapper:map-repo slash command. Do NOT trigger on conversational requests, natural-language phrases, or implicit intent — even if the user says "map this repo", "generate an architecture report", "document the codebase", "audit my project", or any other paraphrase. Activation is by slash command only. When invoked, scans a codebase and produces a polished, beginner-friendly HTML/PDF architecture report with directory tree, language breakdown, module summaries, dependency listing, entry-point detection, and a glossary of technical terms.
-argument-hint: "[path?] [--format html|pdf|both] [--depth shallow|medium|full] [--out PATH] [--no-semantic]"
+argument-hint: "[path?] [--format html|pdf|both] [--depth shallow|medium|full] [--theme light|dark] [--out PATH] [--no-semantic]"
 allowed-tools: Read, Glob, Grep, Bash, Write
 version: 0.1.0
 ---
@@ -20,9 +20,10 @@ Parse arguments in this order:
    - `shallow`: 2-level tree, top 10 module cards, 30 graph nodes, 20 deps per ecosystem. Use for very large repos when you want a single-glance summary.
    - `medium` *(default)*: 4-level tree, top 25 module cards, 80 graph nodes, 40 deps per ecosystem. The right setting for most monorepos and mid-size projects.
    - `full`: complete tree, every module, every dependency. Use for archival or when investigating a specific corner that medium truncated.
-4. **`--out`** — output directory. Defaults to `<path>/.codemap/`.
-5. **`--no-llm`** (alias `--fast`) — skip the LLM evaluation step (Step 1.5) and produce the deterministic-only report. Defaults to running the evaluation.
-6. **`--semantic`** / **`--no-semantic`** — semantic code retrieval in Step 1.5. Default: **use an existing index only** — if the target repo already has a warm grepai index (e.g. maintained by the user's own `grepai watch` daemon), ground citations with it; otherwise skip semantic retrieval. **The default flow never builds an index** (indexing large repos takes minutes of local GPU time, and direct file reads finish first). `--semantic` opts in to building one; `--no-semantic` disables semantic retrieval even when a warm index exists. Ignored when `--no-llm` is set.
+4. **`--theme`** — one of `light`, `dark`. Defaults to `light`. `light` is the warm-cream "Workshop Light" skin — print/PDF-safe and the right default for client deliverables. `dark` is the near-black on-screen variant; it's striking in a browser but ink-heavy if printed to PDF, so prefer it only for `--format html`. Both are the same SmokeyP Labs design; the flag just swaps the palette.
+5. **`--out`** — output directory. Defaults to `<path>/.codemap/`.
+6. **`--no-llm`** (alias `--fast`) — skip the LLM evaluation step (Step 1.5) and produce the deterministic-only report. Defaults to running the evaluation.
+7. **`--semantic`** / **`--no-semantic`** — semantic code retrieval in Step 1.5. Default: **use an existing index only** — if the target repo already has a warm grepai index (e.g. maintained by the user's own `grepai watch` daemon), ground citations with it; otherwise skip semantic retrieval. **The default flow never builds an index** (indexing large repos takes minutes of local GPU time, and direct file reads finish first). `--semantic` opts in to building one; `--no-semantic` disables semantic retrieval even when a warm index exists. Ignored when `--no-llm` is set.
 
 Resolve the target path to an absolute path. If it does not exist or is not a directory, stop and report the error to the user.
 
@@ -124,10 +125,11 @@ Run the renderer (pass `--enrichment` unless `--no-llm` was set or no valid enri
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/map-repo/scripts/render.py" \
   --in "<out-dir>/codemap.json" \
   --out "<out-dir>/codemap.html" \
+  --theme "<light|dark>" \
   --enrichment "<out-dir>/codemap.enrichment.json"
 ```
 
-The renderer follows the SmokeyP visual standard documented in the `design-system` skill. If the user has asked for design adjustments (alternate palette, theme, etc.), load that skill before re-rendering with overrides.
+Pass `--theme dark` only when the user asked for the dark variant; otherwise omit it (the renderer defaults to `light`). The renderer follows the SmokeyP Labs visual standard documented in the `design-system` skill. If the user has asked for deeper design adjustments (alternate palette, custom accent, etc.), load that skill before re-rendering with overrides.
 
 ### Step 3 — Render PDF (only if `--format` is `pdf` or `both`)
 

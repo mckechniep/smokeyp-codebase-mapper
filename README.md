@@ -1,12 +1,16 @@
 # smokeyp-codebase-mapper
 
-> A Claude Code plugin that scans any repository and produces a polished HTML or PDF architecture report — editorial-quality, self-contained, printable, and beginner-friendly.
+> A Claude Code plugin that scans any repository and produces a polished HTML or PDF architecture report — studio-grade, self-contained, printable (light or dark), and beginner-friendly.
+
+<p align="center">
+  <img src="assets/gpt-smokeyp-mapper-v1.webp" alt="smokeyp-codebase-mapper — architecture report with a System Map hero and four detail diagrams" width="900">
+</p>
 
 `/smokeyp-codebase-mapper:map-repo` walks a codebase, detects services and modules (monorepo-aware), parses imports across multiple languages, extracts HTTP endpoint declarations and outbound client calls, infers ORM/data-store usage, and renders everything as a single self-contained HTML file with **five architecture diagrams** — a *System Map* hero plus four detail figures. Every diagram is deterministic SVG with inlined fonts and styles and **no network dependency**, so it renders identically offline and in print. The System Map and Service Topology layer on optional, dependency-free *focus* interactions — click a service to trace just its connections — that **degrade to the complete static figure** when JavaScript is off or on paper, so nothing is lost in the PDF or behind an airgap. With Chrome installed, it also prints to PDF. Built for client deliverables, onboarding docs, and architectural audits — explanatory throughout, no jargon left unexplained.
 
 ## What's in a report
 
-- **Cover** — project name, primary language, file count, LOC, language count, monorepo flag
+- **Masthead** — SmokeyP Labs masthead image, project name, and a metadata readout strip (scan date, primary language, file count, LOC, language count, module count)
 - **Overview & Key flows** *(LLM evaluation, on by default)* — an accurate, code-derived summary of what the project actually is and does, vendored/reference code flagged and de-emphasised (so it stops dominating the module list), per-module descriptions for product code, and several end-to-end execution flows where every step cites a real `file:symbol`. Derived by reading the source, not the README. Pass `--no-llm` for a fast deterministic-only report.
 - **README extract** — a clean first-paragraph blockquote (demoted to a small secondary aside when the LLM overview is present, since a README is often a roadmap rather than a description)
 - **Languages** — stacked share bar + sortable table with file counts and lines
@@ -59,6 +63,7 @@ Then enable the plugin in Claude Code settings.
 | `path` | current directory | Path to scan |
 | `--format` | `both` | Output format: `html`, `pdf`, or `both` |
 | `--depth` | `medium` | `shallow` = 2-level tree, 10 module cards, 30 graph nodes (single-glance summary). `medium` *(default)* = 4-level tree, 25 cards, 80 graph nodes (right for most monorepos). `full` = everything, no truncation. |
+| `--theme` | `light` | `light` *(default)* = warm-cream "Workshop Light", print/PDF-safe. `dark` = near-black on-screen variant (ink-heavy in PDF; prefer with `--format html`). Same design, swapped palette. |
 | `--out` | `<path>/.codemap/` | Output directory |
 | `--no-llm` | off (evaluation on) | Skip the LLM evaluation step (overview, classification, flows); produce the deterministic-only report. Alias: `--fast` |
 
