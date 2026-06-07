@@ -217,9 +217,9 @@ Every diagram is rendered to SVG by `render.py` at report time — no client-sid
 
 Ask Claude. For example:
 
-> "Make the cover use a deep blue accent instead of ember."
+> "Make the masthead use a deep blue accent instead of gold."
 
-Claude will load the `design-system` skill, edit `:root` in `render.py`, and re-render. The skill documents which variables to touch and which principles to preserve.
+Claude will load the `design-system` skill, edit the `:root` tokens in `render.py`, and re-render. The skill documents which variables to touch (and which are aliased so a single edit re-skins everything) and which principles to preserve. The report ships two themes from one design — **light** (default, print-safe) and **dark** (`--theme dark`); add a new `:root[data-theme="…"]` block to introduce another.
 
 ## Roadmap
 
@@ -233,10 +233,17 @@ Claude will load the `design-system` skill, edit `:root` in `render.py`, and re-
 - **v0.6.0** *(shipped)* — optional semantic code retrieval for the LLM evaluation pass: when `grepai` + a local Ollama embedding model are present, the evaluator indexes the repo and uses vector search to ground flows/overview/classification in the most relevant code (auto-detected; `--no-semantic` to skip). The deterministic scan and renderer are untouched, so reports stay reproducible.
 - **v0.6.1** *(shipped)* — reliable semantic indexing on large repos: the index build now waits for grepai's own completion signal instead of inferring from chunk counts, the timeout scales with the repo's file count, a build that can't finish fails honestly (and removes its partial index) instead of reporting a corrupted one as built, and a `.grepai/` index the user created themselves is never deleted.
 - **v0.7.0** *(shipped)* — AST-accurate import extraction + semantic indexing rethink. When the `ast-grep` binary is present, the module dependency graph is built from tree-sitter parses (one batched scan, ~0.1s even on large monorepos) instead of regexes — catching `import type`, re-exports, dynamic imports, and multi-line forms the regexes miss; auto-detected with full regex fallback. Semantic (grepai) indexing no longer builds by default — it only uses an index that already exists (e.g. your own `grepai watch` daemon); building is opt-in via `--semantic`.
-- **v0.8.0** *(in progress)* — a **System Map** hero ("How the system fits together"): a layered-bands overview of services and modules with import, HTTP, and data-store edges; HTTP routes bundled into per-target-service lanes and capped (overflow points to the topology); per-service facet small-multiples; vendored/reference-code exclusion. Plus optional dependency-free **focus interactions** on the System Map and Service Topology (hover/click to isolate a service or flow, layer toggles) that degrade to the full static figure in print, and technical eyebrow labels on the plain-speak section headings. *(Still planned, deferred to a later release: TypeScript path-alias support, Express `app.use('/api', router)` mount following, third-party "outbound services" detection.)*
-- **v0.9.0** — optional per-service file-level matrix appendix (a static drill-down figure for a chosen module, keeping the print-first, no-JS constraint)
-- **v0.10.0** — diff mode (`map-repo --vs main`) to highlight architectural drift between branches
-- **v1.0.0** — call-graph extraction on the tree-sitter backend: function-level caller→callee edges feeding Key Flows and critical paths with real data instead of heuristics
+- **v0.8.0** *(shipped)* — a **System Map** hero ("How the system fits together"): a layered-bands overview of services and modules with import, HTTP, and data-store edges; HTTP routes bundled into per-target-service lanes and capped (overflow points to the topology); per-service facet small-multiples; vendored/reference-code exclusion. Plus full-coverage **Key Flows** (one cited flow per HTTP route group) and optional dependency-free **focus interactions** on the System Map and Service Topology (hover/click to isolate a service or flow, layer toggles) that degrade to the full static figure in print, and technical eyebrow labels on the plain-speak section headings.
+- **v0.9.0** *(shipped)* — **Elixir / Phoenix** support: `.ex`/`.exs` import parsing and Phoenix-router endpoint detection feed the dependency matrix and service topology; plus an enrichment-override path so the LLM evaluation can correct misclassifications it spots while reading the source.
+- **v0.10.0** *(shipped)* — an accuracy pass prompted by a real LLM audit: **flow-edge validation** (drops fabricated couplings before they render), **product-scoping** (headline metrics and diagrams exclude vendored/dependency code, shown separately as "incl. dependencies"), and **Ecto data-lineage** (Elixir schemas → Postgres, detected from `config/*.exs` + `postgrex`).
+- **v1.0.0** *(shipped — current)* — the **SmokeyP Labs "Workshop" redesign**: a studio-grade field-report skin with a photo masthead, numbered section heads, a circuit-grid + grain atmosphere, machined corner brackets, and inlined Saira Condensed / JetBrains Mono. Ships **light** (default, print-safe) and **dark** (`--theme dark`) themes from a single design, with a dark-theme contrast pass so every connector and label stays legible on near-black.
+
+### Planned (post-1.0)
+
+- **Per-service file-level matrix appendix** — a static drill-down figure for a chosen module, keeping the print-first, no-JS constraint.
+- **Diff mode** (`map-repo --vs main`) — highlight architectural drift between branches.
+- **Call-graph extraction** on the tree-sitter backend — function-level caller→callee edges feeding Key Flows and critical paths with real data instead of heuristics.
+- **Deferred resolver work** — TypeScript path-alias (`@/foo`) support, Express `app.use('/api', router)` mount following, and third-party "outbound services" detection.
 
 ## Contributing
 
